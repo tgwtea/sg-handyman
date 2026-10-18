@@ -1,4 +1,5 @@
 // const mongoose = require('mongoose');
+import { Int32 } from 'mongodb';
 import mongoose from 'mongoose';
 
 const companyModel = {};
@@ -16,6 +17,36 @@ const companySchema = new mongoose.Schema({
   description: {
     type: String,
     default: ''
+  },
+  website: {
+    type: String,
+    default: ''
+  },
+  address: {
+    type: String,
+    default: ''
+  },
+  services: {
+    type: [
+      {
+        category: {
+          type: String
+        },
+        details: {
+          type: [
+            {
+              service: {
+                type: String
+              },
+              startingPrice: {
+                type: Int32
+              }
+            }
+          ]
+        } 
+      }
+    ],
+    default: []
   }
 });
 
