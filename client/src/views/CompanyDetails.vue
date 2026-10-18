@@ -40,9 +40,27 @@ onMounted(() => {
 </script>
 
 <template>
-  <div>
   <h2>{{ company.name }}</h2>
   <p>{{ company.description }}</p>
+  <a :href="company.website">{{ company.website }}</a>
+  <br><br><br>
+  <div v-for="category in company.services">
+    <h3>{{ category.category }}</h3>
+    <table class="table">
+      <thead>
+        <tr>
+          <th scope="col">Service</th>
+          <th scope="col">Starting Price</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="service in category.details">
+          <td>{{ service.service }}</td>
+          <td>{{ service.startingPrice }}</td>
+        </tr>
+      </tbody>
+    </table>
+    <!-- <hr> -->
   </div>
 
   <div>
