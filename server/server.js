@@ -1,12 +1,14 @@
 import express from 'express';
+import cors from 'cors';
 import session from 'express-session';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 
 // Specify the path to the environment variable file 'config.env'
-dotenv.config({ path: './config.env' });
+dotenv.config({ path: './.env' });
 
 const app = express();
+app.use(cors()); 
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -18,6 +20,10 @@ app.use(session({
   saveUninitialized: false,  // set to false to avoid saving empty session objects, to save storage space
   cookie: { secure: false }
 }));
+
+import companyRouter from './routes/company-routes.js';
+
+app.use('/companies', companyRouter);
 
 // async function to connect to DB
 async function connectDB() {
