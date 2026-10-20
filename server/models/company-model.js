@@ -39,7 +39,7 @@ const companySchema = new mongoose.Schema({
                 type: String
               },
               startingPrice: {
-                type: Int32
+                type: Number
               }
             }
           ]
