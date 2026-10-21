@@ -5,10 +5,13 @@ import { ref, computed } from 'vue';
 import { onMounted } from 'vue'
 import constantUrls from '../../constants/urls.js';
 import CompanyCard from '@/components/CompanyCard.vue';
+import TimeslotGrid from '@/components/TimeslotGrid.vue';
 import { useRoute } from 'vue-router'
 
 // for getting companyId via route params
 const route = useRoute()
+
+const companyId = route.params.companyId;
 // console.log(route.params.companyId)
 
 // axios defaults timeout
@@ -18,6 +21,10 @@ axios.defaults.timeout = 3000
 const serverUrl = constantUrls.serverUrl;
 
 let company = ref({});
+
+const serviceNames = computed(() =>
+  (company.value.services ?? []).flatMap((category) => category.details.map((detail) => detail.service))
+);
 
 async function getCompanyById() {
   try {
@@ -62,6 +69,8 @@ onMounted(() => {
     </table>
     <!-- <hr> -->
   </div>
+
+  <TimeslotGrid :companyId="companyId" :services="serviceNames" />
 
   <div>
     <!-- Access route params directly in the template without useRoute -->
