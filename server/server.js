@@ -28,10 +28,12 @@ app.use(session({
 import companyRouter from './routes/company-routes.js';
 import authRouter from './routes/auth-routes.js';
 import timeslotRouter from './routes/timeslot-routes.js';
+import bookingRouter from './routes/booking-routes.js';
 
 app.use('/companies', companyRouter);
 app.use('/auth', authRouter);
 app.use('/timeslots', timeslotRouter);
+app.use('/bookings', bookingRouter);
 
 // async function to connect to DB
 async function connectDB() {
