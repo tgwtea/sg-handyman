@@ -9,16 +9,16 @@ const props = defineProps(['companyId', 'name', 'description']);
 </script>
 
 <template>
-  <div class="card" style="width: 18rem">
+  <div class="card h-100">
     <!-- <img src="..." class="card-img-top" alt="..." /> -->
-    <div class="card-body">
+    <div class="card-body d-flex flex-column">
       <!-- <p>{{ companyId }}</p> -->
       <h5 class="card-title">{{ name }}</h5>
       <p class="card-text">
         {{ description }}
       </p>
       <!-- <a class="btn btn-primary" @click="redirectToDetails(companyId)">Details</a> -->
-      <RouterLink class="btn btn-primary" :to="{ path: `/companies/${companyId}` }">
+      <RouterLink class="btn btn-primary mt-auto align-self-start" :to="{ path: `/companies/${companyId}` }">
         Details
       </RouterLink>
     </div>

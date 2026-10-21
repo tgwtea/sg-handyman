@@ -35,8 +35,12 @@ onMounted(() => {
 <template>
   <!-- <Carousel /> -->
    <h1>SG Handyman Booking</h1>
-   <div v-for="company in companies">
-    <CompanyCard :companyId="company._id" :name=company.name :description=company.description />
+   <div class="container">
+    <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 g-4">
+     <div v-for="company in companies" :key="company._id" class="col">
+      <CompanyCard :companyId="company._id" :name=company.name :description=company.description />
+     </div>
+    </div>
    </div>
 
 </template>
