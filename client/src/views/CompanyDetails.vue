@@ -6,10 +6,13 @@ import { onMounted } from 'vue'
 import constantUrls from '../../constants/urls.js';
 import CompanyCard from '@/components/CompanyCard.vue';
 import TimeslotGrid from '@/components/TimeslotGrid.vue';
+import TimeslotManager from '@/components/TimeslotManager.vue';
+import { useAuthStore } from '@/stores/auth';
 import { useRoute } from 'vue-router'
 
 // for getting companyId via route params
 const route = useRoute()
+const auth = useAuthStore()
 
 const companyId = route.params.companyId;
 // console.log(route.params.companyId)
@@ -71,6 +74,7 @@ onMounted(() => {
   </div>
 
   <TimeslotGrid :companyId="companyId" :services="serviceNames" />
+  <TimeslotManager v-if="auth.canManage(companyId)" :companyId="companyId" />
 
   <div>
     <!-- Access route params directly in the template without useRoute -->
