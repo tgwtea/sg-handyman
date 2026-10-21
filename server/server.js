@@ -8,7 +8,11 @@ import dotenv from 'dotenv';
 dotenv.config({ path: './.env' });
 
 const app = express();
-app.use(cors()); 
+// credentials: true lets the browser send the session cookie from the Vue app
+app.use(cors({
+  origin: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
+  credentials: true
+}));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -22,8 +26,10 @@ app.use(session({
 }));
 
 import companyRouter from './routes/company-routes.js';
+import authRouter from './routes/auth-routes.js';
 
 app.use('/companies', companyRouter);
+app.use('/auth', authRouter);
 
 // async function to connect to DB
 async function connectDB() {
