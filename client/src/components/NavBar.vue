@@ -1,4 +1,15 @@
 <script setup>
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+
+const auth = useAuthStore()
+const router = useRouter()
+
+async function logout() {
+  await auth.logout()
+  router.push('/companies')
+}
+
 // defineProps({
 //   msg: {
 //     type: String,
@@ -46,8 +57,12 @@
 
         </ul>
 
-        <div class="d-flex gap-2">
-          <button class="btn btn-outline-primary" type="button">Log in</button>
+        <div v-if="auth.isLoggedIn" class="d-flex gap-2 align-items-center">
+          <span class="navbar-text">{{ auth.user.username }} ({{ auth.user.role }})</span>
+          <button class="btn btn-outline-secondary" type="button" @click="logout">Log out</button>
+        </div>
+        <div v-else class="d-flex gap-2">
+          <RouterLink class="btn btn-outline-primary" to="/login">Log in</RouterLink>
           <button class="btn btn-primary" type="button">Sign up</button>
         </div>
       </div>

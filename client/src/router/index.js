@@ -3,6 +3,7 @@ import Companies from '../views/Companies.vue'
 import CompanyDetails from '@/views/CompanyDetails.vue'
 import Forum from '@/views/Forum.vue'
 import Shop from '@/views/Shop.vue'
+import Login from '@/views/Login.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -39,6 +40,11 @@ const router = createRouter({
       path: '/shop',
       name: 'shop',
       component: Shop,
+    },
+    {
+      path: '/login',
+      name: 'login',
+      component: Login,
     },
 
   ],
