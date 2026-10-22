@@ -3,6 +3,7 @@ import ForumPost from '../models/forum-model.js';
 
 const forumController = {};
 
+// Checks whether a user owns the content or is an admin.
 function userCanEdit(user, authorId) {
   if (user.role === 'admin') {
     return true;
@@ -15,6 +16,7 @@ function userCanEdit(user, authorId) {
   return String(id) === String(user._id);
 }
 
+// Makes sure a value is text and removes extra spaces around it.
 function getText(value) {
   if (typeof value !== 'string') {
     return '';
@@ -23,6 +25,7 @@ function getText(value) {
   return value.trim();
 }
 
+// Gets every forum post and includes the usernames of their authors.
 forumController.getPosts = async (req, res) => {
   try {
     const posts = await ForumPost.find()
@@ -37,6 +40,7 @@ forumController.getPosts = async (req, res) => {
   }
 };
 
+// Checks the new post details and saves the post to the database.
 forumController.createPost = async (req, res) => {
   try {
     const title = getText(req.body.title);
@@ -70,6 +74,7 @@ forumController.createPost = async (req, res) => {
   }
 };
 
+// Finds a post, checks who owns it, and saves the edited details.
 forumController.updatePost = async (req, res) => {
   try {
     const postId = req.params.postId;
@@ -117,6 +122,7 @@ forumController.updatePost = async (req, res) => {
   }
 };
 
+// Finds a post, checks who owns it, and removes it from the database.
 forumController.deletePost = async (req, res) => {
   try {
     const postId = req.params.postId;
@@ -143,6 +149,7 @@ forumController.deletePost = async (req, res) => {
   }
 };
 
+// Checks the reply text and adds the reply to the selected post.
 forumController.createReply = async (req, res) => {
   try {
     const postId = req.params.postId;
@@ -180,6 +187,7 @@ forumController.createReply = async (req, res) => {
   }
 };
 
+// Finds a reply, checks who owns it, and saves the edited text.
 forumController.updateReply = async (req, res) => {
   try {
     const postId = req.params.postId;
@@ -227,6 +235,7 @@ forumController.updateReply = async (req, res) => {
   }
 };
 
+// Finds a reply, checks who owns it, and removes it from the post.
 forumController.deleteReply = async (req, res) => {
   try {
     const postId = req.params.postId;

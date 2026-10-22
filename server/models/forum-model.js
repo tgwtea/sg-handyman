@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 
+// Describes the information saved for each reply to a forum post.
 const replySchema = new mongoose.Schema({
   authorId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -22,6 +23,7 @@ const replySchema = new mongoose.Schema({
   }
 });
 
+// Describes the information saved for each forum post and its replies.
 const postSchema = new mongoose.Schema({
   authorId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -60,6 +62,7 @@ const postSchema = new mongoose.Schema({
   }
 });
 
+// Creates the Mongoose model used to read and save forum posts.
 const ForumPost = mongoose.model('ForumPost', postSchema, 'forumPosts');
 
 export default ForumPost;
