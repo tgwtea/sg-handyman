@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import Home from '@/views/Home.vue'
 import Companies from '../views/Companies.vue'
 import CompanyDetails from '@/views/CompanyDetails.vue'
 import Forum from '@/views/Forum.vue'
@@ -10,7 +11,10 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      redirect: '/companies'
+      name: 'home',
+      component: Home,
+      // fullWidth: App.vue skips its page container, so the hero can span the screen
+      meta: { fullWidth: true },
     },
     {
       path: '/companies',

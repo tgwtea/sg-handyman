@@ -11,7 +11,7 @@ const route = useRoute()
     <NavBar />
 
     <!-- the wrapper div gives multi-root views a single element to animate -->
-    <div class="app-main container py-4">
+    <div :class="['app-main', { 'container py-4': !route.meta.fullWidth }]">
       <RouterView v-slot="{ Component }">
         <Transition name="page" mode="out-in">
           <div :key="route.path">

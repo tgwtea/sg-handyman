@@ -37,6 +37,10 @@ async function logout() {
       <div class="collapse navbar-collapse" id="navbarSupportedContent">
         <ul class="navbar-nav me-auto mb-2 mb-lg-0 gap-lg-1">
           <li class="nav-item">
+            <RouterLink class="nav-link" exact-active-class="active" to="/">Home</RouterLink>
+          </li>
+
+          <li class="nav-item">
             <RouterLink class="nav-link" active-class="active" to="/companies">
               Companies
             </RouterLink>
