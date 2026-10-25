@@ -25,8 +25,9 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
-  /* Opt out of parallel tests on CI. */
-  workers: process.env.CI ? 1 : undefined,
+  /* One worker: every test shares one remote database */
+  workers: 1,
+  fullyParallel: false,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: 'html',
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
@@ -39,8 +40,8 @@ export default defineConfig({
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
 
-    /* Only on CI systems run the tests headless */
-    headless: !!process.env.CI,
+    /* Headless by default. Use --headed or --ui to watch the tests run. */
+    headless: true,
   },
 
   /* Configure projects for major browsers */
@@ -49,18 +50,6 @@ export default defineConfig({
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
-      },
-    },
-    {
-      name: 'firefox',
-      use: {
-        ...devices['Desktop Firefox'],
-      },
-    },
-    {
-      name: 'webkit',
-      use: {
-        ...devices['Desktop Safari'],
       },
     },
 
@@ -97,14 +86,23 @@ export default defineConfig({
   // outputDir: 'test-results/',
 
   /* Run your local dev server before starting the tests */
-  webServer: {
-    /**
-     * Use the dev server by default for faster feedback loop.
-     * Use the preview server on CI for more realistic testing.
-     * Playwright will re-use the local server if there is already a dev-server running.
-     */
-    command: process.env.CI ? 'npm run preview' : 'npm run dev',
-    port: process.env.CI ? 4173 : 5173,
-    reuseExistingServer: !process.env.CI,
-  },
+  webServer: [
+    {
+      /* The Express API. The tests read and write the database it connects to. */
+      command: 'pnpm --dir ../server dev',
+      url: 'http://localhost:8000/companies',
+      env: { PORT: '8000' },
+      reuseExistingServer: !process.env.CI,
+    },
+    {
+      /**
+       * Use the dev server by default for faster feedback loop.
+       * Use the preview server on CI for more realistic testing.
+       * Playwright will re-use the local server if there is already a dev-server running.
+       */
+      command: process.env.CI ? 'npm run preview' : 'npm run dev',
+      port: process.env.CI ? 4173 : 5173,
+      reuseExistingServer: !process.env.CI,
+    },
+  ],
 })

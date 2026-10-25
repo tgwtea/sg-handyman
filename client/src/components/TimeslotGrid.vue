@@ -140,6 +140,7 @@ async function cancel() {
           <button
             v-for="slot in group.slots"
             :key="slot._id"
+            :data-testid="`slot-${slot._id}`"
             type="button"
             :class="['btn', 'btn-sm', slotClass(slot)]"
             :disabled="(slot.taken && !slot.mine) || !auth.isLoggedIn || auth.user.role !== 'customer'"

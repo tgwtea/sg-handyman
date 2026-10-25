@@ -59,7 +59,6 @@ onMounted(loadCompanies)
       <div class="container hero-inner">
         <div class="row align-items-center g-5">
           <div class="col-lg-7">
-            <span class="hero-tag">PRESS START TO FIX</span>
             <h1 class="hero-title">Something broken? Book a fix in 3 moves.</h1>
             <p class="hero-lead">
               Find a repair company near you, pick a free timeslot, and you are done. Or grab the
