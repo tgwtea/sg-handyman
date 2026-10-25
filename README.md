@@ -44,6 +44,19 @@ Playwright starts the client (port 5173) and the server (port 8000) by itself. I
 
 The tests share one database, so they run one at a time. Every test that writes data removes it again, also when the test fails.
 
+### Continuous integration (CI)
+
+GitHub Actions runs the E2E tests on every push (`.github/workflows/e2e.yml`). The results are on the repository's **Actions** tab. Each run attaches the HTML report as the `playwright-report` artifact.
+
+One-time setup, done by a repository admin:
+
+1. Add two repository secrets in **Settings > Secrets and variables > Actions**:
+   - `E2E_DB`: the MongoDB connection string, in the same format as `DB` in `server/.env`.
+   - `E2E_SECRET`: any long random string.
+2. In MongoDB Atlas, open **Network Access** and allow `0.0.0.0/0`. GitHub runners do not have fixed IP addresses.
+
+Runs wait for each other, because all of them use the same database.
+
 ## History
 
 This repository joins the history of the two earlier repositories, `sg-handyman-server` and `sg-handyman-client`. `git log -- server/` and `git log -- client/` show the full history of each app.

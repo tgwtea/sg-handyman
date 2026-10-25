@@ -1,0 +1,75 @@
+# Runs the Playwright E2E tests on every push.
+# Needs two repository secrets (Settings > Secrets and variables > Actions):
+#   E2E_DB      MongoDB connection string the tests use (same format as DB in server/.env)
+#   E2E_SECRET  any long random string, used to sign the session cookie
+name: E2E tests
+
+on:
+  push:
+  workflow_dispatch:
+
+# The tests share one database, so runs wait for each other instead of overlapping.
+concurrency:
+  group: e2e-shared-db
+  cancel-in-progress: false
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      CI: true
+      DB: ${{ secrets.E2E_DB }}
+      SECRET: ${{ secrets.E2E_SECRET }}
+      # on CI, Playwright serves the built client with `vite preview` on port 4173
+      CLIENT_ORIGIN: http://localhost:4173
+
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v4
+
+      - name: Check the secrets are set
+        run: |
+          if [ -z "$DB" ] || [ -z "$SECRET" ]; then
+            echo "::error::Add the E2E_DB and E2E_SECRET repository secrets first."
+            exit 1
+          fi
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: |
+            client/pnpm-lock.yaml
+            server/pnpm-lock.yaml
+
+      - name: Install server dependencies
+        run: pnpm --dir server install --frozen-lockfile
+
+      - name: Install client dependencies
+        run: pnpm --dir client install --frozen-lockfile
+
+      - name: Install the Playwright browser
+        run: pnpm --dir client exec playwright install --with-deps chromium
+
+      - name: Build the client
+        run: pnpm --dir client build
+
+      # playwright.config.js starts the API server and the client preview server
+      - name: Run the E2E tests
+        run: pnpm --dir client exec playwright test
+
+      - name: Upload the test report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: client/playwright-report/
+          retention-days: 14
