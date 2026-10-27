@@ -1,38 +1,12 @@
 import mongoose from 'mongoose';
-import ForumPost from '../models/forum-model.js';
+import Forum from '../models/forum-model.js';
 
 const forumController = {};
-
-// Checks whether a user owns the content or is an admin.
-function userCanEdit(user, authorId) {
-  if (user.role === 'admin') {
-    return true;
-  }
-
-  let id = authorId;
-  if (authorId && authorId._id) {
-    id = authorId._id;
-  }
-  return String(id) === String(user._id);
-}
-
-// Makes sure a value is text and removes extra spaces around it.
-function getText(value) {
-  if (typeof value !== 'string') {
-    return '';
-  }
-
-  return value.trim();
-}
 
 // Gets every forum post and includes the usernames of their authors.
 forumController.getPosts = async (req, res) => {
   try {
-    const posts = await ForumPost.find()
-      .populate('authorId', 'username')
-      .populate('replies.authorId', 'username')
-      .sort({ updatedAt: -1 });
-
+    const posts = await Forum.findAllForumPosts();
     res.send(posts);
   } catch (error) {
     console.error(error);
@@ -43,30 +17,18 @@ forumController.getPosts = async (req, res) => {
 // Checks the new post details and saves the post to the database.
 forumController.createPost = async (req, res) => {
   try {
-    const title = getText(req.body.title);
-    const content = getText(req.body.content);
-    let category = getText(req.body.category);
-
-    if (category === '') {
-      category = 'General';
+    const postDetails = Forum.getPostDetails(req.body);
+    if (postDetails.error) {
+      return res.status(400).send({ message: postDetails.error });
     }
 
-    if (title === '' || content === '') {
-      return res.status(400).send({ message: 'Title and post content are required' });
-    }
-
-    if (title.length > 120 || content.length > 5000 || category.length > 40) {
-      return res.status(400).send({ message: 'Title, content, or category is too long' });
-    }
-
-    const newPost = new ForumPost({
+    await Forum.createForumPost({
       authorId: req.session.user._id,
-      title: title,
-      content: content,
-      category: category
+      title: postDetails.title,
+      content: postDetails.content,
+      category: postDetails.category
     });
 
-    await newPost.save();
     res.status(201).send({ message: 'Post created' });
   } catch (error) {
     console.error(error);
@@ -83,38 +45,26 @@ forumController.updatePost = async (req, res) => {
       return res.status(400).send({ message: 'Invalid post id' });
     }
 
-    const post = await ForumPost.findById(postId);
+    const post = await Forum.findForumPostById(postId);
 
     if (!post) {
       return res.status(404).send({ message: 'Forum post not found' });
     }
 
-    if (!userCanEdit(req.session.user, post.authorId)) {
+    if (!Forum.userCanEdit(req.session.user, post.authorId)) {
       return res.status(403).send({ message: 'You cannot edit this post' });
     }
 
-    const title = getText(req.body.title);
-    const content = getText(req.body.content);
-    let category = getText(req.body.category);
-
-    if (category === '') {
-      category = 'General';
+    const postDetails = Forum.getPostDetails(req.body);
+    if (postDetails.error) {
+      return res.status(400).send({ message: postDetails.error });
     }
 
-    if (title === '' || content === '') {
-      return res.status(400).send({ message: 'Title and post content are required' });
-    }
-
-    if (title.length > 120 || content.length > 5000 || category.length > 40) {
-      return res.status(400).send({ message: 'Title, content, or category is too long' });
-    }
-
-    post.title = title;
-    post.content = content;
-    post.category = category;
-    post.updatedAt = new Date();
-
-    await post.save();
+    await Forum.updateForumPost(post, {
+      title: postDetails.title,
+      content: postDetails.content,
+      category: postDetails.category
+    });
     res.send({ message: 'Post updated' });
   } catch (error) {
     console.error(error);
@@ -131,17 +81,17 @@ forumController.deletePost = async (req, res) => {
       return res.status(400).send({ message: 'Invalid post id' });
     }
 
-    const post = await ForumPost.findById(postId);
+    const post = await Forum.findForumPostById(postId);
 
     if (!post) {
       return res.status(404).send({ message: 'Forum post not found' });
     }
 
-    if (!userCanEdit(req.session.user, post.authorId)) {
+    if (!Forum.userCanEdit(req.session.user, post.authorId)) {
       return res.status(403).send({ message: 'You cannot delete this post' });
     }
 
-    await ForumPost.findByIdAndDelete(postId);
+    await Forum.deleteForumPostById(postId);
     res.send({ message: 'Forum post deleted' });
   } catch (error) {
     console.error(error);
@@ -153,33 +103,27 @@ forumController.deletePost = async (req, res) => {
 forumController.createReply = async (req, res) => {
   try {
     const postId = req.params.postId;
-    const content = getText(req.body.content);
 
     if (!mongoose.isValidObjectId(postId)) {
       return res.status(400).send({ message: 'Invalid post id' });
     }
 
-    if (content === '') {
-      return res.status(400).send({ message: 'Reply content is required' });
+    const replyDetails = Forum.getReplyContent(req.body.content);
+    if (replyDetails.error) {
+      return res.status(400).send({ message: replyDetails.error });
     }
 
-    if (content.length > 2000) {
-      return res.status(400).send({ message: 'Reply content must be 2000 characters or fewer' });
-    }
-
-    const post = await ForumPost.findById(postId);
+    const post = await Forum.findForumPostById(postId);
 
     if (!post) {
       return res.status(404).send({ message: 'Forum post not found' });
     }
 
-    post.replies.push({
+    await Forum.createForumReply(post, {
       authorId: req.session.user._id,
-      content: content
+      content: replyDetails.content
     });
-    post.updatedAt = new Date();
 
-    await post.save();
     res.status(201).send({ message: 'Reply added' });
   } catch (error) {
     console.error(error);
@@ -197,37 +141,28 @@ forumController.updateReply = async (req, res) => {
       return res.status(400).send({ message: 'Invalid post or reply id' });
     }
 
-    const post = await ForumPost.findById(postId);
+    const post = await Forum.findForumPostById(postId);
 
     if (!post) {
       return res.status(404).send({ message: 'Forum post not found' });
     }
 
-    const reply = post.replies.id(replyId);
+    const reply = Forum.findForumReplyById(post, replyId);
 
     if (!reply) {
       return res.status(404).send({ message: 'Reply not found' });
     }
 
-    if (!userCanEdit(req.session.user, reply.authorId)) {
+    if (!Forum.userCanEdit(req.session.user, reply.authorId)) {
       return res.status(403).send({ message: 'You cannot edit this reply' });
     }
 
-    const content = getText(req.body.content);
-
-    if (content === '') {
-      return res.status(400).send({ message: 'Reply content is required' });
+    const replyDetails = Forum.getReplyContent(req.body.content);
+    if (replyDetails.error) {
+      return res.status(400).send({ message: replyDetails.error });
     }
 
-    if (content.length > 2000) {
-      return res.status(400).send({ message: 'Reply content must be 2000 characters or fewer' });
-    }
-
-    reply.content = content;
-    reply.updatedAt = new Date();
-    post.updatedAt = new Date();
-
-    await post.save();
+    await Forum.updateForumReply(post, reply, replyDetails.content);
     res.send({ message: 'Reply updated' });
   } catch (error) {
     console.error(error);
@@ -245,26 +180,23 @@ forumController.deleteReply = async (req, res) => {
       return res.status(400).send({ message: 'Invalid post or reply id' });
     }
 
-    const post = await ForumPost.findById(postId);
+    const post = await Forum.findForumPostById(postId);
 
     if (!post) {
       return res.status(404).send({ message: 'Forum post not found' });
     }
 
-    const reply = post.replies.id(replyId);
+    const reply = Forum.findForumReplyById(post, replyId);
 
     if (!reply) {
       return res.status(404).send({ message: 'Reply not found' });
     }
 
-    if (!userCanEdit(req.session.user, reply.authorId)) {
+    if (!Forum.userCanEdit(req.session.user, reply.authorId)) {
       return res.status(403).send({ message: 'You cannot delete this reply' });
     }
 
-    reply.deleteOne();
-    post.updatedAt = new Date();
-
-    await post.save();
+    await Forum.deleteForumReply(post, reply);
     res.send({ message: 'Reply deleted' });
   } catch (error) {
     console.error(error);

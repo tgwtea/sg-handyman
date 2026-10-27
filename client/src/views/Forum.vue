@@ -17,7 +17,7 @@ const editingReplyContent = ref('')
 const message = ref('')
 const loading = ref(true)
 
-// Fetches forum posts and updates the loading or error state
+// Loads the posts from the server and shows any errors.
 async function loadPosts() {
   try {
     const response = await api.get('/forum')
@@ -31,7 +31,7 @@ async function loadPosts() {
 
 onMounted(loadPosts)
 
-// Checks whether the signed-in user is an admin or the content author
+// Checks whether the signed-in user can edit this post or reply.
 function canEdit(author) {
   if (!auth.user) {
     return false
@@ -45,7 +45,7 @@ function canEdit(author) {
   return auth.user.role === 'admin' || String(authorId) === String(auth.user._id)
 }
 
-// Returns the author's username, or a fallback for removed accounts
+// Shows the author's username or a message if the account was removed.
 function authorName(author) {
   if (author && author.username) {
     return author.username
@@ -54,7 +54,7 @@ function authorName(author) {
   return 'Former member'
 }
 
-// Resets the post form and exits post-editing mode
+// Clears the post form and stops editing.
 function clearPostForm() {
   title.value = ''
   category.value = ''
@@ -62,7 +62,7 @@ function clearPostForm() {
   editingPostId.value = ''
 }
 
-// Loads a post's details into the form for editing
+// Puts the selected post's details into the form.
 function editPost(post) {
   title.value = post.title
   category.value = post.category
@@ -71,7 +71,7 @@ function editPost(post) {
   message.value = ''
 }
 
-// Creates a post or saves edits, then refreshes the post list
+// Creates a post or saves changes, then reloads the posts.
 async function savePost() {
   message.value = ''
 
@@ -97,7 +97,7 @@ async function savePost() {
   }
 }
 
-// Confirms and deletes a post with a pop-up window including its replies
+// Asks before deleting a post and its replies.
 async function deletePost(post) {
   const shouldDelete = window.confirm('Delete this post and all its replies?')
   if (!shouldDelete) {
@@ -113,7 +113,7 @@ async function deletePost(post) {
   }
 }
 
-// Submits a non-empty reply and refreshes the post list
+// Adds a reply and reloads the posts.
 async function addReply(post) {
   const replyContent = replyDrafts.value[post._id]
 
@@ -134,20 +134,20 @@ async function addReply(post) {
   }
 }
 
-// Loads a reply's details into the form for editing
+// Puts the selected reply's details into the edit form.
 function editReply(reply) {
   editingReplyId.value = reply._id
   editingReplyContent.value = reply.content
   message.value = ''
 }
 
-// Exits reply-editing mode and clears the edit form
+// Stops editing the reply and clears the edit form.
 function cancelReplyEdit() {
   editingReplyId.value = ''
   editingReplyContent.value = ''
 }
 
-// Saves reply changes and refreshes the post list
+// Saves the reply changes and reloads the posts.
 async function saveReply(post, reply) {
   try {
     await api.put(`/forum/${post._id}/replies/${reply._id}`, {
@@ -162,7 +162,7 @@ async function saveReply(post, reply) {
   }
 }
 
-// Confirms and deletes a reply with a pop-up , then refreshes the post list
+// Asks before deleting a reply, then reloads the posts.
 async function deleteReply(post, reply) {
   const shouldDelete = window.confirm('Delete this reply?')
   if (!shouldDelete) {
@@ -178,7 +178,7 @@ async function deleteReply(post, reply) {
   }
 }
 
-// Converts a date into the user's locale-specific date and time format.
+// Shows the date and time in the user's local format.
 function formatDate(date) {
   return new Date(date).toLocaleString()
 }
