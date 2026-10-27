@@ -224,8 +224,8 @@ function formatDate(date) {
           required
         ></textarea>
 
-        <button type="submit">{{ editingPostId ? 'Save changes' : 'Create post' }}</button>
-        <button v-if="editingPostId" type="button" @click="clearPostForm">Cancel</button>
+        <button type="submit" class="btn btn-primary mb-3">Add to cart</button>
+        <button v-if="editingPostId" type="button" class="btn btn-primary mb-3" @click="clearPostForm">Cancel</button>
       </form>
       <p v-else>
         <RouterLink :to="{ path: '/login', query: { redirect: '/forum' } }">Log in</RouterLink>
@@ -248,8 +248,8 @@ function formatDate(date) {
         </p>
 
         <div v-if="auth.isLoggedIn && canEdit(post.authorId)">
-          <button type="button" @click="editPost(post)">Edit post</button>
-          <button type="button" @click="deletePost(post)">Delete post</button>
+          <button type="button" class="btn btn-primary mb-3" @click="editPost(post)">Edit post</button>
+          <button type="button" class="btn btn-primary mb-3" @click="deletePost(post)">Delete post</button>
         </div>
 
         <section class="replies">
@@ -274,13 +274,13 @@ function formatDate(date) {
                 rows="3"
                 required
               ></textarea>
-              <button type="submit">Save reply</button>
-              <button type="button" @click="cancelReplyEdit">Cancel</button>
+              <button class="btn btn-primary mb-3" type="submit">Save reply</button>
+              <button class="btn btn-primary mb-3" type="button" @click="cancelReplyEdit">Cancel</button>
             </form>
 
             <div v-else-if="auth.isLoggedIn && canEdit(reply.authorId)">
-              <button type="button" @click="editReply(reply)">Edit reply</button>
-              <button type="button" @click="deleteReply(post, reply)">Delete reply</button>
+              <button type="button" class="btn btn-primary mb-3" @click="editReply(reply)">Edit reply</button>
+              <button type="button" class="btn btn-primary mb-3" @click="deleteReply(post, reply)">Delete reply</button>
             </div>
           </div>
 
@@ -293,7 +293,7 @@ function formatDate(date) {
               rows="3"
               required
             ></textarea>
-            <button type="submit">Add reply</button>
+            <button class="btn btn-primary mb-3" type="submit">Add reply</button>
           </form>
         </section>
       </article>
