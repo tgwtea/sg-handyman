@@ -224,7 +224,7 @@ function formatDate(date) {
           required
         ></textarea>
 
-        <button type="submit" class="btn btn-primary mb-3">Add to cart</button>
+        <button type="submit" class="btn btn-primary mb-3">{{ editingPostId ? 'Save changes' : 'Create post' }}</button>
         <button v-if="editingPostId" type="button" class="btn btn-primary mb-3" @click="clearPostForm">Cancel</button>
       </form>
       <p v-else>

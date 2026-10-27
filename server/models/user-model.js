@@ -41,12 +41,12 @@ userModel.findUsersByRole = function(role) {
   return User.find({ role });
 };
 
-userModel.setCompanyId = function(username, companyId) {
-  return User.updateOne({ username }, { companyId });
+userModel.insertManyUsers = function(users) {
+  return User.insertMany(users);
 };
 
-userModel.upsertUser = function(user) {
-  return User.updateOne({ username: user.username }, user, { upsert: true });
+userModel.deleteAllUsers = function() {
+  return User.deleteMany({});
 };
 
 // Update only the logged-in account's cart, not touching other account fields .
