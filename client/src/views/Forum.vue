@@ -16,6 +16,8 @@ const editingReplyId = ref('')
 const editingReplyContent = ref('')
 const message = ref('')
 const loading = ref(true)
+const postToDelete = ref(null)
+const deletingPost = ref(false)
 
 // Loads the posts from the server and shows any errors.
 async function loadPosts() {
@@ -116,21 +118,36 @@ async function savePost() {
   }
 }
 
-// Asks before deleting a post and its replies.
-async function deletePost(post) {
-  const shouldDelete = window.confirm('Delete this post and all its replies?')
-  if (!shouldDelete) {
-    return
+  // Opens the confirmation dialog for deleting a post.
+  function deletePost(post) {
+    postToDelete.value = post
   }
 
-  try {
-    await api.delete(`/forum/${post._id}`)
-    message.value = 'Post deleted.'
-    await loadPosts()
-  } catch (error) {
-    message.value = errorMessage(error)
+  // Deletes the selected post after the user confirms.
+  async function confirmDeletePost() {
+    if (!postToDelete.value) {
+      return
+    }
+
+    deletingPost.value = true
+    try {
+      await api.delete(`/forum/${postToDelete.value._id}`)
+      message.value = 'Post deleted.'
+      postToDelete.value = null
+      await loadPosts()
+    } catch (error) {
+      message.value = errorMessage(error)
+      postToDelete.value = null
+    } finally {
+      deletingPost.value = false
+    }
   }
-}
+
+  // Closes the dialog without deleting the post.
+  function cancelDeletePost() {
+    postToDelete.value = null
+  }
+
 
 // Adds a reply and reloads the posts.
 async function addReply(post) {
@@ -226,12 +243,15 @@ function formatDate(date) {
         />
 
         <label for="post-category">Category</label>
-        <input
-          id="post-category"
-          v-model="category"
-          maxlength="40"
-          placeholder="For example: plumbing"
-        />
+        <select id="post-category" v-model="category">
+          <option value="">Choose a category</option>
+          <option value="Leaking tap">Leaking tap</option>
+          <option value="Aircon servicing">Aircon servicing</option>
+          <option value="Power trip">Power trip</option>
+          <option value="Door lock">Door lock</option>
+          <option value="Wall mounting">Wall mounting</option>
+          <option value="others">Others</option>
+        </select>
 
         <label for="post-content">Details</label>
         <textarea
@@ -334,6 +354,62 @@ function formatDate(date) {
         </section>
       </article>
     </section>
+
+    <div
+      v-if="postToDelete"
+      class="delete-dialog-backdrop"
+      @click.self="cancelDeletePost"
+    >
+      <section
+        class="delete-dialog"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="delete-dialog-title"
+        aria-describedby="delete-dialog-message"
+      >
+        <header class="delete-dialog-header">
+          <span aria-hidden="true">🗑</span>
+          <h2 id="delete-dialog-title">Confirm Deletion</h2>
+          <button
+            type="button"
+            class="close-button"
+            :disabled="deletingPost"
+            aria-label="Close confirmation"
+            @click="cancelDeletePost"
+          >
+            ×
+          </button>
+        </header>
+        <div class="delete-dialog-body">
+          <p id="delete-dialog-message" class="delete-warning">
+            <span class="warning-icon" aria-hidden="true">!</span>
+            <span>Are you sure you want to delete this DIY post? This action cannot be undone.</span>
+          </p>
+          <p class="delete-dialog-note">
+            Note: Deleting will permanently erase this topic and all associated replies.
+          </p>
+        </div>
+        <footer class="delete-dialog-actions">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            :disabled="deletingPost"
+            autofocus
+            @click="cancelDeletePost"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="btn btn-success"
+            :disabled="deletingPost"
+            @click="confirmDeletePost"
+          >
+            {{ deletingPost ? 'Deleting...' : '✓ Yes, Delete Post' }}
+          </button>
+        </footer>
+      </section>
+    </div>
   </main>
 </template>
 
@@ -356,6 +432,94 @@ function formatDate(date) {
   margin-top: 0;
 }
 
+.delete-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.delete-dialog {
+  width: 100%;
+  max-width: 440px;
+  overflow: hidden;
+  border: 3px solid #c8201c;
+  border-radius: 8px;
+  background: #fff1f0;
+}
+
+.delete-dialog-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background: #c8201c;
+  color: white;
+}
+
+.delete-dialog-header h2 {
+  flex: 1;
+  margin: 0;
+  font-size: 18px;
+}
+
+.close-button {
+  margin: 0;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: white;
+  font-size: 24px;
+}
+
+.delete-dialog-body {
+  padding: 16px;
+  background: #fff1f0;
+}
+
+.delete-warning {
+  display: flex;
+  gap: 10px;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid #f0a8a5;
+  border-radius: 6px;
+  background: #fff1f0;
+  color: #244b38;
+  font-size: 14px;
+}
+
+.warning-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #a31916;
+  color: white;
+  text-align: center;
+  font-weight: bold;
+}
+
+.delete-dialog-note {
+  margin: 12px 0 0;
+  color: #68758a;
+  font-size: 12px;
+  font-style: italic;
+}
+
+.delete-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid #f0a8a5;
+  background: #fee2e2;
+}
+
 .forum-section,
 .post {
   background: white;
@@ -376,6 +540,7 @@ form label {
 }
 
 input,
+select,
 textarea {
   box-sizing: border-box;
   display: block;
