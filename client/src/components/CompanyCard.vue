@@ -18,9 +18,15 @@ const props = defineProps(['companyId', 'name', 'description']);
         {{ description }}
       </p>
       <!-- <a class="btn btn-primary" @click="redirectToDetails(companyId)">Details</a> -->
-      <RouterLink class="btn btn-primary mt-auto align-self-start" :to="{ path: `/companies/${companyId}` }">
-        Details
-      </RouterLink>
+      <div class="mt-auto d-flex flex-wrap gap-2">
+        <RouterLink class="btn btn-primary" :to="{ path: `/companies/${companyId}` }">
+          Details
+        </RouterLink>
+        <!-- CompanyDetails.vue scrolls to this anchor after the company loads -->
+        <RouterLink class="btn btn-outline-primary" :to="{ path: `/companies/${companyId}`, hash: '#book-a-slot' }">
+          Book a slot
+        </RouterLink>
+      </div>
     </div>
   </div>
 </template>
