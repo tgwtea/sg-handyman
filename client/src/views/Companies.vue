@@ -77,7 +77,7 @@ const filteredCompanies = computed(() => {
    <div class="container">
     <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 g-4">
      <div v-for="company in filteredCompanies" :key="company._id" class="col">
-      <CompanyCard :companyId="company._id" :name=company.name :description=company.description />
+      <CompanyCard :companyId="company._id" :name=company.name :description=company.description :services="company.services" />
      </div>
     </div>
    </div>

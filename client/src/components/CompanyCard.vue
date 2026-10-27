@@ -1,6 +1,10 @@
 <script setup>
 import router from '@/router';
-const props = defineProps(['companyId', 'name', 'description']);
+import { computed } from 'vue';
+const props = defineProps(['companyId', 'name', 'description', 'services']);
+
+// one tag per service category, e.g. "Toilets"
+const categories = computed(() => (props.services ?? []).map((category) => category.category));
 
 // function redirectToDetails(companyId) {
 //   router.push(`/companies/${companyId}`);
@@ -17,6 +21,11 @@ const props = defineProps(['companyId', 'name', 'description']);
       <p class="card-text">
         {{ description }}
       </p>
+      <div v-if="categories.length" class="d-flex flex-wrap gap-1 mb-3">
+        <span v-for="category in categories" :key="category" class="badge rounded-pill text-bg-light border">
+          {{ category }}
+        </span>
+      </div>
       <!-- <a class="btn btn-primary" @click="redirectToDetails(companyId)">Details</a> -->
       <div class="mt-auto d-flex flex-wrap gap-2">
         <RouterLink class="btn btn-primary" :to="{ path: `/companies/${companyId}` }">
