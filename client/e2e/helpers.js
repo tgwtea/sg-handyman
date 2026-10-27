@@ -4,7 +4,7 @@ import { expect } from '@playwright/test'
 // API base URL, same as client/constants/urls.js
 export const API_URL = process.env.E2E_API_URL ?? 'http://localhost:8000'
 
-// Test accounts created by `pnpm seed --with-test-users` (see server/scripts/seed-bookings.js).
+// Test accounts created by `pnpm seed` (see server/scripts/seed-data.js).
 // Override with E2E_PASSWORD if your database uses another password.
 export const TEST_PASSWORD = process.env.E2E_PASSWORD ?? 'test-password-123'
 export const USERS = {
