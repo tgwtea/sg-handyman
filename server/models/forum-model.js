@@ -50,6 +50,13 @@ const postSchema = new mongoose.Schema({
     maxlength: 40,
     default: 'General'
   },
+  likes: {
+    type: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    }],
+    default: []
+  },
   replies: {
     type: [replySchema],
     default: []
@@ -97,6 +104,20 @@ forumModel.updateForumPost = function(post, updates) {
 // Deletes a forum post by its ID.
 forumModel.deleteForumPostById = function(postId) {
   return ForumPost.findByIdAndDelete(postId);
+};
+
+// Adds or removes a user's thumbs-up from a post.
+forumModel.toggleForumPostLike = async function(post, userId) {
+  const likeIndex = post.likes.findIndex(like => String(like) === String(userId));
+
+  if (likeIndex >= 0) {
+    post.likes.splice(likeIndex, 1);
+  } else {
+    post.likes.push(userId);
+  }
+
+  await post.save();
+  return post;
 };
 
 // Adds a reply to a post and saves the post.

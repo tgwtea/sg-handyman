@@ -45,6 +45,25 @@ function canEdit(author) {
   return auth.user.role === 'admin' || String(authorId) === String(auth.user._id)
 }
 
+// Checks whether the signed-in user has liked this post.
+function hasLiked(post) {
+  if (!auth.user || !Array.isArray(post.likes)) {
+    return false
+  }
+
+  return post.likes.some(userId => String(userId) === String(auth.user._id))
+}
+
+// Adds or removes the signed-in user's thumbs-up and updates the counter.
+async function likePost(post) {
+  try {
+    const response = await api.post(`/forum/${post._id}/likes`)
+    post.likes = response.data.likes
+  } catch (error) {
+    message.value = errorMessage(error)
+  }
+}
+
 // Shows the author's username or a message if the account was removed.
 function authorName(author) {
   if (author && author.username) {
@@ -246,6 +265,23 @@ function formatDate(date) {
           Posted by {{ authorName(post.authorId) }}
           on {{ formatDate(post.createdAt) }}
         </p>
+
+        <div class="post-likes d-flex align-items-center gap-2">
+          <p class="mb-3">Was this helpful?</p>
+          <button
+            v-if="auth.isLoggedIn"
+            type="button"
+            class="btn btn-success mb-3"
+            :aria-pressed="hasLiked(post)"
+            @click="likePost(post)"
+          >
+            👍 ({{ post.likes?.length || 0 }})
+          </button>
+          <p v-else>
+            Likes: {{ post.likes?.length || 0 }} ·
+            <RouterLink :to="{ path: '/login', query: { redirect: '/forum' } }">Log in to like</RouterLink>
+          </p>
+        </div>
 
         <div v-if="auth.isLoggedIn && canEdit(post.authorId)">
           <button type="button" class="btn btn-primary mb-3" @click="editPost(post)">Edit post</button>

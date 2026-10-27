@@ -99,6 +99,31 @@ forumController.deletePost = async (req, res) => {
   }
 };
 
+// Adds the signed-in user's thumbs-up to a forum post.
+forumController.likePost = async (req, res) => {
+  try {
+    const postId = req.params.postId;
+
+    if (!mongoose.isValidObjectId(postId)) {
+      return res.status(400).send({ message: 'Invalid post id' });
+    }
+
+    const post = await Forum.findForumPostById(postId);
+
+    if (!post) {
+      return res.status(404).send({ message: 'Forum post not found' });
+    }
+
+    const updatedPost = await Forum.toggleForumPostLike(post, req.session.user._id);
+    res.send({
+      likes: updatedPost.likes
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ message: 'Failed to like forum post' });
+  }
+};
+
 // Checks the reply text and adds the reply to the selected post.
 forumController.createReply = async (req, res) => {
   try {

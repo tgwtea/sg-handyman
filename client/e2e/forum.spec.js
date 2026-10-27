@@ -183,4 +183,34 @@ test.describe('DIY Forum', () => {
       await attackerContext.close()
     }
   })
+
+  test('a logged-in user can add and remove a post thumbs-up', async ({ page }) => {
+    const title = uniqueTitle('E2E like post')
+
+    try {
+      await login(page, USERS.customer)
+      await page.goto('/forum')
+
+      await page.getByLabel('Title').fill(title)
+      await page.getByLabel('Details').fill('Post for testing likes.')
+      await page.getByRole('button', { name: 'Create post' }).click()
+
+      const post = page.locator('article').filter({ has: page.getByRole('heading', { name: title }) })
+      await expect(post).toBeVisible()
+
+      await post.getByRole('button', { name: '👍 (0)' }).click()
+      await expect(post.getByRole('button', { name: '👍 (1)' })).toBeVisible()
+
+      await post.getByRole('button', { name: '👍 (1)' }).click()
+      await expect(post.getByRole('button', { name: '👍 (0)' })).toBeVisible()
+    } finally {
+      const response = await page.request.get(`${API_URL}/forum`)
+      if (response.ok()) {
+        const posts = await response.json()
+        for (const post of posts.filter((item) => item.title === title)) {
+          await page.request.delete(`${API_URL}/forum/${post._id}`)
+        }
+      }
+    }
+  })
 })
