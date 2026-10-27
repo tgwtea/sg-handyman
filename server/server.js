@@ -30,12 +30,14 @@ import authRouter from './routes/auth-routes.js';
 import timeslotRouter from './routes/timeslot-routes.js';
 import bookingRouter from './routes/booking-routes.js';
 import forumRouter from './routes/forum-routes.js';
+import shopRouter from './routes/shop-routes.js';
 
 app.use('/companies', companyRouter);
 app.use('/auth', authRouter);
 app.use('/timeslots', timeslotRouter);
 app.use('/bookings', bookingRouter);
 app.use('/forum', forumRouter);
+app.use('/shop', shopRouter);
 
 // async function to connect to DB
 async function connectDB() {

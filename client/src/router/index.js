@@ -46,6 +46,16 @@ const router = createRouter({
       component: Shop,
     },
     {
+     path: '/shop/cart',
+     name: 'shop-cart',
+     component: Shop,
+    },
+    {
+      path: '/shop/checkout',
+      name: 'shop-checkout',
+      component: Shop,
+    },
+    {
       path: '/login',
       name: 'login',
       component: Login,

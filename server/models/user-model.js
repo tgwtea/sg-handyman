@@ -3,6 +3,9 @@ import mongoose from 'mongoose';
 const userModel = {};
 
 const userSchema = new mongoose.Schema({
+
+  // Each account owns one shopping cart. Adress and payment information not yet
+  shopCart: [{ id: Number, name: String, price: Number, quantity: { type: Number, min: 1 } }],
   username: {
     type: String,
     required: true,
@@ -44,6 +47,11 @@ userModel.setCompanyId = function(username, companyId) {
 
 userModel.upsertUser = function(user) {
   return User.updateOne({ username: user.username }, user, { upsert: true });
+};
+
+// Update only the logged-in account's cart, not touching other account fields .
+userModel.saveShopCart = function(userId, items) {
+  return User.updateOne({ _id: userId }, { shopCart: items }, { runValidators: true });
 };
 
 export default userModel;
