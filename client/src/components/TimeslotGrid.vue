@@ -21,6 +21,7 @@ const message = ref(null) // { type: 'success' | 'danger' | 'warning', text }
 const selectedId = ref(null)
 const service = ref('')
 const submitting = ref(false)
+const confirming = ref(null) // null | 'book' | 'cancel'
 
 let timer = null
 let inFlight = false
@@ -61,14 +62,6 @@ const days = computed(() => {
 
 const selected = computed(() => timeslots.value.find((slot) => slot._id === selectedId.value) ?? null)
 
-// another customer can take the selected slot between two polls
-watch(selected, (slot) => {
-  if (slot && slot.taken && !slot.mine && !submitting.value) {
-    selectedId.value = null
-    message.value = { type: 'warning', text: 'Another customer just booked that timeslot. Pick another one.' }
-  }
-})
-
 watch(
   () => props.services,
   (services) => {
@@ -86,6 +79,7 @@ function slotClass(slot) {
 
 function selectSlot(slot) {
   message.value = null
+  confirming.value = null
   selectedId.value = slot._id === selectedId.value ? null : slot._id
 }
 
@@ -98,6 +92,7 @@ async function book() {
     message.value = { type: 'danger', text: errorMessage(error) }
   } finally {
     selectedId.value = null
+    confirming.value = null
     submitting.value = false
     loadTimeslots()
   }
@@ -112,6 +107,7 @@ async function cancel() {
     message.value = { type: 'danger', text: errorMessage(error) }
   } finally {
     selectedId.value = null
+    confirming.value = null
     submitting.value = false
     loadTimeslots()
   }
@@ -164,15 +160,33 @@ async function cancel() {
 
         <template v-if="selected.mine">
           <p class="card-text">Your booking: {{ selected.service }}</p>
-          <button class="btn btn-outline-danger" :disabled="submitting" @click="cancel">Cancel booking</button>
+          <div v-if="confirming === 'cancel'">
+            <p class="card-text">
+              Cancel your {{ selected.service }} booking on {{ formatDay(selected.start) }}, {{ formatTime(selected.start) }}?
+            </p>
+            <div class="d-flex gap-2">
+              <button class="btn btn-danger" :disabled="submitting" @click="cancel">Yes, cancel it</button>
+              <button class="btn btn-outline-secondary" :disabled="submitting" @click="confirming = null">No, keep it</button>
+            </div>
+          </div>
+          <button v-else class="btn btn-outline-danger" @click="confirming = 'cancel'">Cancel booking</button>
         </template>
 
         <template v-else>
-          <label for="service" class="form-label">Service</label>
-          <select id="service" v-model="service" class="form-select mb-3">
-            <option v-for="name in services" :key="name" :value="name">{{ name }}</option>
-          </select>
-          <button class="btn btn-success" :disabled="submitting" @click="book">Confirm booking</button>
+          <div v-if="confirming === 'book'">
+            <p class="card-text">Book {{ formatDay(selected.start) }}, {{ formatTime(selected.start) }} for {{ service }}?</p>
+            <div class="d-flex gap-2">
+              <button class="btn btn-success" :disabled="submitting" @click="book">Yes, book it</button>
+              <button class="btn btn-outline-secondary" :disabled="submitting" @click="confirming = null">No</button>
+            </div>
+          </div>
+          <template v-else>
+            <label for="service" class="form-label">Service</label>
+            <select id="service" v-model="service" class="form-select mb-3">
+              <option v-for="name in services" :key="name" :value="name">{{ name }}</option>
+            </select>
+            <button class="btn btn-success" @click="confirming = 'book'">Confirm booking</button>
+          </template>
         </template>
       </div>
     </div>
