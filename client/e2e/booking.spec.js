@@ -30,14 +30,26 @@ test.describe('Booking a timeslot', () => {
       const slot = page.getByTestId(slotTestId)
 
       await slot.click()
+
+      // "No" closes the confirmation but keeps the slot selected
       await page.getByRole('button', { name: 'Confirm booking' }).click()
+      await page.getByRole('button', { name: 'No', exact: true }).click()
+      await expect(slot).toHaveAttribute('title', 'Free')
+
+      await page.getByRole('button', { name: 'Confirm booking' }).click()
+      await page.getByRole('button', { name: 'Yes, book it' }).click()
 
       await expect(page.locator('.alert-success')).toContainText('Booked')
       await expect(slot).toHaveAttribute('title', /^Your booking:/)
 
-      // cancel through the UI
+      // cancel through the UI, saying "No, keep it" first
       await slot.click()
       await page.getByRole('button', { name: 'Cancel booking' }).click()
+      await page.getByRole('button', { name: 'No, keep it' }).click()
+      await expect(slot).toHaveAttribute('title', /^Your booking:/)
+
+      await page.getByRole('button', { name: 'Cancel booking' }).click()
+      await page.getByRole('button', { name: 'Yes, cancel it' }).click()
 
       await expect(page.locator('.alert-success')).toHaveText('Booking cancelled.')
       await expect(slot).toHaveAttribute('title', 'Free')
