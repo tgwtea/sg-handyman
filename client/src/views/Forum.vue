@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import api, { errorMessage } from '@/api'
 import { useAuthStore } from '@/stores/auth'
@@ -18,6 +18,30 @@ const message = ref('')
 const loading = ref(true)
 const postToDelete = ref(null)
 const deletingPost = ref(false)
+const searchInput = ref('')
+const searchTerm = ref('')
+const selectedCategory = ref('')
+
+const popularCategories = [
+  'Leaking tap',
+  'Aircon servicing',
+  'Power trip',
+  'Door lock',
+  'Wall mounting',
+  'Others'
+]
+
+const filteredPosts = computed(() => {
+  return posts.value.filter(post => {
+    const replyText = post.replies.map(reply => reply.content).join(' ')
+    const postText = `${post.title} ${post.category} ${post.content} ${replyText}`.toLowerCase()
+    const matchesSearch = postText.includes(searchTerm.value.toLowerCase())
+    const matchesCategory = !selectedCategory.value ||
+      postText.includes(selectedCategory.value.toLowerCase())
+
+    return matchesSearch && matchesCategory
+  })
+})
 
 // Loads the posts from the server and shows any errors.
 async function loadPosts() {
@@ -32,6 +56,35 @@ async function loadPosts() {
 }
 
 onMounted(loadPosts)
+
+// Applies the text entered in the search bar.
+function searchPosts() {
+  searchTerm.value = searchInput.value.trim()
+  selectedCategory.value = ''
+}
+
+// Filters posts by a popular category.
+function searchByCategory(categoryName) {
+  selectedCategory.value = categoryName
+  searchInput.value = ''
+  searchTerm.value = ''
+}
+
+// Clears the search and shows all posts again.
+function showAllPosts() {
+  selectedCategory.value = ''
+  searchInput.value = ''
+  searchTerm.value = ''
+}
+
+// Selects or clears the category for the new post.
+function choosePostCategory(categoryName) {
+  if (category.value === categoryName) {
+    category.value = ''
+  } else {
+    category.value = categoryName
+  }
+}
 
 // Checks whether the signed-in user can edit this post or reply.
 function canEdit(author) {
@@ -232,7 +285,7 @@ function formatDate(date) {
 
       <p v-if="message" class="message" role="status">{{ message }}</p>
 
-      <form v-if="auth.isLoggedIn" @submit.prevent="savePost">
+      <form v-if="auth.isLoggedIn" class="post-form" @submit.prevent="savePost">
         <label for="post-title">Title</label>
         <input
           id="post-title"
@@ -242,16 +295,20 @@ function formatDate(date) {
           required
         />
 
-        <label for="post-category">Category</label>
-        <select id="post-category" v-model="category">
-          <option value="">Choose a category</option>
-          <option value="Leaking tap">Leaking tap</option>
-          <option value="Aircon servicing">Aircon servicing</option>
-          <option value="Power trip">Power trip</option>
-          <option value="Door lock">Door lock</option>
-          <option value="Wall mounting">Wall mounting</option>
-          <option value="others">Others</option>
-        </select>
+        <label id="post-category-label">Category</label>
+        <div class="category-options" role="group" aria-labelledby="post-category-label">
+          <button
+            v-for="popularCategory in popularCategories"
+            :key="popularCategory"
+            type="button"
+            class="btn btn-light"
+            :class="{ 'active-category': category === popularCategory }"
+            :aria-pressed="category === popularCategory"
+            @click="choosePostCategory(popularCategory)"
+          >
+            {{ popularCategory }}
+          </button>
+        </div>
 
         <label for="post-content">Details</label>
         <textarea
@@ -273,11 +330,50 @@ function formatDate(date) {
     </section>
 
     <section class="forum-section">
-      <h2>Posts</h2>
+      <div class="posts-heading">
+        <h2>Posts</h2>
+        <form class="search-form" @submit.prevent="searchPosts">
+          <input
+            v-model="searchInput"
+            type="search"
+            aria-label="Search forum posts"
+            placeholder="Search posts..."
+          />
+          <button type="submit" class="btn btn-primary">Search</button>
+        </form>
+      </div>
       <p v-if="loading">Loading posts...</p>
       <p v-else-if="posts.length === 0">There are no posts yet. Start the discussion!</p>
 
-      <article v-for="post in posts" :key="post._id" class="post">
+      <div class="post-search">
+        <div class="popular-searches">
+          <span>Popular:</span>
+          <button
+            v-for="popularCategory in popularCategories"
+            :key="popularCategory"
+            type="button"
+            class="btn btn-light"
+            :class="{ 'active-category': selectedCategory === popularCategory }"
+            @click="searchByCategory(popularCategory)"
+          >
+            {{ popularCategory }}
+          </button>
+          <button
+            v-if="searchTerm || selectedCategory"
+            type="button"
+            class="btn btn-light"
+            @click="showAllPosts"
+          >
+            All posts
+          </button>
+        </div>
+      </div>
+
+      <p v-if="posts.length > 0 && filteredPosts.length === 0">
+        No matching posts found.
+      </p>
+
+      <article v-for="post in filteredPosts" :key="post._id" class="post">
         <p class="category">{{ post.category || 'General' }}</p>
         <h3>{{ post.title }}</h3>
         <p class="post-content">{{ post.content }}</p>
@@ -533,10 +629,74 @@ function formatDate(date) {
   margin-top: 0;
 }
 
+.posts-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.posts-heading h2 {
+  margin-bottom: 0;
+}
+
+.post-search {
+  margin: 16px 0 20px;
+  padding: 0;
+}
+
+.search-form {
+  display: flex;
+  gap: 12px;
+  width: min(100%, 360px);
+}
+
+.search-form input {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  margin: 0;
+  border: 1px solid #d5d9e2;
+  border-radius: 6px;
+  font: inherit;
+}
+
+.search-form button {
+  margin: 0;
+}
+
+.popular-searches,
+.category-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.popular-searches {
+  margin-top: 0;
+}
+
+.popular-searches .btn,
+.category-options .btn {
+  margin: 0;
+  border-radius: 20px;
+}
+
+.popular-searches .active-category,
+.category-options .active-category {
+  background: #fbd000;
+}
+
 form label {
   display: block;
   font-weight: bold;
   margin: 12px 0 5px;
+}
+
+.post-form label {
+  font-family: var(--font-display);
+  font-size: 25px;
 }
 
 input,
@@ -591,5 +751,17 @@ button {
   background: #edf5e9;
   border-radius: 4px;
   padding: 10px;
+}
+
+@media (max-width: 500px) {
+  .posts-heading {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .search-form {
+    width: 100%;
+  }
 }
 </style>
