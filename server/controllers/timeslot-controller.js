@@ -62,6 +62,17 @@ timeslotController.getCompanyTimeslots = async (req, res) => {
   }
 };
 
+// [{ companyId, start }]: each company's earliest free slot, for the "earliest free timeslot" filter
+timeslotController.getNextFreeTimeslots = async (req, res) => {
+  try {
+    const nextFree = await Timeslot.findNextFreeTimeslots(new Date());
+    res.send(nextFree);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ message: 'Failed to load free timeslots' });
+  }
+};
+
 timeslotController.createTimeslot = async (req, res) => {
   try {
     const { companyId } = req.body;

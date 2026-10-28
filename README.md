@@ -23,7 +23,7 @@ Each app still runs on its own. For example: `cd server && pnpm dev`.
 - 25 companies, with their services and starting prices
 - 38 accounts (see [Accounts](#accounts))
 - 75 reviews by the customer accounts
-- weekday timeslots from 09:00 to 18:00 (Singapore time) for the next 14 days
+- weekday timeslots from 09:00 to 18:00 (Singapore time) for today and the next 14 days. Today's slots start after the time of the seed, so an urgent repair can find a same-day slot.
 - random bookings on about 30% of those timeslots
 
 **Warning:** `pnpm seed` first deletes **all** data in the database: users, companies, reviews, timeslots, bookings, forum posts and shop orders. Everyone on the team and the CI tests use the same database. Ask your team before you run it. Log in again after a seed, because the old sessions point to deleted users.
@@ -110,6 +110,7 @@ The end-to-end (E2E) tests use [Playwright](https://playwright.dev). They live i
 | --- | --- |
 | `companies.spec.js` | Browse companies. Open a company page with its services and prices. |
 | `auth.spec.js` | Log in, see an error for a wrong password, log out. |
+| `booking-race.spec.js` | Two customers book the same slot at the same time. Only one booking succeeds. The other gets a 409 message. `GET /timeslots/next-free` returns only future slots. |
 | `booking.spec.js` | Book a free timeslot as a customer, then cancel it. Logged-out visitors see a log-in prompt. |
 | `forum.spec.js` | Read the forum. Create a post, then delete it. |
 | `business.spec.js` | A business owner sees the timeslot manager on their own company page. |
@@ -142,6 +143,23 @@ One-time setup, done by a repository admin:
 2. In MongoDB Atlas, open **Network Access** and allow `0.0.0.0/0`. GitHub runners do not have fixed IP addresses.
 
 Runs wait for each other, because all of them use the same database.
+
+## Planned work
+
+### "PUB Licensed" badge
+
+The proposal promises a "PUB Licensed" badge on companies with PUB-licensed plumbers, and a filter for these companies. PUB (the national water agency) requires a licensed plumber for regulated plumbing work. The app does not support this yet.
+
+To build it:
+
+1. Add a licence number field to the company schema in `server/models/company-model.js`: `pubLicenceNo: { type: String, default: '' }`.
+2. In `server/scripts/seed-data.js`, set a licence number for 24hrs Plumber SG, Lion City Plumbing Works, Pipeline Pros and Rapid Plumb Express. Leave Tan Repair and Fix-It-All Home Services without one.
+3. Show the badge on the company cards when `pubLicenceNo` is not empty. Show the number on the company page, so owners can check it.
+4. Add a "PUB licensed only" filter to the company list.
+
+### "Earliest free timeslot" filter
+
+`GET /timeslots/next-free` returns `[{ companyId, start }]`: the earliest free slot of each company. A company with no free slot is not in the list. Use it in `client/src/views/Companies.vue` to sort or filter the companies.
 
 ## History
 

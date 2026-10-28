@@ -37,22 +37,29 @@ function pickRandom(items) {
   return items[Math.floor(Math.random() * items.length)];
 }
 
-// weekday 1-hour slots for the next DAYS_AHEAD days, starting tomorrow (Singapore date)
+// weekday 1-hour slots for today and the next DAYS_AHEAD days (Singapore date)
+// today's slots let an urgent repair find a same-day slot
 function buildSlotTimes() {
-  const nowInSgt = new Date(Date.now() + SGT_OFFSET_HOURS * 60 * 60 * 1000);
+  const now = new Date();
+  const nowInSgt = new Date(now.getTime() + SGT_OFFSET_HOURS * 60 * 60 * 1000);
   const year = nowInSgt.getUTCFullYear();
   const month = nowInSgt.getUTCMonth();
   const day = nowInSgt.getUTCDate();
 
   const slots = [];
-  for (let offset = 1; offset <= DAYS_AHEAD; offset++) {
+  for (let offset = 0; offset <= DAYS_AHEAD; offset++) {
     const weekday = new Date(Date.UTC(year, month, day + offset)).getUTCDay();
     if (weekday === 0 || weekday === 6) {
       continue;
     }
     for (let hour = OPEN_HOUR; hour + SLOT_HOURS <= CLOSE_HOUR; hour += SLOT_HOURS) {
+      const start = new Date(Date.UTC(year, month, day + offset, hour - SGT_OFFSET_HOURS));
+      // skip today's slots that already started
+      if (start <= now) {
+        continue;
+      }
       slots.push({
-        start: new Date(Date.UTC(year, month, day + offset, hour - SGT_OFFSET_HOURS)),
+        start,
         end: new Date(Date.UTC(year, month, day + offset, hour + SLOT_HOURS - SGT_OFFSET_HOURS))
       });
     }

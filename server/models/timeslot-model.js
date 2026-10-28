@@ -41,6 +41,25 @@ timeslotModel.findTimeslotsWithBookings = function(companyId, from, to) {
   ]);
 };
 
+// the earliest free (unbooked) timeslot after `now`, one per company
+timeslotModel.findNextFreeTimeslots = function(now) {
+  return Timeslot.aggregate([
+    { $match: { start: { $gt: now } } },
+    { $sort: { start: 1 } },
+    {
+      $lookup: {
+        from: 'bookings',
+        localField: '_id',
+        foreignField: 'timeslotId',
+        as: 'booking'
+      }
+    },
+    { $match: { booking: { $size: 0 } } },
+    { $group: { _id: '$companyId', start: { $first: '$start' } } },
+    { $project: { _id: 0, companyId: '$_id', start: 1 } }
+  ]);
+};
+
 timeslotModel.findTimeslotById = function(timeslotId) {
   return Timeslot.findById(timeslotId);
 };
