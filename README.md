@@ -110,7 +110,7 @@ The end-to-end (E2E) tests use [Playwright](https://playwright.dev). They live i
 | --- | --- |
 | `companies.spec.js` | Browse companies. Open a company page with its services and prices. |
 | `auth.spec.js` | Log in, see an error for a wrong password, log out. |
-| `booking-race.spec.js` | Two customers book the same slot at the same time. Only one booking succeeds. The other gets a 409 message. `GET /timeslots/next-free` returns only future slots. |
+| `booking-race.spec.js` | Two customers book the same slot at the same time. Only one booking succeeds. The other gets a 409 message. A customer's selected slot flashes red with a warning when another customer books it. `GET /timeslots/next-free` returns only future slots. |
 | `booking.spec.js` | Book a free timeslot as a customer, then cancel it. Logged-out visitors see a log-in prompt. |
 | `forum.spec.js` | Read the forum. Create a post, then delete it. |
 | `business.spec.js` | A business owner sees the timeslot manager on their own company page. |
@@ -146,20 +146,86 @@ Runs wait for each other, because all of them use the same database.
 
 ## Planned work
 
-### "PUB Licensed" badge
+The proposal targets new BTO owners. Each item below answers one pain point from the proposal, and makes the answer visible on screen. Member 3 owns appointment booking. The live booking grid in `client/src/components/TimeslotGrid.vue` is done. The other items are planned.
 
-The proposal promises a "PUB Licensed" badge on companies with PUB-licensed plumbers, and a filter for these companies. PUB (the national water agency) requires a licensed plumber for regulated plumbing work. The app does not support this yet.
+### "Small fix? Ask the forum" and "Need a pro? Book a slot" buttons
+
+- **Owner:** all members (shared)
+- **Pain point:** small jobs do not need a contractor, but new owners do not know where to start.
+- **Files:** `client/src/views/Home.vue`
+
+To build it:
+
+1. Add two buttons under the search bar in the home hero.
+2. "Small fix? Ask the forum" links to `/forum`.
+3. "Need a pro? Book a slot" links to `/companies`.
+
+### Company card fact row
+
+- **Owners:** Member 1 (listings), Member 2 (reviews)
+- **Pain point:** firms are scattered and prices are hidden. Owners must contact firms one by one to find a free slot and a price.
+- **Files:** `client/src/components/CompanyCard.vue`, `client/src/views/Companies.vue`
+
+To build it:
+
+1. Add one fact row to each company card.
+2. Show "Next free: Today 3pm". Make the text green when the slot is today. `Companies.vue` calls `GET /timeslots/next-free` once and passes each company's `start` to its card.
+3. Show "from $X", the lowest price of the company's services.
+4. Show the "PUB Licensed" badge (see [PUB licence badge and trust block](#pub-licence-badge-and-trust-block)).
+5. Show the star rating with the count of verified reviews (Member 2).
+
+### Companies filter bar
+
+- **Owner:** Member 1
+- **Pain point:** an urgent repair, such as a burst pipe, needs a slot today. Owners cannot compare firms by availability, licence or price.
+- **Files:** `client/src/views/Companies.vue`
+
+`GET /timeslots/next-free` returns `[{ companyId, start }]`: the earliest free slot of each company. A company with no free slot is not in the list.
+
+To build it:
+
+1. Add filter chips: "Available today", "PUB licensed", category and price.
+2. "Available today" keeps the companies whose `next-free` slot is today.
+3. "PUB licensed" keeps the companies with a `pubLicenceNo`.
+4. Add a sort control: "Earliest slot" (by `next-free` `start`) or "Lowest price" (by the "from $X" price).
+
+### Verified reviews UI
+
+- **Owner:** Member 2
+- **Pain point:** reviews on company websites can be filtered or inflated.
+- **Files:** `server/models/review-model.js`, a new review route and controller in `server/routes/` and `server/controllers/`, `client/src/views/CompanyDetails.vue`
+
+To build it:
+
+1. Show a "Verified booking" tick on each review.
+2. Show "Write a review" only to a customer with a booking at the company.
+3. Other customers see "Book this company to leave a review".
+4. The server rejects a review from a customer without a booking at the company.
+
+### PUB licence badge and trust block
+
+- **Owner:** Member 1
+- **Pain point:** since 2018, it is an offence to hire a plumber who is not licensed by PUB (the national water agency) for regulated plumbing work. Owners cannot easily check who is licensed.
+- **Files:** `server/models/company-model.js`, `server/scripts/seed-data.js`, `client/src/components/CompanyCard.vue`, `client/src/views/Companies.vue`, `client/src/views/CompanyDetails.vue`
 
 To build it:
 
 1. Add a licence number field to the company schema in `server/models/company-model.js`: `pubLicenceNo: { type: String, default: '' }`.
 2. In `server/scripts/seed-data.js`, set a licence number for 24hrs Plumber SG, Lion City Plumbing Works, Pipeline Pros and Rapid Plumb Express. Leave Tan Repair and Fix-It-All Home Services without one.
-3. Show the badge on the company cards when `pubLicenceNo` is not empty. Show the number on the company page, so owners can check it.
-4. Add a "PUB licensed only" filter to the company list.
+3. Show the "PUB Licensed" badge on the company cards when `pubLicenceNo` is not empty.
+4. Add a trust block to the company page. It shows the licence number and the line "Regulated plumbing work needs a PUB-licensed plumber."
+5. Add the "PUB licensed" chip to the [companies filter bar](#companies-filter-bar).
 
-### "Earliest free timeslot" filter
+### "Tools for this fix" cards
 
-`GET /timeslots/next-free` returns `[{ companyId, start }]`: the earliest free slot of each company. A company with no free slot is not in the list. Use it in `client/src/views/Companies.vue` to sort or filter the companies.
+- **Owners:** Member 4 (forum), Member 5 (shop)
+- **Pain point:** owners who choose DIY lack the tools.
+- **Files:** `client/src/views/Forum.vue`, `server/models/forum-model.js`, `server/controllers/shop-controller.js`, `client/src/views/Shop.vue`
+
+To build it:
+
+1. Let a forum post name the shop products that the fix needs.
+2. Show "Tools for this fix" cards on the post. Each card links to the product in the shop.
 
 ## History
 

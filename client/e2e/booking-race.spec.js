@@ -1,7 +1,8 @@
 import { test, expect, request } from '@playwright/test'
-import { API_URL, TEST_PASSWORD, BUSINESS_COMPANY } from './helpers.js'
+import { API_URL, TEST_PASSWORD, BUSINESS_COMPANY, USERS, login, openCompany } from './helpers.js'
 
 const CUSTOMERS = ['test-customer-1', 'test-customer-2']
+const TAKEN_MESSAGE = 'Someone else just booked this slot. Pick another one.'
 
 // An API client with its own session cookie, logged in as `username`
 async function loggedInApi(username) {
@@ -40,7 +41,7 @@ test.describe('Booking under race conditions', () => {
       bookingId = (await winner.json())._id
 
       const loser = responses.find((response) => response.status() === 409)
-      expect((await loser.json()).message).toBe('Someone else just booked this slot. Pick another one.')
+      expect((await loser.json()).message).toBe(TAKEN_MESSAGE)
     } finally {
       // the database is shared, so never leave a test booking behind
       if (bookingId) {
@@ -48,6 +49,41 @@ test.describe('Booking under race conditions', () => {
         expect(owners.some((response) => response.ok())).toBeTruthy()
       }
       await Promise.all(apis.map((api) => api.dispose()))
+    }
+  })
+
+  test('a customer sees their selected slot flash red when someone else books it', async ({ page }) => {
+    const otherApi = await loggedInApi(CUSTOMERS[1])
+    let bookingId = null
+
+    try {
+      const companyId = await findCompanyId(otherApi, BUSINESS_COMPANY)
+      const timeslots = await (await otherApi.get(`/companies/${companyId}/timeslots`)).json()
+      const freeSlot = timeslots.find((slot) => !slot.taken)
+      expect(freeSlot).toBeTruthy()
+
+      await login(page, USERS.customer)
+      await openCompany(page, BUSINESS_COMPANY)
+      const slot = page.getByTestId(`slot-${freeSlot._id}`)
+      await slot.click()
+      await expect(page.getByRole('button', { name: 'Confirm booking' })).toBeVisible()
+
+      const response = await otherApi.post('/bookings', { data: { timeslotId: freeSlot._id } })
+      expect(response.status()).toBe(201)
+      bookingId = (await response.json())._id
+
+      // the grid polls every second, so the change must show within 2 s
+      await expect(slot).toHaveClass(/slot-flash/, { timeout: 2000 })
+      await expect(page.locator('.alert-warning')).toHaveText(TAKEN_MESSAGE, { timeout: 2000 })
+      await expect(slot).toHaveAttribute('title', 'Taken')
+      await expect(page.getByRole('button', { name: 'Confirm booking' })).toBeHidden()
+    } finally {
+      // the database is shared, so never leave a test booking behind
+      if (bookingId) {
+        const cancelled = await otherApi.delete(`/bookings/${bookingId}`)
+        expect(cancelled.ok()).toBeTruthy()
+      }
+      await otherApi.dispose()
     }
   })
 

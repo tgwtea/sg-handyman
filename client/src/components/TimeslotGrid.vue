@@ -11,6 +11,9 @@ const props = defineProps({
 })
 
 const POLL_MS = 1000
+const FLASH_MS = 1500
+// same text as server/controllers/booking-controller.js
+const TAKEN_MESSAGE = 'Someone else just booked this slot. Pick another one.'
 
 const auth = useAuthStore()
 const route = useRoute()
@@ -22,9 +25,17 @@ const selectedId = ref(null)
 const service = ref('')
 const submitting = ref(false)
 const confirming = ref(null) // null | 'book' | 'cancel'
+const flashId = ref(null) // slot that flashes red after someone else takes it
 
 let timer = null
+let flashTimer = null
 let inFlight = false
+
+function flash(id) {
+  clearTimeout(flashTimer)
+  flashId.value = id
+  flashTimer = setTimeout(() => { flashId.value = null }, FLASH_MS)
+}
 
 async function loadTimeslots() {
   // skip a tick while the last request is still open, so slow responses do not pile up
@@ -34,6 +45,14 @@ async function loadTimeslots() {
     const response = await api.get(`/companies/${props.companyId}/timeslots`)
     timeslots.value = response.data
     loadError.value = ''
+
+    const current = response.data.find((slot) => slot._id === selectedId.value)
+    if (current?.taken && !current.mine) {
+      flash(current._id)
+      message.value = { type: 'warning', text: TAKEN_MESSAGE }
+      selectedId.value = null
+      confirming.value = null
+    }
   } catch (error) {
     loadError.value = errorMessage(error)
   } finally {
@@ -48,6 +67,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   clearInterval(timer)
+  clearTimeout(flashTimer)
 })
 
 const days = computed(() => {
@@ -89,6 +109,7 @@ async function book() {
     await api.post('/bookings', { timeslotId: selectedId.value, service: service.value })
     message.value = { type: 'success', text: `Booked ${formatDay(selected.value.start)}, ${formatTime(selected.value.start)}.` }
   } catch (error) {
+    if (error.response?.status === 409) flash(selectedId.value)
     message.value = { type: 'danger', text: errorMessage(error) }
   } finally {
     selectedId.value = null
@@ -118,10 +139,16 @@ async function cancel() {
   <section class="mt-4">
     <h3>Available timeslots</h3>
     <p class="text-body-secondary small mb-2">
-      Singapore time. Updates every second.
+      Singapore time.
       <span class="badge text-bg-success">free</span>
       <span class="badge text-bg-secondary">taken</span>
       <span class="badge text-bg-primary">yours</span>
+    </p>
+
+    <p class="small mb-2 d-flex align-items-center gap-2" role="status" data-testid="live-indicator">
+      <span :class="['live-dot', 'rounded-circle', loadError ? 'bg-secondary' : 'bg-success live-dot-pulse']"></span>
+      <template v-if="loadError">Reconnecting…</template>
+      <template v-else><span class="fw-semibold text-success">Live</span> updates every second</template>
     </p>
 
     <div v-if="loadError" class="alert alert-warning py-2">Could not refresh timeslots: {{ loadError }}</div>
@@ -138,7 +165,7 @@ async function cancel() {
             :key="slot._id"
             :data-testid="`slot-${slot._id}`"
             type="button"
-            :class="['btn', 'btn-sm', slotClass(slot)]"
+            :class="['btn', 'btn-sm', slotClass(slot), { 'slot-flash': slot._id === flashId }]"
             :disabled="(slot.taken && !slot.mine) || !auth.isLoggedIn || auth.user.role !== 'customer'"
             :title="slot.mine ? `Your booking: ${slot.service}` : slot.taken ? 'Taken' : 'Free'"
             @click="selectSlot(slot)"
@@ -192,3 +219,45 @@ async function cancel() {
     </div>
   </section>
 </template>
+
+<style scoped>
+.live-dot {
+  display: inline-block;
+  width: 0.6rem;
+  height: 0.6rem;
+}
+
+.live-dot-pulse {
+  animation: live-pulse 1s ease-in-out infinite;
+}
+
+@keyframes live-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(var(--bs-success-rgb), 0.6); }
+  50% { box-shadow: 0 0 0 0.35rem rgba(var(--bs-success-rgb), 0); }
+}
+
+/* a taken slot is disabled, and Bootstrap fades disabled buttons; keep the red fully visible */
+.slot-flash {
+  opacity: 1;
+  animation: slot-flash 0.5s ease-in-out 3;
+}
+
+@keyframes slot-flash {
+  0%, 100% { background-color: var(--bs-danger); border-color: var(--bs-danger); color: #fff; }
+  50% { background-color: transparent; border-color: var(--bs-danger); color: var(--bs-danger); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-dot-pulse {
+    animation: none;
+  }
+
+  /* .btn.slot-flash outranks Bootstrap's .btn:disabled background */
+  .btn.slot-flash {
+    animation: none;
+    background-color: var(--bs-danger);
+    border-color: var(--bs-danger);
+    color: #fff;
+  }
+}
+</style>
