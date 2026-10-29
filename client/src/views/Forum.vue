@@ -32,12 +32,25 @@ const popularCategories = [
 ]
 
 const filteredPosts = computed(() => {
+  const lcSearchTerm = searchTerm.value.toLowerCase() // Searched text in searchbar 
+  const lcCategory = selectedCategory.value.toLowerCase() // Selected category 
+
+  if (searchTerm.value.length === 0 && selectedCategory.value.length === 0) {
+    return posts.value
+  }
+
   return posts.value.filter(post => {
-    const replyText = post.replies.map(reply => reply.content).join(' ')
-    const postText = `${post.title} ${post.category} ${post.content} ${replyText}`.toLowerCase()
-    const matchesSearch = postText.includes(searchTerm.value.toLowerCase())
-    const matchesCategory = !selectedCategory.value ||
-      postText.includes(selectedCategory.value.toLowerCase())
+    let postText = post.title + ' ' + post.category + ' ' + post.content //make all the post data into a string 
+
+    for (const reply of post.replies) {
+      postText = postText + ' ' + reply.content
+    } // add the replies into the post's string 
+
+    postText = postText.toLowerCase()
+
+    const matchesSearch = postText.includes(lcSearchTerm) // check if each post and replies contains what the user searched 
+    const postCategory = (post.category || '').toLowerCase()
+    const matchesCategory = lcCategory.length === 0 || postCategory === lcCategory
 
     return matchesSearch && matchesCategory
   })
@@ -75,15 +88,6 @@ function showAllPosts() {
   selectedCategory.value = ''
   searchInput.value = ''
   searchTerm.value = ''
-}
-
-// Selects or clears the category for the new post.
-function choosePostCategory(categoryName) {
-  if (category.value === categoryName) {
-    category.value = ''
-  } else {
-    category.value = categoryName
-  }
 }
 
 // Checks whether the signed-in user can edit this post or reply.
@@ -148,6 +152,11 @@ function editPost(post) {
 // Creates a post or saves changes, then reloads the posts.
 async function savePost() {
   message.value = ''
+
+  if (!category.value) {
+    message.value = 'Please choose a category.'
+    return
+  }
 
   const post = {
     title: title.value,
@@ -296,18 +305,21 @@ function formatDate(date) {
         />
 
         <label id="post-category-label">Category</label>
-        <div class="category-options" role="group" aria-labelledby="post-category-label">
-          <button
+        <div class="category-radio-options" role="radiogroup" aria-labelledby="post-category-label">
+          <label
             v-for="popularCategory in popularCategories"
             :key="popularCategory"
-            type="button"
-            class="btn btn-light"
-            :class="{ 'active-category': category === popularCategory }"
-            :aria-pressed="category === popularCategory"
-            @click="choosePostCategory(popularCategory)"
+            class="category-radio-option"
           >
+            <input
+              v-model="category"
+              type="radio"
+              name="post-category"
+              :value="popularCategory"
+              required
+            />
             {{ popularCategory }}
-          </button>
+          </label>
         </div>
 
         <label for="post-content">Details</label>
@@ -666,7 +678,7 @@ function formatDate(date) {
 }
 
 .popular-searches,
-.category-options {
+.category-radio-options {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -677,15 +689,34 @@ function formatDate(date) {
   margin-top: 0;
 }
 
-.popular-searches .btn,
-.category-options .btn {
+.popular-searches .btn {
   margin: 0;
   border-radius: 20px;
 }
 
-.popular-searches .active-category,
-.category-options .active-category {
+.popular-searches .active-category {
   background: #fbd000;
+}
+
+.post-form .category-radio-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 8px 12px;
+  border: 2px solid #1a1a2e;
+  border-radius: 20px;
+  background: white;
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.category-radio-option input[type='radio'] {
+  display: inline-block;
+  width: auto;
+  margin: 0;
+  padding: 0;
 }
 
 form label {
