@@ -1,7 +1,7 @@
 <script setup>
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import PixelMascot from './PixelMascot.vue'
+import BrandIcon from './BrandIcon.vue'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -13,11 +13,11 @@ async function logout() {
 </script>
 
 <template>
-  <nav class="navbar navbar-expand-lg app-nav" data-bs-theme="dark">
+  <nav class="navbar navbar-expand-lg app-nav">
     <div class="container">
       <RouterLink class="navbar-brand d-flex align-items-center gap-2" to="/">
         <span class="brand-icon">
-          <PixelMascot :size="30" />
+          <BrandIcon :size="24" />
         </span>
         <span class="brand-text">SG HANDYMAN</span>
       </RouterLink>
@@ -65,7 +65,7 @@ async function logout() {
         </div>
         <div v-else class="d-flex flex-wrap gap-2">
           <RouterLink class="btn btn-ghost" to="/login">Log in</RouterLink>
-          <button class="btn btn-primary" type="button">Sign up</button>
+          <button class="btn btn-accent" type="button">Sign up</button>
         </div>
       </div>
     </div>
@@ -74,81 +74,73 @@ async function logout() {
 
 <style scoped>
 .app-nav {
-  background: var(--red);
-  border-bottom: 4px solid var(--ink);
+  background: var(--surface);
+  border-bottom: var(--line);
+  box-shadow: var(--shadow-sm);
 }
 
 .brand-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
-  background: var(--sky);
-  border: var(--line);
+  width: 40px;
+  height: 40px;
+  background: var(--primary);
+  color: var(--surface);
   border-radius: var(--radius);
 }
 
 .brand-text {
   font-family: var(--font-display);
-  font-size: 1.5rem;
-  letter-spacing: 1px;
-  color: var(--white);
-  text-shadow: 2px 2px 0 var(--ink);
+  font-size: 1.3rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: var(--ink);
 }
 
 .nav-link {
   font-family: var(--font-display);
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 600;
-  color: var(--white);
+  color: var(--ink-muted);
   padding: 0.4rem 0.9rem !important;
-  border: 3px solid transparent;
-  border-radius: var(--radius);
-  transition: transform 0.12s ease;
+  border-radius: 999px;
+  transition: color 0.12s ease-out, background-color 0.12s ease-out;
 }
 
 .nav-link:hover {
-  color: var(--coin);
-  transform: translateY(-2px);
+  color: var(--primary);
 }
 
-/* active page: a coin-yellow chip */
+/* active page: a soft blue pill */
 .nav-link.active {
-  color: var(--ink) !important;
-  background: var(--coin);
-  border-color: var(--ink);
-  box-shadow: var(--shadow-sm);
+  color: var(--primary-dark) !important;
+  background: var(--primary-soft);
 }
 
 .navbar-toggler {
   border: var(--line);
-  background: var(--coin);
-}
-
-.navbar-toggler-icon {
-  filter: invert(1);
 }
 
 .btn-ghost {
-  --bs-btn-color: var(--white);
+  --bs-btn-color: var(--primary);
   --bs-btn-bg: transparent;
-  --bs-btn-border-color: var(--white);
-  --bs-btn-hover-color: var(--ink);
-  --bs-btn-hover-bg: var(--white);
-  --bs-btn-hover-border-color: var(--ink);
-  --bs-btn-active-color: var(--ink);
-  --bs-btn-active-bg: var(--cream);
+  --bs-btn-border-color: transparent;
+  --bs-btn-hover-color: var(--primary-dark);
+  --bs-btn-hover-bg: var(--primary-soft);
+  --bs-btn-hover-border-color: transparent;
+  --bs-btn-active-color: var(--primary-dark);
+  --bs-btn-active-bg: var(--primary-soft);
   box-shadow: none;
 }
 
 .user-chip {
   padding: 0.35rem 0.8rem;
-  background: var(--white);
+  background: var(--bg);
   color: var(--ink);
   border: var(--line);
   border-radius: 999px;
-  font-weight: 800;
+  font-weight: 700;
   font-size: 0.9rem;
 }
 </style>

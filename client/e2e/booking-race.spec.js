@@ -1,5 +1,5 @@
 import { test, expect, request } from '@playwright/test'
-import { API_URL, TEST_PASSWORD, BUSINESS_COMPANY, USERS, login, openCompany } from './helpers.js'
+import { API_URL, TEST_PASSWORD, BUSINESS_COMPANY, USERS, login, openCompany, createFreeSlot } from './helpers.js'
 
 const CUSTOMERS = ['test-customer-1', 'test-customer-2']
 const TAKEN_MESSAGE = 'Someone else just booked this slot. Pick another one.'
@@ -22,13 +22,11 @@ async function findCompanyId(api, companyName) {
 test.describe('Booking under race conditions', () => {
   test('two customers book the same slot at once: only one gets it', async () => {
     const apis = await Promise.all(CUSTOMERS.map(loggedInApi))
+    const created = await createFreeSlot()
+    const freeSlot = created.slot
     let bookingId = null
 
     try {
-      const companyId = await findCompanyId(apis[0], BUSINESS_COMPANY)
-      const timeslots = await (await apis[0].get(`/companies/${companyId}/timeslots`)).json()
-      const freeSlot = timeslots.find((slot) => !slot.taken)
-      expect(freeSlot).toBeTruthy()
 
       // both requests leave together, so neither sees the other's booking first
       const responses = await Promise.all(apis.map((api) =>
@@ -48,19 +46,18 @@ test.describe('Booking under race conditions', () => {
         const owners = await Promise.all(apis.map((api) => api.delete(`/bookings/${bookingId}`)))
         expect(owners.some((response) => response.ok())).toBeTruthy()
       }
+      await created.remove()
       await Promise.all(apis.map((api) => api.dispose()))
     }
   })
 
   test('a customer sees their selected slot flash red when someone else books it', async ({ page }) => {
     const otherApi = await loggedInApi(CUSTOMERS[1])
+    const created = await createFreeSlot()
+    const freeSlot = created.slot
     let bookingId = null
 
     try {
-      const companyId = await findCompanyId(otherApi, BUSINESS_COMPANY)
-      const timeslots = await (await otherApi.get(`/companies/${companyId}/timeslots`)).json()
-      const freeSlot = timeslots.find((slot) => !slot.taken)
-      expect(freeSlot).toBeTruthy()
 
       await login(page, USERS.customer)
       await openCompany(page, BUSINESS_COMPANY)
@@ -83,12 +80,14 @@ test.describe('Booking under race conditions', () => {
         const cancelled = await otherApi.delete(`/bookings/${bookingId}`)
         expect(cancelled.ok()).toBeTruthy()
       }
+      await created.remove()
       await otherApi.dispose()
     }
   })
 
   test('next-free lists each company\'s earliest free slot in the future', async () => {
     const api = await request.newContext({ baseURL: API_URL })
+    const created = await createFreeSlot()
     try {
       const response = await api.get('/timeslots/next-free')
       expect(response.ok()).toBeTruthy()
@@ -102,6 +101,7 @@ test.describe('Booking under race conditions', () => {
       const companyId = await findCompanyId(api, BUSINESS_COMPANY)
       expect(nextFree.map((entry) => entry.companyId)).toContain(companyId)
     } finally {
+      await created.remove()
       await api.dispose()
     }
   })
