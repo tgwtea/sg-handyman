@@ -145,12 +145,6 @@ async function cancel() {
       <span class="badge text-bg-primary">yours</span>
     </p>
 
-    <p class="small mb-2 d-flex align-items-center gap-2" role="status" data-testid="live-indicator">
-      <span :class="['live-dot', 'rounded-circle', loadError ? 'bg-secondary' : 'bg-success live-dot-pulse']"></span>
-      <template v-if="loadError">Reconnecting…</template>
-      <template v-else><span class="fw-semibold text-success">Live</span> updates every second</template>
-    </p>
-
     <div v-if="loadError" class="alert alert-warning py-2">Could not refresh timeslots: {{ loadError }}</div>
     <div v-if="message" :class="['alert', `alert-${message.type}`, 'py-2']">{{ message.text }}</div>
 
@@ -221,20 +215,6 @@ async function cancel() {
 </template>
 
 <style scoped>
-.live-dot {
-  display: inline-block;
-  width: 0.6rem;
-  height: 0.6rem;
-}
-
-.live-dot-pulse {
-  animation: live-pulse 1s ease-in-out infinite;
-}
-
-@keyframes live-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(var(--bs-success-rgb), 0.6); }
-  50% { box-shadow: 0 0 0 0.35rem rgba(var(--bs-success-rgb), 0); }
-}
 
 /* a taken slot is disabled, and Bootstrap fades disabled buttons; keep the red fully visible */
 .slot-flash {
@@ -248,9 +228,6 @@ async function cancel() {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .live-dot-pulse {
-    animation: none;
-  }
 
   /* .btn.slot-flash outranks Bootstrap's .btn:disabled background */
   .btn.slot-flash {
