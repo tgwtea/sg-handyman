@@ -53,6 +53,14 @@ reviewModel.findReviewsByCompanyId = function(companyId) {
     .sort({ createdAt: -1 });
 };
 
+// [{ companyId, average, count }]: one row per company that has reviews
+reviewModel.findReviewSummaries = function() {
+  return Review.aggregate([
+    { $group: { _id: '$companyId', average: { $avg: '$rating' }, count: { $sum: 1 } } },
+    { $project: { _id: 0, companyId: '$_id', average: 1, count: 1 } }
+  ]);
+};
+
 reviewModel.findReviewById = function(reviewId) {
   return Review.findById(reviewId);
 };

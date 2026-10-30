@@ -18,6 +18,16 @@ function validateReview(rating, comment) {
   return null;
 }
 
+reviewController.getReviewSummaries = async (req, res) => {
+  try {
+    const summaries = await Review.findReviewSummaries();
+    res.send(summaries);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ message: 'Failed to load review summaries' });
+  }
+};
+
 reviewController.getCompanyReviews = async (req, res) => {
   try {
     const { companyId } = req.params;

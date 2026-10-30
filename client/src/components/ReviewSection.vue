@@ -18,7 +18,8 @@ const message = ref(null) // { type: 'success' | 'danger', text }
 const submitting = ref(false)
 
 // one form for both a new review and an edit
-const form = ref({ bookingId: '', rating: 5, comment: '' })
+const form = ref({ bookingId: '', rating: 0, comment: '' })
+const hoverRating = ref(0) // star under the mouse, 0 when there is none
 const editingId = ref(null)
 const deletingId = ref(null) // review waiting for the delete confirmation
 const showForm = computed(() => reviewableBookings.value.length > 0 || editingId.value !== null)
@@ -33,13 +34,19 @@ function stars(rating) {
   return '★'.repeat(rating) + '☆'.repeat(5 - rating)
 }
 
-function formatDate(date) {
-  return new Date(date).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' })
+// hovering previews a rating in pale yellow; a chosen rating is solid yellow
+function starClass(n) {
+  if (hoverRating.value) return n <= hoverRating.value ? 'star-preview' : ''
+  return n <= form.value.rating ? 'star-filled' : ''
 }
 
-// e.g. "✓ Booked: Aircon servicing"
-function bookingLabel(booking) {
-  return booking.service ? `✓ Booked: ${booking.service}` : '✓ Booked this company'
+function selectRating(n) {
+  form.value.rating = n
+  hoverRating.value = 0
+}
+
+function formatDate(date) {
+  return new Date(date).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 // e.g. "Aircon Servicing (Fri, 13 Nov)"; the date separates two bookings of one service
@@ -72,7 +79,7 @@ function startEdit(review) {
 
 function resetForm() {
   editingId.value = null
-  form.value = { ...form.value, rating: 5, comment: '' }
+  form.value = { ...form.value, rating: 0, comment: '' }
 }
 
 async function submitReview() {
@@ -119,10 +126,13 @@ watch(() => auth.user?._id, loadReviews, { immediate: true })
     <h3>Reviews</h3>
         <p class="small text-muted mb-2">Only customers who book this company on SG Handyman can leave a review.</p>
 
-    <p v-if="reviews.length" class="text-muted">
-      <span class="text-warning">{{ stars(Math.round(average)) }}</span>
-      {{ average.toFixed(1) }} from {{ reviews.length }} review{{ reviews.length === 1 ? '' : 's' }}
-    </p>
+    <div v-if="reviews.length" class="mb-2">
+      <div class="fs-5 text-muted">
+        <strong class="text-body">{{ average.toFixed(1) }} stars</strong>
+        from {{ reviews.length }} review{{ reviews.length === 1 ? '' : 's' }}
+      </div>
+      <div class="fs-5 text-warning" :aria-label="`${average.toFixed(1)} out of 5 stars`">{{ stars(Math.round(average)) }}</div>
+    </div>
 
     <p v-if="loadError" class="text-danger">{{ loadError }}</p>
     <div v-if="message" :class="`alert alert-${message.type}`" role="status">{{ message.text }}</div>
@@ -138,17 +148,27 @@ watch(() => auth.user?._id, loadReviews, { immediate: true })
       </div>
 
       <div class="mb-3">
-        <label for="review-rating" class="form-label">Rating</label>
-        <select id="review-rating" v-model.number="form.rating" class="form-select">
-          <option v-for="n in [5, 4, 3, 2, 1]" :key="n" :value="n">{{ stars(n) }} ({{ n }})</option>
-        </select>
+        <span id="review-rating" class="form-label d-block">Rating</span>
+        <div class="d-inline-flex" role="radiogroup" aria-labelledby="review-rating" @mouseleave="hoverRating = 0">
+          <button
+            v-for="n in 5"
+            :key="n"
+            type="button"
+            role="radio"
+            :aria-checked="form.rating === n"
+            :aria-label="`${n} out of 5 stars`"
+            :class="['star-button', starClass(n)]"
+            @mouseenter="hoverRating = n"
+            @click="selectRating(n)"
+          >{{ starClass(n) ? '★' : '☆' }}</button>
+        </div>
       </div>
       <div class="mb-3">
         <label for="review-comment" class="form-label">Comment</label>
         <textarea id="review-comment" v-model.trim="form.comment" class="form-control" rows="3" maxlength="1000"></textarea>
       </div>
       <div class="d-flex gap-2">
-        <button type="submit" class="btn btn-primary" :disabled="submitting">
+        <button type="submit" class="btn btn-primary" :disabled="submitting || !form.rating">
           {{ editingId ? 'Save' : 'Post review' }}
         </button>
         <button v-if="editingId" type="button" class="btn btn-outline-secondary" @click="resetForm">Cancel</button>
@@ -171,9 +191,7 @@ watch(() => auth.user?._id, loadReviews, { immediate: true })
         <div class="d-flex justify-content-between align-items-start">
           <div>
             <strong>{{ review.username }}</strong>
-            <div v-if="review.booking" class="my-1">
-              <span class="badge text-bg-success">{{ bookingLabel(review.booking) }}</span>
-            </div>            
+            <div v-if="review.booking?.service" class="small text-muted">Service: {{ review.booking.service }}</div>
             <div class="text-warning" :aria-label="`${review.rating} out of 5 stars`">{{ stars(review.rating) }}</div>
           </div>
           <small class="text-muted">{{ formatDate(review.createdAt) }}</small>
@@ -196,3 +214,24 @@ watch(() => auth.user?._id, loadReviews, { immediate: true })
     </ul>
   </section>
 </template>
+
+<style scoped>
+.star-button {
+  padding: 0 0.15rem;
+  border: 0;
+  background: none;
+  color: var(--bs-secondary-color);
+  font-size: 2rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.star-filled {
+  color: var(--bs-warning);
+}
+
+.star-preview {
+  color: var(--bs-warning);
+  opacity: 0.45;
+}
+</style>

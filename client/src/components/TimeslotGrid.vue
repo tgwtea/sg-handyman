@@ -196,6 +196,7 @@ async function cancel() {
           <div v-if="confirming === 'cancel'">
             <p class="card-text">
               Cancel your {{ selected.service }} booking on {{ formatDay(selected.start) }}, {{ formatTime(selected.start) }}?
+              Any review you left for it will also be deleted.
             </p>
             <div class="d-flex gap-2">
               <button class="btn btn-danger" :disabled="submitting" @click="cancel">Yes, cancel it</button>
