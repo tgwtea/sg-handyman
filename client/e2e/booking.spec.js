@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { login, openCompany, USERS, API_URL, BUSINESS_COMPANY } from './helpers.js'
+import { login, openCompany, createFreeSlot, USERS, API_URL, BUSINESS_COMPANY } from './helpers.js'
 
 test.describe('Booking a timeslot', () => {
   test('a logged-out visitor is asked to log in before booking', async ({ page }) => {
@@ -11,6 +11,7 @@ test.describe('Booking a timeslot', () => {
   })
 
   test('a customer books a free slot, then cancels it', async ({ page }) => {
+    const created = await createFreeSlot()
     // the booking id from the API, so the finally block can clean up if the test fails midway
     let bookingId = null
     page.on('response', async (response) => {
@@ -23,11 +24,9 @@ test.describe('Booking a timeslot', () => {
       await login(page, USERS.customer)
       await openCompany(page, BUSINESS_COMPANY)
 
-      // pick the first free slot and remember it by its test id
-      const freeSlot = page.getByTitle('Free').first()
-      await expect(freeSlot).toBeEnabled()
-      const slotTestId = await freeSlot.getAttribute('data-testid')
-      const slot = page.getByTestId(slotTestId)
+      // the slot this test created, found by its test id
+      const slot = page.getByTestId(`slot-${created.slot._id}`)
+      await expect(slot).toBeEnabled()
 
       await slot.click()
 
@@ -59,6 +58,7 @@ test.describe('Booking a timeslot', () => {
       if (bookingId) {
         await page.request.delete(`${API_URL}/bookings/${bookingId}`)
       }
+      await created.remove()
     }
   })
 })

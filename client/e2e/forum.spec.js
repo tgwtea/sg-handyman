@@ -18,7 +18,7 @@ test.describe('DIY Forum', () => {
       await page.goto('/forum')
 
       await page.getByLabel('Title').fill(title)
-      await page.getByLabel('Category').fill('testing')
+      await page.getByRole('radio', { name: 'Others' }).check()
       await page.getByLabel('Details').fill('Created by an automated Playwright test. It deletes itself.')
       await page.getByRole('button', { name: 'Create post' }).click()
 
@@ -26,9 +26,9 @@ test.describe('DIY Forum', () => {
       const post = page.locator('article').filter({ has: page.getByRole('heading', { name: title }) })
       await expect(post).toBeVisible()
 
-      // the delete button asks for confirmation in a browser dialog
-      page.once('dialog', (dialog) => dialog.accept())
+      // the delete button opens a confirmation dialog on the page
       await post.getByRole('button', { name: 'Delete post' }).click()
+      await page.getByRole('alertdialog').getByRole('button', { name: 'Yes, Delete Post' }).click()
 
       await expect(page.getByRole('status')).toHaveText('Post deleted.')
       await expect(post).toHaveCount(0)
@@ -52,6 +52,7 @@ test.describe('DIY Forum', () => {
       await page.goto('/forum')
 
       await page.getByLabel('Title').fill(title)
+      await page.getByRole('radio', { name: 'Others' }).check()
       await page.getByLabel('Details').fill('Post for testing replies.')
       await page.getByRole('button', { name: 'Create post' }).click()
 
@@ -83,6 +84,7 @@ test.describe('DIY Forum', () => {
       await page.goto('/forum')
 
       await page.getByLabel('Title').fill(title)
+      await page.getByRole('radio', { name: 'Others' }).check()
       await page.getByLabel('Details').fill('Post for testing edits.')
       await page.getByRole('button', { name: 'Create post' }).click()
 
@@ -126,6 +128,7 @@ test.describe('DIY Forum', () => {
       await page.goto('/forum')
 
       await page.getByLabel('Title').fill(title)
+      await page.getByRole('radio', { name: 'Others' }).check()
       await page.getByLabel('Details').fill('Post for testing permissions.')
       await page.getByRole('button', { name: 'Create post' }).click()
 
@@ -192,6 +195,7 @@ test.describe('DIY Forum', () => {
       await page.goto('/forum')
 
       await page.getByLabel('Title').fill(title)
+      await page.getByRole('radio', { name: 'Others' }).check()
       await page.getByLabel('Details').fill('Post for testing likes.')
       await page.getByRole('button', { name: 'Create post' }).click()
 
