@@ -3,6 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import api, { errorMessage } from '@/api'
 import { useAuthStore } from '@/stores/auth'
+import { formatDay } from '@/utils/sgTime'
 
 const props = defineProps({
   companyId: { type: String, required: true },
@@ -11,16 +12,17 @@ const auth = useAuthStore()
 const route = useRoute()
 const reviews = ref([])
 const hasBooking = ref(false)
-const canReview = ref(false)
+const reviewableBookings = ref([])
 const loadError = ref('')
 const message = ref(null) // { type: 'success' | 'danger', text }
 const submitting = ref(false)
 
 // one form for both a new review and an edit
-const form = ref({ rating: 5, comment: '' })
+const form = ref({ bookingId: '', rating: 0, comment: '' })
+const hoverRating = ref(0) // star under the mouse, 0 when there is none
 const editingId = ref(null)
 const deletingId = ref(null) // review waiting for the delete confirmation
-const showForm = computed(() => canReview.value || editingId.value !== null)
+const showForm = computed(() => reviewableBookings.value.length > 0 || editingId.value !== null)
 
 const average = computed(() => {
   if (reviews.value.length === 0) return 0
@@ -32,13 +34,25 @@ function stars(rating) {
   return '★'.repeat(rating) + '☆'.repeat(5 - rating)
 }
 
+// hovering previews a rating in pale yellow; a chosen rating is solid yellow
+function starClass(n) {
+  if (hoverRating.value) return n <= hoverRating.value ? 'star-preview' : ''
+  return n <= form.value.rating ? 'star-filled' : ''
+}
+
+function selectRating(n) {
+  form.value.rating = n
+  hoverRating.value = 0
+}
+
 function formatDate(date) {
   return new Date(date).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-// e.g. "✓ Booked: Aircon servicing"
-function bookingLabel(booking) {
-  return booking.service ? `✓ Booked: ${booking.service}` : '✓ Booked this company'
+// e.g. "Aircon Servicing (Fri, 13 Nov)"; the date separates two bookings of one service
+function bookingOption(booking) {
+  const service = booking.service || 'Booking'
+  return booking.start ? `${service} (${formatDay(booking.start)})` : service
 }
 
 async function loadReviews() {
@@ -46,7 +60,11 @@ async function loadReviews() {
     const response = await api.get(`/reviews/company/${props.companyId}`)
     reviews.value = response.data.reviews
     hasBooking.value = response.data.hasBooking
-    canReview.value = response.data.canReview
+    reviewableBookings.value = response.data.reviewableBookings
+    // keep the chosen booking if it is still open, otherwise pick the first one
+    if (!reviewableBookings.value.some((booking) => booking._id === form.value.bookingId)) {
+      form.value.bookingId = reviewableBookings.value[0]?._id ?? ''
+    }
     loadError.value = ''
   } catch (error) {
     loadError.value = errorMessage(error)
@@ -55,13 +73,13 @@ async function loadReviews() {
 
 function startEdit(review) {
   editingId.value = review._id
-  form.value = { rating: review.rating, comment: review.comment }
+  form.value = { ...form.value, rating: review.rating, comment: review.comment }
   message.value = null
 }
 
 function resetForm() {
   editingId.value = null
-  form.value = { rating: 5, comment: '' }
+  form.value = { ...form.value, rating: 0, comment: '' }
 }
 
 async function submitReview() {
@@ -108,28 +126,49 @@ watch(() => auth.user?._id, loadReviews, { immediate: true })
     <h3>Reviews</h3>
         <p class="small text-muted mb-2">Only customers who book this company on SG Handyman can leave a review.</p>
 
-    <p v-if="reviews.length" class="text-muted">
-      <span class="text-warning">{{ stars(Math.round(average)) }}</span>
-      {{ average.toFixed(1) }} from {{ reviews.length }} review{{ reviews.length === 1 ? '' : 's' }}
-    </p>
+    <div v-if="reviews.length" class="mb-2">
+      <div class="fs-5 text-muted">
+        <strong class="text-body">{{ average.toFixed(1) }} stars</strong>
+        from {{ reviews.length }} review{{ reviews.length === 1 ? '' : 's' }}
+      </div>
+      <div class="fs-5 text-warning" :aria-label="`${average.toFixed(1)} out of 5 stars`">{{ stars(Math.round(average)) }}</div>
+    </div>
 
     <p v-if="loadError" class="text-danger">{{ loadError }}</p>
     <div v-if="message" :class="`alert alert-${message.type}`" role="status">{{ message.text }}</div>
 
     <form v-if="showForm" @submit.prevent="submitReview" class="card card-body mb-4" style="max-width: 32rem">
       <h4 class="h5">{{ editingId ? 'Edit your review' : 'Write a review' }}</h4>
-      <div class="mb-3">
-        <label for="review-rating" class="form-label">Rating</label>
-        <select id="review-rating" v-model.number="form.rating" class="form-select">
-          <option v-for="n in [5, 4, 3, 2, 1]" :key="n" :value="n">{{ stars(n) }} ({{ n }})</option>
+      
+      <div v-if="!editingId" class="mb-3">
+        <label for="review-booking" class="form-label">Booking</label>
+        <select id="review-booking" v-model="form.bookingId" class="form-select" required>
+          <option v-for="booking in reviewableBookings" :key="booking._id" :value="booking._id">{{ bookingOption(booking) }}</option>
         </select>
+      </div>
+
+      <div class="mb-3">
+        <span id="review-rating" class="form-label d-block">Rating</span>
+        <div class="d-inline-flex" role="radiogroup" aria-labelledby="review-rating" @mouseleave="hoverRating = 0">
+          <button
+            v-for="n in 5"
+            :key="n"
+            type="button"
+            role="radio"
+            :aria-checked="form.rating === n"
+            :aria-label="`${n} out of 5 stars`"
+            :class="['star-button', starClass(n)]"
+            @mouseenter="hoverRating = n"
+            @click="selectRating(n)"
+          >{{ starClass(n) ? '★' : '☆' }}</button>
+        </div>
       </div>
       <div class="mb-3">
         <label for="review-comment" class="form-label">Comment</label>
         <textarea id="review-comment" v-model.trim="form.comment" class="form-control" rows="3" maxlength="1000"></textarea>
       </div>
       <div class="d-flex gap-2">
-        <button type="submit" class="btn btn-primary" :disabled="submitting">
+        <button type="submit" class="btn btn-primary" :disabled="submitting || !form.rating">
           {{ editingId ? 'Save' : 'Post review' }}
         </button>
         <button v-if="editingId" type="button" class="btn btn-outline-secondary" @click="resetForm">Cancel</button>
@@ -152,9 +191,7 @@ watch(() => auth.user?._id, loadReviews, { immediate: true })
         <div class="d-flex justify-content-between align-items-start">
           <div>
             <strong>{{ review.username }}</strong>
-            <div v-if="review.booking" class="my-1">
-              <span class="badge text-bg-success">{{ bookingLabel(review.booking) }}</span>
-            </div>            
+            <div v-if="review.booking?.service" class="small text-muted">Service: {{ review.booking.service }}</div>
             <div class="text-warning" :aria-label="`${review.rating} out of 5 stars`">{{ stars(review.rating) }}</div>
           </div>
           <small class="text-muted">{{ formatDate(review.createdAt) }}</small>
@@ -177,3 +214,24 @@ watch(() => auth.user?._id, loadReviews, { immediate: true })
     </ul>
   </section>
 </template>
+
+<style scoped>
+.star-button {
+  padding: 0 0.15rem;
+  border: 0;
+  background: none;
+  color: var(--bs-secondary-color);
+  font-size: 2rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.star-filled {
+  color: var(--bs-warning);
+}
+
+.star-preview {
+  color: var(--bs-warning);
+  opacity: 0.45;
+}
+</style>

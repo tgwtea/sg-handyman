@@ -122,7 +122,7 @@ watch(() => auth.user?._id, loadBookings, { immediate: true })
             <p class="mb-0 text-muted">{{ whenLabel(booking) }}</p>
 
             <div v-if="cancellingId === booking._id" class="alert alert-danger mt-3 mb-0 py-2">
-              <p class="fw-semibold mb-2">Cancel this booking? This can't be undone.</p>
+              <p class="fw-semibold mb-2">Cancel this booking? Any review you left for it will also be deleted.</p>
               <div class="d-flex gap-2">
                 <button type="button" class="btn btn-sm btn-danger" :disabled="submitting" @click="cancelBooking(booking)">Yes, cancel it</button>
                 <button type="button" class="btn btn-sm btn-outline-secondary" :disabled="submitting" @click="cancellingId = null">No, keep it</button>

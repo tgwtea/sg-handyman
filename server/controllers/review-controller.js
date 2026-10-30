@@ -5,6 +5,7 @@ import Booking from '../models/booking-model.js';
 const reviewController = {};
 
 const MAX_COMMENT_LENGTH = 1000;
+const ALREADY_REVIEWED_MESSAGE = 'You already reviewed this booking. Edit your review instead.';
 
 // returns an error message, or null when the rating and comment are valid
 function validateReview(rating, comment) {
@@ -16,6 +17,16 @@ function validateReview(rating, comment) {
   }
   return null;
 }
+
+reviewController.getReviewSummaries = async (req, res) => {
+  try {
+    const summaries = await Review.findReviewSummaries();
+    res.send(summaries);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ message: 'Failed to load review summaries' });
+  }
+};
 
 reviewController.getCompanyReviews = async (req, res) => {
   try {
@@ -29,37 +40,48 @@ reviewController.getCompanyReviews = async (req, res) => {
       Booking.findBookingsByCompanyId(companyId)
     ]);
 
-    // each user's latest booking at the company, shown on their review
+    // service and start of every booking, and each user's latest booking for seeded reviews
+    const bookingDetails = new Map();
     const latestBooking = new Map();
     for (const booking of bookings) {
       const userId = String(booking.userId);
-      const start = booking.timeslotId?.start ?? null;
+      const details = { service: booking.service, start: booking.timeslotId?.start ?? null };
+      bookingDetails.set(String(booking._id), details);
       const current = latestBooking.get(userId);
-      if (!current || (start && (!current.start || start > current.start))) {
-        latestBooking.set(userId, { service: booking.service, start });
+      if (!current || (details.start && (!current.start || details.start > current.start))) {
+        latestBooking.set(userId, details);
       }
     }
     const user = req.session.user;
 
-
     const result = reviews.map((review) => {
       const authorId = review.userId ? String(review.userId._id) : null;
+      const booking = review.bookingId ? bookingDetails.get(String(review.bookingId)) : latestBooking.get(authorId);
       return {
         _id: review._id,
         rating: review.rating,
         comment: review.comment,
         createdAt: review.createdAt,
         username: review.userId?.username ?? 'Deleted user',
-        booking: latestBooking.get(authorId) ?? null,
+        booking: booking ?? null,
         mine: !!user && authorId === user._id
       };
     });
 
-    // a customer can write a review once they have a booking, and only one review per company
-    const hasBooking = user?.role === 'customer' && latestBooking.has(user._id);
-    const canReview = hasBooking && !result.some((review) => review.mine);
+    // a customer can review each of their bookings once
+    const isCustomer = user?.role === 'customer';
+    const reviewedIds = new Set(reviews.map((review) => String(review.bookingId)));
+    const reviewableBookings = isCustomer
+      ? bookings
+        .filter((booking) => String(booking.userId) === user._id && !reviewedIds.has(String(booking._id)))
+        .map((booking) => ({ _id: booking._id, ...bookingDetails.get(String(booking._id)) }))
+      : [];
 
-    res.send({ reviews: result, hasBooking, canReview });
+    res.send({
+      reviews: result,
+      hasBooking: isCustomer && latestBooking.has(user._id),
+      reviewableBookings
+    });
   } catch (error) {
     console.error(error);
     res.status(500).send({ message: 'Failed to load reviews' });
@@ -69,8 +91,12 @@ reviewController.getCompanyReviews = async (req, res) => {
 reviewController.createReview = async (req, res) => {
   try {
     const { companyId } = req.params;
+    const { bookingId } = req.body;
     if (!mongoose.isValidObjectId(companyId)) {
       return res.status(400).send({ message: 'Invalid company id' });
+    }
+    if (!mongoose.isValidObjectId(bookingId)) {
+      return res.status(400).send({ message: 'Choose a booking to review' });
     }
 
     const rating = Number(req.body.rating);
@@ -81,16 +107,20 @@ reviewController.createReview = async (req, res) => {
     }
 
     const userId = req.session.user._id;
-    if (!await Booking.findBookingByUserAndCompany(userId, companyId)) {
-      return res.status(403).send({ message: 'Only customers who booked this company can review it' });
+    const booking = await Booking.findBookingById(bookingId);
+    if (!booking || String(booking.userId) !== userId || String(booking.companyId) !== companyId) {
+      return res.status(403).send({ message: 'You can only review your own bookings at this company' });
     }
-    if (await Review.findReviewByUserAndCompany(userId, companyId)) {
-      return res.status(409).send({ message: 'You already reviewed this company. Edit your review instead.' });
+    if (await Review.findReviewByBookingId(booking._id)) {
+      return res.status(409).send({ message: ALREADY_REVIEWED_MESSAGE });
     }
 
-    const review = await Review.createReview({ userId, companyId, rating, comment });
+    const review = await Review.createReview({ userId, companyId, bookingId: booking._id, rating, comment });
     res.status(201).send(review);
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).send({ message: ALREADY_REVIEWED_MESSAGE });
+    }
     console.error(error);
     res.status(500).send({ message: 'Failed to create review' });
   }

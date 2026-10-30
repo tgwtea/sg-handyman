@@ -67,10 +67,6 @@ bookingModel.deleteAllBookings = function() {
   return Booking.deleteMany({});
 };
 
-bookingModel.findBookingByUserAndCompany = function(userId, companyId) {
-  return Booking.findOne({ userId, companyId });
-};
-
 // every booking at the company, with the start of its timeslot
 bookingModel.findBookingsByCompanyId = function(companyId) {
   return Booking.find({ companyId }, 'userId service timeslotId')

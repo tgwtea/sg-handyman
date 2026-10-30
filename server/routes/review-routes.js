@@ -4,6 +4,7 @@ const router = express.Router();
 import reviewController from '../controllers/review-controller.js';
 import { requireLogin, requireRole } from '../middleware/auth.js';
 
+router.get('/summary', reviewController.getReviewSummaries);
 router.get('/company/:companyId', reviewController.getCompanyReviews);
 router.post('/company/:companyId', requireRole('customer'), reviewController.createReview);
 router.put('/:reviewId', requireRole('customer'), reviewController.updateReview);

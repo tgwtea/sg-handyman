@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import Booking from '../models/booking-model.js';
 import Timeslot from '../models/timeslot-model.js';
+import Review from '../models/review-model.js';
 
 const bookingController = {};
 
@@ -70,7 +71,10 @@ bookingController.cancelBooking = async (req, res) => {
       return res.status(403).send({ message: 'You cannot cancel this booking' });
     }
 
+    // a review stays verified only while its booking exists
+    await Review.deleteReviewByBookingId(booking._id);
     await Booking.deleteBookingById(booking._id);
+
     res.send({ message: 'Booking cancelled' });
   } catch (error) {
     console.error(error);
