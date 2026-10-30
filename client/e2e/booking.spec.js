@@ -2,12 +2,24 @@ import { test, expect } from '@playwright/test'
 import { login, openCompany, createFreeSlot, USERS, API_URL, BUSINESS_COMPANY } from './helpers.js'
 
 test.describe('Booking a timeslot', () => {
-  test('a logged-out visitor is asked to log in before booking', async ({ page }) => {
-    await openCompany(page, BUSINESS_COMPANY)
+  test('a logged-out visitor is asked to log in after clicking a free slot', async ({ page }) => {
+    const created = await createFreeSlot()
 
-    const prompt = page.locator('.alert-info').filter({ hasText: 'as a customer to book' })
-    await expect(prompt).toBeVisible()
-    await expect(prompt.getByRole('link', { name: 'Log in' })).toBeVisible()
+    try {
+      await openCompany(page, BUSINESS_COMPANY)
+
+      const prompt = page.locator('.alert-info').filter({ hasText: 'as a customer to book' })
+      await expect(prompt).toBeHidden()
+
+      const slot = page.getByTestId(`slot-${created.slot._id}`)
+      await expect(slot).toBeEnabled()
+      await slot.click()
+
+      await expect(prompt).toBeVisible()
+      await expect(prompt.getByRole('link', { name: 'Log in' })).toBeVisible()
+    } finally {
+      await created.remove()
+    }
   })
 
   test('a customer books a free slot, then cancels it', async ({ page }) => {
@@ -33,7 +45,7 @@ test.describe('Booking a timeslot', () => {
       // "No" closes the confirmation but keeps the slot selected
       await page.getByRole('button', { name: 'Confirm booking' }).click()
       await page.getByRole('button', { name: 'No', exact: true }).click()
-      await expect(slot).toHaveAttribute('title', 'Free')
+      await expect(slot).toHaveAttribute('title', 'Available')
 
       await page.getByRole('button', { name: 'Confirm booking' }).click()
       await page.getByRole('button', { name: 'Yes, book it' }).click()
@@ -51,7 +63,7 @@ test.describe('Booking a timeslot', () => {
       await page.getByRole('button', { name: 'Yes, cancel it' }).click()
 
       await expect(page.locator('.alert-success')).toHaveText('Booking cancelled.')
-      await expect(slot).toHaveAttribute('title', 'Free')
+      await expect(slot).toHaveAttribute('title', 'Available')
       bookingId = null
     } finally {
       // the database is shared, so never leave a test booking behind
