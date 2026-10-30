@@ -7,6 +7,7 @@ import constantUrls from '../../constants/urls.js';
 import CompanyCard from '@/components/CompanyCard.vue';
 import TimeslotGrid from '@/components/TimeslotGrid.vue';
 import TimeslotManager from '@/components/TimeslotManager.vue';
+import ReviewSection from '@/components/ReviewSection.vue';
 import { useAuthStore } from '@/stores/auth';
 import { useRoute } from 'vue-router'
 
@@ -96,6 +97,7 @@ function resetContact() {
     <TimeslotGrid :companyId="companyId" :services="serviceNames" />
   </div>
   <TimeslotManager v-if="auth.canManage(companyId)" :companyId="companyId" />
+  <ReviewSection :companyId="companyId" />
 
   <section class="mt-5">
     <h3>Contact</h3>
