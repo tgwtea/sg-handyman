@@ -112,7 +112,7 @@ onMounted(loadHome)
               here, with no WhatsApp back-and-forth.
             </p>
 
-            <form class="search-box bold-tile p-3 d-flex flex-wrap gap-3" role="search" @submit.prevent="searchFor(query)">
+            <form class="pixel-card p-3 d-flex flex-wrap gap-3" role="search" @submit.prevent="searchFor(query)">
               <label for="home-search" class="visually-hidden">Describe the problem</label>
               <input
                 id="home-search"
@@ -121,7 +121,7 @@ onMounted(loadHome)
                 class="form-control hero-input"
                 placeholder="Describe the problem, e.g. kitchen sink leaking"
               />
-              <button type="submit" class="btn btn-accent btn-lg px-4">Search</button>
+              <button type="submit" class="btn btn-primary btn-lg px-4">Search</button>
             </form>
 
             <div class="d-flex flex-column gap-2">
@@ -142,7 +142,7 @@ onMounted(loadHome)
 
           <!-- the companies with the earliest free slots -->
           <div class="col-lg-5">
-            <aside class="surface-card overflow-hidden" aria-labelledby="free-title">
+            <aside class="pixel-card overflow-hidden" aria-labelledby="free-title">
               <div class="panel-head">
                 <h2 id="free-title" class="h4 mb-0">
                   {{ todayOnly ? 'Free today near you' : 'Earliest free slots near you' }}
@@ -180,7 +180,7 @@ onMounted(loadHome)
                     <span class="pro-slot">{{ pro.slot }}</span>
                   </span>
                   <span class="d-flex flex-wrap gap-2">
-                    <span v-if="pro.fromPrice !== null" class="pill-badge">from ${{ pro.fromPrice }}</span>
+                    <span v-if="pro.fromPrice !== null" class="coin-badge">from ${{ pro.fromPrice }}</span>
                     <span v-if="pro.pubLicensed" class="pub-badge">PUB Licensed</span>
                   </span>
                 </RouterLink>
@@ -202,8 +202,8 @@ onMounted(loadHome)
       </p>
       <div class="row g-4">
         <div class="col-md-6">
-          <div class="surface-card h-100 p-4 d-flex flex-column gap-3">
-            <p class="promo-tag mb-0 diy-tag">DIY</p>
+          <div class="pixel-card h-100 p-4 d-flex flex-column gap-3">
+            <p class="promo-tag mb-0 text-danger">POWER-UP</p>
             <h3 class="h3 mb-0">Try it yourself</h3>
             <ul class="path-list">
               <li>Replace a tap, mixer or showerhead</li>
@@ -218,8 +218,8 @@ onMounted(loadHome)
           </div>
         </div>
         <div class="col-md-6">
-          <div class="surface-card h-100 p-4 d-flex flex-column gap-3 pro-path">
-            <p class="promo-tag mb-0 pro-tag">PROFESSIONAL</p>
+          <div class="pixel-card h-100 p-4 d-flex flex-column gap-3 pro-path">
+            <p class="promo-tag mb-0">CALL FOR BACKUP</p>
             <h3 class="h3 mb-0">Book a pro</h3>
             <ul class="path-list">
               <li>Regulated plumbing work: this needs a PUB-licensed plumber</li>
@@ -249,10 +249,10 @@ onMounted(loadHome)
           </div>
           <div class="col-lg-8">
             <div class="row row-cols-2 row-cols-md-3 g-3">
-              <div v-for="(job, index) in moveInJobs" :key="job.label" class="col">
+              <div v-for="job in moveInJobs" :key="job.label" class="col">
                 <RouterLink
                   :to="{ path: '/companies', query: { q: job.q } }"
-                  :class="['move-in-tile', 'bold-tile', 'lift-hover', `tile-tint-${index % 3}`]"
+                  class="move-in-tile pixel-card bounce-hover"
                 >
                   <span class="fw-bold">{{ job.label }}</span>
                   <span class="browse">Browse pros →</span>
@@ -269,29 +269,29 @@ onMounted(loadHome)
       <h2 class="section-title mb-4">Why book here</h2>
       <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-4 g-4">
         <div class="col">
-          <div class="surface-card h-100 p-4">
-            <span class="reason-icon" style="background: var(--success-soft); color: var(--success-dark)" aria-hidden="true">⏱</span>
+          <div class="pixel-card h-100 p-4">
+            <span class="reason-icon" style="background: var(--green)" aria-hidden="true">⏱</span>
             <h3 class="h5 mt-3">Live slots</h3>
             <p class="text-body-secondary mb-0">See real free times. Once you book a slot, nobody else can take it.</p>
           </div>
         </div>
         <div class="col">
-          <div class="surface-card h-100 p-4">
-            <span class="reason-icon" style="background: var(--accent-soft); color: var(--accent-text)" aria-hidden="true">★</span>
+          <div class="pixel-card h-100 p-4">
+            <span class="reason-icon" style="background: var(--coin)" aria-hidden="true">★</span>
             <h3 class="h5 mt-3">Verified reviews only</h3>
             <p class="text-body-secondary mb-0">Only customers who booked a company can review it.</p>
           </div>
         </div>
         <div class="col">
-          <div class="surface-card h-100 p-4">
-            <span class="reason-icon" style="background: var(--danger-soft); color: var(--danger-dark)" aria-hidden="true">$</span>
+          <div class="pixel-card h-100 p-4">
+            <span class="reason-icon" style="background: var(--white)" aria-hidden="true">$</span>
             <h3 class="h5 mt-3">Clear starting prices</h3>
             <p class="text-body-secondary mb-0">Every service shows a "from $X" price, so you can compare before you call.</p>
           </div>
         </div>
         <div class="col">
-          <div class="surface-card h-100 p-4">
-            <span class="reason-icon" style="background: var(--primary-soft); color: var(--primary-dark)" aria-hidden="true">✓</span>
+          <div class="pixel-card h-100 p-4">
+            <span class="reason-icon" style="background: var(--sky)" aria-hidden="true">✓</span>
             <h3 class="h5 mt-3">PUB Licensed badge</h3>
             <p class="text-body-secondary mb-0">See which plumbers hold a PUB licence.</p>
           </div>
@@ -302,10 +302,9 @@ onMounted(loadHome)
 </template>
 
 <style scoped>
-/* the one bold colour block on the site */
 .hero {
-  background: var(--primary);
-  color: var(--surface);
+  background: var(--sky);
+  border-bottom: 4px solid var(--ink);
 }
 
 .hero-inner {
@@ -317,45 +316,40 @@ onMounted(loadHome)
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.3rem 0.8rem;
-  background: rgba(255, 255, 255, 0.14);
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  border-radius: 999px;
+  padding: 0.3rem 0.75rem;
+  background: var(--white);
+  border: var(--line);
+  border-radius: var(--radius);
   font-family: var(--font-display);
-  font-size: 0.8rem;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 1px;
 }
 
 .live-dot {
-  width: 8px;
-  height: 8px;
-  background: #5ee08f;
-  border-radius: 50%;
-  animation: pulse 1.6s ease-in-out infinite;
+  width: 10px;
+  height: 10px;
+  background: var(--green);
+  border: 2px solid var(--ink);
+  animation: blink 1.2s steps(2, start) infinite;
 }
 
-@keyframes pulse {
-  50% { opacity: 0.35; }
+@keyframes blink {
+  to { visibility: hidden; }
 }
 
 .hero-title {
-  font-size: clamp(2.4rem, 6vw, 4rem);
-  line-height: 1.05;
-  color: var(--surface);
+  font-size: clamp(2.5rem, 6vw, 4.25rem);
+  line-height: 1;
+  color: var(--white);
+  text-shadow: 4px 4px 0 var(--ink);
   margin: 0;
 }
 
 .hero-lead {
   font-size: 1.2rem;
   font-weight: 600;
-  color: var(--on-primary-muted);
   max-width: 35rem;
   margin: 0;
-}
-
-.search-box {
-  background: var(--surface);
 }
 
 .hero-input {
@@ -366,27 +360,25 @@ onMounted(loadHome)
 
 .urgent-label {
   font-family: var(--font-display);
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-  color: var(--on-primary-muted);
+  font-weight: 600;
+  letter-spacing: 2px;
 }
 
 .chip {
   min-height: 44px;
-  padding: 0 1rem;
-  background: var(--surface);
-  border: 1px solid transparent;
+  padding: 0 0.9rem;
+  background: var(--white);
+  border: var(--line);
   border-radius: 999px;
   box-shadow: var(--shadow-sm);
-  font-weight: 700;
+  font-weight: 800;
   color: var(--ink);
-  transition: background-color 0.12s ease-out, transform 0.12s ease-out;
+  transition: transform 0.12s ease;
 }
 
 .chip:hover {
-  transform: translateY(-1px);
-  background: var(--accent);
+  transform: translateY(-2px);
+  background: var(--coin);
 }
 
 .panel-head {
@@ -395,34 +387,31 @@ onMounted(loadHome)
   justify-content: space-between;
   gap: 0.75rem;
   padding: 0.75rem 1rem;
-  background: var(--primary-soft);
+  background: var(--coin);
   border-bottom: var(--line);
-  color: var(--ink);
 }
 
 .today-toggle {
-  min-height: 40px;
+  min-height: 44px;
   padding: 0 0.9rem;
-  background: var(--surface);
-  border: 1px solid var(--border-strong);
-  border-radius: 999px;
-  font-weight: 700;
+  background: var(--white);
+  border: var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  font-weight: 800;
   color: var(--ink);
-  white-space: nowrap;
 }
 
 .today-on {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: var(--surface);
+  background: var(--red);
+  color: var(--white);
 }
 
 .sample-note {
   padding: 0.4rem 0.6rem;
-  background: var(--accent-soft);
-  border: 1px dashed var(--accent-dark);
+  background: #fff4c2;
+  border: 2px dashed var(--ink);
   border-radius: var(--radius);
-  color: var(--ink);
   font-size: 0.85rem;
   font-weight: 700;
 }
@@ -432,7 +421,7 @@ onMounted(loadHome)
   flex-direction: column;
   gap: 0.4rem;
   padding: 0.85rem 0;
-  border-bottom: var(--line);
+  border-bottom: 2px dashed var(--stone);
   color: var(--ink);
   text-decoration: none;
 }
@@ -441,9 +430,9 @@ onMounted(loadHome)
   text-decoration: underline;
 }
 
-/* --success-dark keeps 4.5:1 contrast on white */
+/* --green-dark keeps 4.5:1 contrast on white */
 .pro-slot {
-  color: var(--success-dark);
+  color: var(--green-dark);
   font-weight: 800;
   white-space: nowrap;
 }
@@ -452,11 +441,10 @@ onMounted(loadHome)
   display: inline-flex;
   align-items: center;
   padding: 2px 10px;
-  background: var(--primary-soft);
-  color: var(--primary-dark);
-  border: 1px solid var(--primary);
+  background: var(--sky);
+  border: 2px solid var(--ink);
   border-radius: 999px;
-  font-weight: 700;
+  font-weight: 800;
   font-size: 0.875rem;
 }
 
@@ -465,23 +453,9 @@ onMounted(loadHome)
 }
 
 .promo-tag {
-  align-self: flex-start;
-  padding: 2px 10px;
-  border-radius: 999px;
   font-family: var(--font-display);
-  font-size: 0.8rem;
   font-weight: 700;
-  letter-spacing: 1.5px;
-}
-
-.diy-tag {
-  background: var(--success-soft);
-  color: var(--success-dark);
-}
-
-.pro-tag {
-  background: var(--primary);
-  color: var(--surface);
+  letter-spacing: 3px;
 }
 
 .path-list {
@@ -494,12 +468,11 @@ onMounted(loadHome)
 }
 
 .pro-path {
-  background: var(--primary-soft);
-  border-color: #c9d9f7;
+  background: #e3edff;
 }
 
 .bto {
-  background: var(--surface);
+  background: var(--white);
   border-top: var(--line);
   border-bottom: var(--line);
 }
@@ -511,18 +484,15 @@ onMounted(loadHome)
   flex-direction: column;
   justify-content: space-between;
   gap: 0.5rem;
+  background: var(--cream);
   color: var(--ink);
   text-decoration: none;
 }
 
-.tile-tint-0 { background: var(--accent-soft); }
-.tile-tint-1 { background: var(--primary-soft); }
-.tile-tint-2 { background: var(--success-soft); }
-
 .browse {
   font-family: var(--font-display);
-  font-weight: 700;
-  color: var(--primary-dark);
+  font-weight: 600;
+  color: var(--red-dark);
 }
 
 .reason-icon {
@@ -531,9 +501,10 @@ onMounted(loadHome)
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-lg);
+  border: var(--line);
+  border-radius: var(--radius);
   font-family: var(--font-display);
-  font-size: 1.4rem;
-  font-weight: 800;
+  font-size: 1.5rem;
+  font-weight: 700;
 }
 </style>
