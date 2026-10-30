@@ -3,13 +3,14 @@ import api from '@/api'
 import ShopCheckout from '@/components/shop/ShopCheckout.vue'
 import ShopDeliveryTracker from '@/components/shop/ShopDeliveryTracker.vue'
 import { useAuthStore } from '@/stores/auth'
-import { RouterLink, useRoute } from 'vue-router'
+import { RouterLink, useRoute,useRouter } from 'vue-router'
 import { ref, computed, onMounted, watch  } from 'vue'
 
 // Reuse the existing login store and configured Axios client (api).
 const auth = useAuthStore()
 // The URL decides whether we display the catalogue or the cart.
 const route = useRoute()
+const router = useRouter()
 
 const tools = ref([])
 const message = ref('')
@@ -32,7 +33,14 @@ const productBusy = ref(false)
 const productMessage = ref('')
 const editingProductId = ref(0)
 const pendingRemovalId = ref(0)
-
+const companies = ref([])
+const selectedCompanyId = ref('')
+const companiesLoading = ref(false)
+const companiesMessage = ref('')
+const canManageProducts = computed(() => {
+  if (!auth.user) return false
+  return auth.user.role === 'admin' || (auth.user.role === 'business' && !!auth.user.companyId)
+})
 let loginChecked = false
 
 //get the current user _id
@@ -155,6 +163,9 @@ watch(currentUserId, () => {
   receipt.value = null
   resetProductForm()
   productMessage.value = ''
+  companies.value = []
+  companiesMessage.value = ''
+  getCompanies()
   orders.value = []
   deliveryNotification.value = ''
   loadCart()
