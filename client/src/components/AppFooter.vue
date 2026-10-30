@@ -4,8 +4,7 @@ import { RouterLink } from 'vue-router'
 
 <template>
   <footer class="app-footer">
-    <div class="brick-strip" aria-hidden="true"></div>
-    <div class="footer-body">
+        <div class="footer-body">
       <div class="container py-4">
         <div class="row g-4">
           <div class="col-md-6">
@@ -16,7 +15,7 @@ import { RouterLink } from 'vue-router'
             </p>
           </div>
           <div class="col-6 col-md-3">
-            <p class="footer-heading text-sky">EXPLORE</p>
+            <p class="footer-heading text-heading">EXPLORE</p>
             <ul class="list-unstyled d-flex flex-column gap-1">
               <li><RouterLink to="/companies">Companies</RouterLink></li>
               <li><RouterLink to="/shop">Shop</RouterLink></li>
@@ -24,7 +23,7 @@ import { RouterLink } from 'vue-router'
             </ul>
           </div>
           <div class="col-6 col-md-3">
-            <p class="footer-heading text-green">ACCOUNT</p>
+            <p class="footer-heading text-heading">ACCOUNT</p>
             <ul class="list-unstyled d-flex flex-column gap-1">
               <li><RouterLink to="/login">Log in</RouterLink></li>
             </ul>
@@ -37,48 +36,48 @@ import { RouterLink } from 'vue-router'
 </template>
 
 <style scoped>
+/* solid blue band with a sunflower stripe on top */
 .footer-body {
-  background: var(--ink);
-  color: var(--cream);
+  background: var(--primary-dark);
+  border-top: 4px solid var(--accent);
+  color: var(--surface);
 }
 
 .footer-brand {
   font-family: var(--font-display);
-  font-size: 1.6rem;
-  font-weight: 700;
-  color: var(--coin);
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--surface);
 }
 
 .footer-text {
-  color: #d9d6cc;
+  color: var(--on-primary-muted);
   max-width: 24rem;
 }
 
 .footer-heading {
   font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 1px;
   margin-bottom: 0.5rem;
 }
 
-.text-sky {
-  color: var(--sky);
-}
-
-.text-green {
-  color: var(--green);
+.text-heading {
+  color: var(--accent);
 }
 
 .footer-body a {
-  color: var(--cream);
+  color: var(--surface);
   text-decoration: none;
 }
 
 .footer-body a:hover {
-  color: var(--coin);
+  color: var(--accent);
   text-decoration: underline;
 }
 
 .footer-small {
   font-size: 0.8rem;
-  color: #a9a6b8;
+  color: var(--on-primary-muted);
 }
 </style>

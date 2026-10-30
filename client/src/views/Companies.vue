@@ -5,7 +5,7 @@ import { ref, computed } from 'vue';
 import { onMounted } from 'vue'
 import constantUrls from '../../constants/urls.js';
 import CompanyCard from '@/components/CompanyCard.vue';
-import PixelMascot from '@/components/PixelMascot.vue';
+import BrandIcon from '@/components/BrandIcon.vue';
 import { useRoute } from 'vue-router'
 
 const route = useRoute()
@@ -66,8 +66,8 @@ const filteredCompanies = computed(() => {
     <RouterLink to="/companies" class="btn btn-light btn-sm">Clear search</RouterLink>
    </div>
 
-   <div v-if="searchQuery && filteredCompanies.length === 0 && companies.length > 0" class="pixel-card d-flex flex-wrap align-items-center gap-4 p-4">
-    <PixelMascot :size="88" />
+   <div v-if="searchQuery && filteredCompanies.length === 0 && companies.length > 0" class="surface-card d-flex flex-wrap align-items-center gap-4 p-4">
+    <span class="text-primary"><BrandIcon :size="64" /></span>
     <div>
      <h2 class="h4">No companies match that</h2>
      <p class="mb-0 text-body-secondary">Try another word, or clear the search to see every company.</p>
