@@ -168,7 +168,7 @@ async function cancel() {
             :key="slot._id"
             :data-testid="`slot-${slot._id}`"
             type="button"
-            :class="['btn', 'btn-sm', slotClass(slot), { 'slot-flash': slot._id === flashId }]"
+            :class="['btn', 'btn-sm', 'slot-time', slotClass(slot), { 'slot-flash': slot._id === flashId }]"
             :disabled="slot.taken && !slot.mine"
             :title="slot.mine ? `Your booking: ${slot.service}` : slot.taken ? 'Unavailable' : 'Available'"
             @click="selectSlot(slot)"
@@ -189,7 +189,7 @@ async function cancel() {
 
     <div v-if="selected" class="card mt-3">
       <div class="card-body">
-        <h5 class="card-title">{{ formatDay(selected.start) }}, {{ formatTime(selected.start) }} – {{ formatTime(selected.end) }}</h5>
+        <h5 class="card-title slot-heading">{{ formatDay(selected.start) }}, {{ formatTime(selected.start) }}</h5>
 
         <template v-if="selected.mine">
           <p class="card-text">Your booking: {{ selected.service }}</p>
@@ -239,6 +239,16 @@ async function cancel() {
 .slot-flash {
   opacity: 1;
   animation: slot-flash 0.5s ease-in-out 3;
+}
+
+.slot-time {
+  --bs-btn-font-family: var(--font-body);
+  --bs-btn-font-weight: 700;
+}
+
+.slot-heading {
+  font-family: var(--font-body);
+  font-weight: 800;
 }
 
 @keyframes slot-flash {

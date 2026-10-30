@@ -5,6 +5,7 @@ import CompanyDetails from '@/views/CompanyDetails.vue'
 import Forum from '@/views/Forum.vue'
 import Shop from '@/views/Shop.vue'
 import Login from '@/views/Login.vue'
+import MyBookings from '@/views/MyBookings.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -59,6 +60,11 @@ const router = createRouter({
       path: '/login',
       name: 'login',
       component: Login,
+    },
+        {
+      path: '/my-bookings',
+      name: 'my-bookings',
+      component: MyBookings,
     },
 
   ],
