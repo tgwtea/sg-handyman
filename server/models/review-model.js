@@ -13,6 +13,11 @@ const reviewSchema = new mongoose.Schema({
     ref: 'Company',
     required: true
   },
+  // the booking this review is for
+  bookingId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Booking'
+  },
   rating: {
     type: Number,
     min: 1,
@@ -28,6 +33,9 @@ const reviewSchema = new mongoose.Schema({
     default: Date.now
   }
 });
+
+// one review per booking: MongoDB rejects a second insert with error code 11000
+reviewSchema.index({ bookingId: 1 }, { unique: true, partialFilterExpression: { bookingId: { $exists: true } } });
 
 const Review = mongoose.model('Review', reviewSchema, 'reviews');
 
@@ -49,8 +57,12 @@ reviewModel.findReviewById = function(reviewId) {
   return Review.findById(reviewId);
 };
 
-reviewModel.findReviewByUserAndCompany = function(userId, companyId) {
-  return Review.findOne({ userId, companyId });
+reviewModel.findReviewByBookingId = function(bookingId) {
+  return Review.findOne({ bookingId });
+};
+
+reviewModel.deleteReviewByBookingId = function(bookingId) {
+  return Review.deleteOne({ bookingId });
 };
 
 reviewModel.createReview = function(review) {

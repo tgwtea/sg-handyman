@@ -3,6 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import api, { errorMessage } from '@/api'
 import { useAuthStore } from '@/stores/auth'
+import { formatDay } from '@/utils/sgTime'
 
 const props = defineProps({
   companyId: { type: String, required: true },
@@ -11,16 +12,16 @@ const auth = useAuthStore()
 const route = useRoute()
 const reviews = ref([])
 const hasBooking = ref(false)
-const canReview = ref(false)
+const reviewableBookings = ref([])
 const loadError = ref('')
 const message = ref(null) // { type: 'success' | 'danger', text }
 const submitting = ref(false)
 
 // one form for both a new review and an edit
-const form = ref({ rating: 5, comment: '' })
+const form = ref({ bookingId: '', rating: 5, comment: '' })
 const editingId = ref(null)
 const deletingId = ref(null) // review waiting for the delete confirmation
-const showForm = computed(() => canReview.value || editingId.value !== null)
+const showForm = computed(() => reviewableBookings.value.length > 0 || editingId.value !== null)
 
 const average = computed(() => {
   if (reviews.value.length === 0) return 0
@@ -41,12 +42,22 @@ function bookingLabel(booking) {
   return booking.service ? `✓ Booked: ${booking.service}` : '✓ Booked this company'
 }
 
+// e.g. "Aircon Servicing (Fri, 13 Nov)"; the date separates two bookings of one service
+function bookingOption(booking) {
+  const service = booking.service || 'Booking'
+  return booking.start ? `${service} (${formatDay(booking.start)})` : service
+}
+
 async function loadReviews() {
   try {
     const response = await api.get(`/reviews/company/${props.companyId}`)
     reviews.value = response.data.reviews
     hasBooking.value = response.data.hasBooking
-    canReview.value = response.data.canReview
+    reviewableBookings.value = response.data.reviewableBookings
+    // keep the chosen booking if it is still open, otherwise pick the first one
+    if (!reviewableBookings.value.some((booking) => booking._id === form.value.bookingId)) {
+      form.value.bookingId = reviewableBookings.value[0]?._id ?? ''
+    }
     loadError.value = ''
   } catch (error) {
     loadError.value = errorMessage(error)
@@ -55,13 +66,13 @@ async function loadReviews() {
 
 function startEdit(review) {
   editingId.value = review._id
-  form.value = { rating: review.rating, comment: review.comment }
+  form.value = { ...form.value, rating: review.rating, comment: review.comment }
   message.value = null
 }
 
 function resetForm() {
   editingId.value = null
-  form.value = { rating: 5, comment: '' }
+  form.value = { ...form.value, rating: 5, comment: '' }
 }
 
 async function submitReview() {
@@ -118,6 +129,14 @@ watch(() => auth.user?._id, loadReviews, { immediate: true })
 
     <form v-if="showForm" @submit.prevent="submitReview" class="card card-body mb-4" style="max-width: 32rem">
       <h4 class="h5">{{ editingId ? 'Edit your review' : 'Write a review' }}</h4>
+      
+      <div v-if="!editingId" class="mb-3">
+        <label for="review-booking" class="form-label">Booking</label>
+        <select id="review-booking" v-model="form.bookingId" class="form-select" required>
+          <option v-for="booking in reviewableBookings" :key="booking._id" :value="booking._id">{{ bookingOption(booking) }}</option>
+        </select>
+      </div>
+
       <div class="mb-3">
         <label for="review-rating" class="form-label">Rating</label>
         <select id="review-rating" v-model.number="form.rating" class="form-select">
