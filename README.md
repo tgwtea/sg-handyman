@@ -7,6 +7,18 @@ Book handyman services in Singapore.
 | `client/` | Vue 3 + Vite frontend, on http://localhost:5173 |
 | `server/` | Express + MongoDB API, on http://localhost:8000 |
 
+## Features
+
+The platform gives new BTO owners two paths: book a professional, or fix a small job themselves.
+
+- **Company listings:** browse the companies and search by name, category or service. Each card shows the company's rating, and each company page lists its services with starting prices.
+- **Live appointment booking:** timeslots refresh every second. When two customers pick the same slot, only the first booking succeeds, and the other customer sees a clear message.
+- **My Bookings:** customers see their upcoming and past bookings across all companies, and can cancel upcoming ones.
+- **Verified reviews:** only customers with a booking can leave a review. See [Reviews](#reviews).
+- **DIY forum:** users write posts, reply to each other and like posts.
+- **DIY tool shop:** users add tools to a cart, check out (payment is simulated) and follow the delivery.
+- **Timeslot management:** a business account manages the timeslots of its own company. An admin manages them for every company.
+
 ## Setup
 
 1. Copy `server/.env.example` to `server/.env`. Fill in `DB` and `SECRET`.
@@ -102,6 +114,16 @@ Every account can write forum posts and buy from the shop.
 
 These passwords are for local testing only. Change them before you deploy the app to a public server.
 
+## Reviews
+
+- A customer can review each of their bookings once. The review form lists the bookings at that company that have no review yet.
+- The server rejects a review for a booking that is not the customer's own, or that already has a review.
+- Only the author can edit a review. The author or an admin can delete it. A business account can do neither.
+- Cancelling a booking also deletes its review, so every review stays tied to a real booking.
+- Each review shows the service of its booking. Seeded reviews have no linked booking, so they show the customer's latest booking at that company, or no service if there is none.
+- `GET /reviews/company/:companyId` returns a company's reviews and the bookings that the logged-in customer can still review.
+- `GET /reviews/summary` returns `[{ companyId, average, count }]`, which the company cards use to show ratings.
+
 ## Testing
 
 The end-to-end (E2E) tests use [Playwright](https://playwright.dev). They live in `client/e2e/`:
@@ -111,7 +133,7 @@ The end-to-end (E2E) tests use [Playwright](https://playwright.dev). They live i
 | `companies.spec.js` | Browse companies. Open a company page with its services and prices. |
 | `auth.spec.js` | Log in, see an error for a wrong password, log out. |
 | `booking-race.spec.js` | Two customers book the same slot at the same time. Only one booking succeeds. The other gets a 409 message. A customer's selected slot flashes red with a warning when another customer books it. `GET /timeslots/next-free` returns only future slots. |
-| `booking.spec.js` | Book a free timeslot as a customer, then cancel it. Logged-out visitors see a log-in prompt. |
+| `booking.spec.js` | Book a free timeslot as a customer, then cancel it. Logged-out visitors see a log-in prompt when they click a free slot. |
 | `forum.spec.js` | Read the forum. Create a post, then delete it. |
 | `business.spec.js` | A business owner sees the timeslot manager on their own company page. |
 
@@ -143,89 +165,6 @@ One-time setup, done by a repository admin:
 2. In MongoDB Atlas, open **Network Access** and allow `0.0.0.0/0`. GitHub runners do not have fixed IP addresses.
 
 Runs wait for each other, because all of them use the same database.
-
-## Planned work
-
-The proposal targets new BTO owners. Each item below answers one pain point from the proposal, and makes the answer visible on screen. Member 3 owns appointment booking. The live booking grid in `client/src/components/TimeslotGrid.vue` is done. The other items are planned.
-
-### "Small fix? Ask the forum" and "Need a pro? Book a slot" buttons
-
-- **Owner:** all members (shared)
-- **Pain point:** small jobs do not need a contractor, but new owners do not know where to start.
-- **Files:** `client/src/views/Home.vue`
-
-To build it:
-
-1. Add two buttons under the search bar in the home hero.
-2. "Small fix? Ask the forum" links to `/forum`.
-3. "Need a pro? Book a slot" links to `/companies`.
-
-### Company card fact row
-
-- **Owners:** Member 1 (listings), Member 2 (reviews)
-- **Pain point:** firms are scattered and prices are hidden. Owners must contact firms one by one to find a free slot and a price.
-- **Files:** `client/src/components/CompanyCard.vue`, `client/src/views/Companies.vue`
-
-To build it:
-
-1. Add one fact row to each company card.
-2. Show "Next free: Today 3pm". Make the text green when the slot is today. `Companies.vue` calls `GET /timeslots/next-free` once and passes each company's `start` to its card.
-3. Show "from $X", the lowest price of the company's services.
-4. Show the "PUB Licensed" badge (see [PUB licence badge and trust block](#pub-licence-badge-and-trust-block)).
-5. Show the star rating with the count of verified reviews (Member 2).
-
-### Companies filter bar
-
-- **Owner:** Member 1
-- **Pain point:** an urgent repair, such as a burst pipe, needs a slot today. Owners cannot compare firms by availability, licence or price.
-- **Files:** `client/src/views/Companies.vue`
-
-`GET /timeslots/next-free` returns `[{ companyId, start }]`: the earliest free slot of each company. A company with no free slot is not in the list.
-
-To build it:
-
-1. Add filter chips: "Available today", "PUB licensed", category and price.
-2. "Available today" keeps the companies whose `next-free` slot is today.
-3. "PUB licensed" keeps the companies with a `pubLicenceNo`.
-4. Add a sort control: "Earliest slot" (by `next-free` `start`) or "Lowest price" (by the "from $X" price).
-
-### Verified reviews UI
-
-- **Owner:** Member 2
-- **Pain point:** reviews on company websites can be filtered or inflated.
-- **Files:** `server/models/review-model.js`, a new review route and controller in `server/routes/` and `server/controllers/`, `client/src/views/CompanyDetails.vue`
-
-To build it:
-
-1. Show a "Verified booking" tick on each review.
-2. Show "Write a review" only to a customer with a booking at the company.
-3. Other customers see "Book this company to leave a review".
-4. The server rejects a review from a customer without a booking at the company.
-
-### PUB licence badge and trust block
-
-- **Owner:** Member 1
-- **Pain point:** since 2018, it is an offence to hire a plumber who is not licensed by PUB (the national water agency) for regulated plumbing work. Owners cannot easily check who is licensed.
-- **Files:** `server/models/company-model.js`, `server/scripts/seed-data.js`, `client/src/components/CompanyCard.vue`, `client/src/views/Companies.vue`, `client/src/views/CompanyDetails.vue`
-
-To build it:
-
-1. Add a licence number field to the company schema in `server/models/company-model.js`: `pubLicenceNo: { type: String, default: '' }`.
-2. In `server/scripts/seed-data.js`, set a licence number for 24hrs Plumber SG, Lion City Plumbing Works, Pipeline Pros and Rapid Plumb Express. Leave Tan Repair and Fix-It-All Home Services without one.
-3. Show the "PUB Licensed" badge on the company cards when `pubLicenceNo` is not empty.
-4. Add a trust block to the company page. It shows the licence number and the line "Regulated plumbing work needs a PUB-licensed plumber."
-5. Add the "PUB licensed" chip to the [companies filter bar](#companies-filter-bar).
-
-### "Tools for this fix" cards
-
-- **Owners:** Member 4 (forum), Member 5 (shop)
-- **Pain point:** owners who choose DIY lack the tools.
-- **Files:** `client/src/views/Forum.vue`, `server/models/forum-model.js`, `server/controllers/shop-controller.js`, `client/src/views/Shop.vue`
-
-To build it:
-
-1. Let a forum post name the shop products that the fix needs.
-2. Show "Tools for this fix" cards on the post. Each card links to the product in the shop.
 
 ## History
 
