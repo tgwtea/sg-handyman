@@ -1,3 +1,4 @@
+import { canManageCompany } from '../middleware/auth.js';
 import Shop from '../models/shop-model.js';
 import User from '../models/user-model.js';
 import Company from '../models/company-model.js';
@@ -22,7 +23,13 @@ shopController.getProducts = async (req, res) => {
 };
 
 shopController.createProduct = async (req, res) => {
-  const companyId = req.session.user.companyId;
+  let companyId = req.session.user.companyId;
+    if (req.session.user.role === 'admin') {
+    companyId = req.body && req.body.companyId;
+    if (typeof companyId !== 'string' || !companyId) {
+      return res.status(400).json({ message: 'Choose a company for the new product.' });
+    }
+  }
   if (!companyId) {
     return res.status(403).json({ message: 'Your account must be linked to a company.' });
   }
@@ -78,8 +85,8 @@ shopController.updateProduct = async (req, res) => {
   try {
     const product = await Product.findProductById(id);
     if (!product || product.removed) return res.status(404).json({ message: 'This product is no longer available.' });
-    const companyId = req.session.user.companyId;
-    if (!companyId || !product.companyId || String(product.companyId) !== companyId) {
+    const companyId = product.companyId;
+    if (!canManageCompany(req.session.user, companyId)) {
       return res.status(403).json({ message: 'You can only edit your own company products.' });
     }
     const result = await Product.updateProduct(id, companyId, req.body.name.trim(), price);
@@ -100,8 +107,8 @@ shopController.removeProduct = async (req, res) => {
   try {
     const product = await Product.findProductById(id);
     if (!product || product.removed) return res.status(404).json({ message: 'This product is no longer available.' });
-    const companyId = req.session.user.companyId;
-    if (!companyId || !product.companyId || String(product.companyId) !== companyId) {
+    const companyId = product.companyId;
+    if (!canManageCompany(req.session.user, companyId)) {
       return res.status(403).json({ message: 'You can only remove your own company products.' });
     }
     const result = await Product.removeProduct(id, companyId);

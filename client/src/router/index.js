@@ -66,6 +66,11 @@ const router = createRouter({
       name: 'my-bookings',
       component: MyBookings,
     },
+    {
+      path: '/shop/orders',
+      name: 'shop-orders',
+      component: Shop,
+    },
 
   ],
 })

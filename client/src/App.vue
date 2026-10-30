@@ -14,7 +14,7 @@ const route = useRoute()
     <div :class="['app-main', { 'container py-4': !route.meta.fullWidth }]">
       <RouterView v-slot="{ Component }">
         <Transition name="page" mode="out-in">
-          <div :key="route.path">
+          <div :key="route.path === '/shop' || route.path === '/shop/cart' || route.path === '/shop/checkout' || route.path === '/shop/orders' ? 'shop' : route.path">
             <component :is="Component" />
           </div>
         </Transition>

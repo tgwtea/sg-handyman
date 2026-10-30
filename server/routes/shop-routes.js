@@ -10,10 +10,10 @@ router.get('/products', shopController.getProducts);
 // POST createorder
 router.post('/orders', requireLogin, shopController.createOrder);
 //check role first
-router.post('/products', requireRole('business'), shopController.createProduct);
+router.post('/products', requireRole('business','admin'), shopController.createProduct);
 //：id identifies the existing product, using the product id path as guide
-router.put('/products/:id', requireRole('business'), shopController.updateProduct);
-router.delete('/products/:id', requireRole('business'), shopController.removeProduct);
+router.put('/products/:id', requireRole('business','admin'), shopController.updateProduct);
+router.delete('/products/:id', requireRole('business','admin'), shopController.removeProduct);
 
 // personal order.
 router.get('/orders', requireLogin, shopController.getMyOrders);

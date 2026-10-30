@@ -231,9 +231,24 @@ async function getProducts() {
   }
 }
 
+async function getCompanies() {
+  if (!auth.user || auth.user.role !== 'admin') return
+  const owner = currentUserId()
+  companiesLoading.value =true
+  companiesMessage.value = ''
+  try{
+    const response = await api.get('/companies')
+    if(currentUserId() === owner) companies.value = response.data
+  } catch{
+    if ( currentUserId() === owner) companiesMessage.value = 'Could not load companies. Please retry'
+  } finally{
+    if (currentUserId() === owner) companiesLoading.value = false
+  }
+}
 //checking companyrole and whether they own the tool
 function canManageProduct(tool) {
-  return auth.user && auth.user.role === 'business' && auth.user.companyId && tool.companyId === auth.user.companyId
+  if (!auth.user) return false
+   return auth.user.role === 'admin' || (auth.user.role === 'business' && !!auth.user.companyId && tool.companyId === auth.user.companyId)
 }
 
 //clear everything except productmessage
@@ -242,6 +257,7 @@ function resetProductForm() {
   productPrice.value = ''
   editingProductId.value = 0
   pendingRemovalId.value = 0
+  selectedCompanyId.value = ''
 }
 
 function startEditingProduct(tool) {
@@ -255,7 +271,7 @@ function startEditingProduct(tool) {
 
 async function saveProduct() {
   if (productBusy.value) return
-  if (!auth.user || auth.user.role !== 'business' || !auth.user.companyId) return
+  if (!canManageProducts.value) return
   const owner = currentUserId()
   const id = editingProductId.value
   productBusy.value = true
@@ -263,6 +279,7 @@ async function saveProduct() {
   try {
     const details = { name: productName.value, price: productPrice.value }
     if (id === 0) {
+      if (auth.user.role ===  'admin')details.companyId = selectedCompanyId.value
       const response = await api.post('/shop/products', details)
       tools.value.push(response.data)
     } else {
@@ -373,6 +390,7 @@ async function placeOrder(deliveryDetails) {
     
     await saveCart()
     await getMyOrders()
+    if (currentUserId() === owner) await router.push('/shop/orders')
   } catch (error) {
     if (error.response && error.response.data.message) {
       message.value = error.response.data.message
@@ -409,6 +427,7 @@ onMounted(async () => {
   await getProducts()
   await auth.fetchMe()
   loginChecked= true
+  getCompanies()
   await loadCart()
   if (auth.isLoggedIn) {
     getMyOrders()
@@ -417,17 +436,19 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div>
+  <div class="container mt-4">
     <!-- Both URLs use this component, keeping the cart available while switching views. -->
     <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
       <h1 v-if="route.path === '/shop/cart'">Your cart</h1>
       <h1 v-else-if="route.path === '/shop/checkout'">Checkout</h1>
+      <h1 v-else-if="route.path === '/shop/orders'">Orders and delivery</h1>
       <h1 v-else>DIY tools shop</h1>
+      <RouterLink to="/shop/orders" class="btn btn-outline-primary">Orders</RouterLink>
       <RouterLink to="/shop/cart" class="btn btn-outline-primary">
         <span aria-hidden="true">🛒</span> Cart ({{ cartCount }})
       </RouterLink>
     </div>
-    <RouterLink v-if="route.path === '/shop/cart'" to="/shop">Continue shopping</RouterLink>
+    <RouterLink v-if="route.path === '/shop/cart' || route.path === '/shop/orders'" to="/shop">Continue shopping</RouterLink>
     <p v-if="cartMessage" class="text-danger">{{ cartMessage }}</p>
     <p v-if="cartLoading">Loading cart...</p>
     <p v-else-if="cartSaving">Saving cart...</p>
@@ -439,9 +460,22 @@ onMounted(async () => {
     <section v-if="route.path === '/shop'">
 
   <!-- Only a linked business account sees the form-->
-      <form v-if="auth.user && auth.user.role === 'business' && auth.user.companyId" class="border rounded p-3 mb-4" @submit.prevent="saveProduct">
+      <form v-if="canManageProducts" class="border rounded p-3 mb-4" @submit.prevent="saveProduct">
         <fieldset :disabled="productBusy">
           <legend>{{ editingProductId ? 'Edit product' : 'Add a product' }}</legend>
+
+          <div v-if="auth.user.role === 'admin' && !editingProductId" class="mb-3">
+            <label for="product-company" class="form-label">Company</label>
+            <select id="product-company" v-model="selectedCompanyId" class="form-select" :disabled="companiesLoading" required>
+              <option disabled value="">Choose a company</option>
+              <option v-for="company in companies" :key="company._id" :value="company._id">{{ company.name }}</option>
+            </select>
+            <p v-if="companiesLoading" class="mt-2">Loading companies...</p>
+            <p v-else-if="companies.length === 0 && !companiesMessage" class="mt-2">No companies are available. A company is needed before adding a product.</p>
+            <p v-if="companiesMessage" class="text-danger">{{ companiesMessage }}</p>
+            <button v-if="companiesMessage" type="button" class="btn btn-outline-secondary" @click="getCompanies">Retry loading companies</button>
+          </div>
+
           <label for="product-name" class="form-label">Product name</label>
           <input id="product-name" v-model.trim="productName" class="form-control mb-3" maxlength="100" required />
           <label for="product-price" class="form-label">Product price (SGD)</label>
@@ -449,17 +483,7 @@ onMounted(async () => {
           <button type="submit" class="btn btn-primary">{{ productBusy ? 'Please wait...' : editingProductId ? 'Save changes' : 'Add product' }}</button>
           <button v-if="editingProductId" type="button" class="btn btn-outline-secondary ms-2" @click="resetProductForm">Cancel edit</button>
         </fieldset>
-        <p v-if="productMessage" class="mt-2 mb-0" role="status">{{ productMessage }}</p>
-      </form>
-      <form v-if="auth.user && auth.user.role === 'business' && auth.user.companyId" class="border rounded p-3 mb-4" @submit.prevent="addProduct">
-        <fieldset :disabled="addingProduct">
-          <legend>Add a product</legend>
-          <label for="product-name" class="form-label">Product name</label>
-          <input id="product-name" v-model.trim="productName" class="form-control mb-3" maxlength="100" required />
-          <label for="product-price" class="form-label">Product price (SGD)</label>
-          <input id="product-price" v-model.number="productPrice" class="form-control mb-3" type="number" min="0" max="1000000" step="0.01" required />
-          <button type="submit" class="btn btn-primary">{{ addingProduct ? 'Adding product...' : 'Add product' }}</button>
-        </fieldset>
+
         <p v-if="productMessage" class="mt-2 mb-0" role="status">{{ productMessage }}</p>
       </form>
       <p v-else-if="auth.user && auth.user.role === 'business'" class="text-muted">Your account must be linked to a company before you can add products.</p>
@@ -550,14 +574,19 @@ onMounted(async () => {
         <p v-if="placingOrder" class="mt-2">Submitting order...</p>
       </form>
     </section> -->
-    <section v-if="receipt && auth.isLoggedIn" class="alert alert-success">
+    <section v-if="route.path === '/shop/orders' && receipt && auth.isLoggedIn" class="alert alert-success">
       <h2 class="h4">Order saved</h2>
       <p>Recipient: {{ receipt.recipientName }}</p>
       <p>Total: ${{ receipt.total }}</p>
       <p class="mb-0">Your order is saved. No payment has been taken.</p>
     </section>
 
-    <section v-if="auth.isLoggedIn" class="border rounded p-3 my-4">
+    <p v-if="route.path === '/shop/orders' && !auth.isLoggedIn && !cartLoading">
+      <RouterLink to="/login?redirect=/shop/orders">Log in to view your orders</RouterLink>.
+    </p>
+    <!-- v-show hides history on other shop pages while delivery timers keep running. -->
+
+    <section v-if="auth.isLoggedIn" v-show="route.path === '/shop/orders'" class="border rounded p-3 my-4">
       <h2>My orders</h2>
       <button class="btn btn-outline-secondary mb-3" :disabled="loadingOrders || placingOrder" @click="getMyOrders">
         Refresh orders
