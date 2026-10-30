@@ -70,23 +70,25 @@ function resetContact() {
 </script>
 
 <template>
-  <h2>{{ company.name }}</h2>
-  <p>{{ company.description }}</p>
-  <a :href="company.website">{{ company.website }}</a>
-  <br><br><br>
+  <header class="pixel-card p-4 mb-4">
+    <h2>{{ company.name }}</h2>
+    <p class="mb-2">{{ company.description }}</p>
+    <a :href="company.website">{{ company.website }}</a>
+  </header>
+
   <div v-for="category in company.services">
     <h3>{{ category.category }}</h3>
     <table class="table">
       <thead>
         <tr>
           <th scope="col">Service</th>
-          <th scope="col">Starting Price</th>
+          <th scope="col" class="w-25">Starting Price</th>
         </tr>
       </thead>
       <tbody>
         <tr v-for="service in category.details">
           <td>{{ service.service }}</td>
-          <td>{{ service.startingPrice }}</td>
+          <td>${{ service.startingPrice }}</td>
         </tr>
       </tbody>
     </table>

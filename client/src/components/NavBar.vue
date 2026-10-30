@@ -57,6 +57,13 @@ async function logout() {
               Shop
             </RouterLink>
           </li>
+          
+          <li v-if="auth.user?.role === 'customer'" class="nav-item">
+            <RouterLink class="nav-link" active-class="active" to="/my-bookings">
+              My Bookings
+            </RouterLink>
+          </li>
+
         </ul>
 
         <div v-if="auth.isLoggedIn" class="d-flex flex-wrap gap-2 align-items-center">
