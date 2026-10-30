@@ -76,6 +76,10 @@ h1, h2, h3, h4, h5, h6,
   --bs-btn-disabled-border-color: #8a8798;
   --bs-btn-border-radius: var(--radius);
   min-height: 44px;
+  /* a <button> centres its text, but an <a class="btn"> does not; flex centres both */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   box-shadow: var(--shadow);
   transition: transform 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease;
 }

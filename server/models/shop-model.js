@@ -34,4 +34,8 @@ shopModel.findOrdersByUserId = function(userId) {
   return Order.find({ userId: userId });
 };
 
+shopModel.deleteAllOrders = function() {
+  return Order.deleteMany({});
+};
+
 export default shopModel;

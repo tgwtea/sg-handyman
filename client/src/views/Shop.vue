@@ -417,7 +417,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="container mt-4">
+  <div>
     <!-- Both URLs use this component, keeping the cart available while switching views. -->
     <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
       <h1 v-if="route.path === '/shop/cart'">Your cart</h1>

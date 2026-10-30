@@ -62,5 +62,13 @@ companyModel.findCompanyById = function(companyId) {
   return Company.findById(companyId);
 };
 
+companyModel.insertManyCompanies = function(companies) {
+  return Company.insertMany(companies);
+};
+
+companyModel.deleteAllCompanies = function() {
+  return Company.deleteMany({});
+};
+
 
 export default companyModel;

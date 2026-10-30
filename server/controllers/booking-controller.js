@@ -1,8 +1,11 @@
 import mongoose from 'mongoose';
 import Booking from '../models/booking-model.js';
 import Timeslot from '../models/timeslot-model.js';
+import Review from '../models/review-model.js';
 
 const bookingController = {};
+
+const TAKEN_MESSAGE = 'Someone else just booked this slot. Pick another one.';
 
 bookingController.createBooking = async (req, res) => {
   try {
@@ -27,14 +30,14 @@ bookingController.createBooking = async (req, res) => {
     };
 
     if (await Booking.findBookingByTimeslotId(timeslot._id)) {
-      return res.status(409).send({ message: 'Timeslot already taken' });
+      return res.status(409).send({ message: TAKEN_MESSAGE });
     }
     let booking = await Booking.createBooking(newBooking);
 
     res.status(201).send(booking);
   } catch (error) {
     if (error.code === 11000) {
-      return res.status(409).send({ message: 'Timeslot already taken' });
+      return res.status(409).send({ message: TAKEN_MESSAGE });
     }
     console.error(error);
     res.status(500).send({ message: 'Failed to create booking' });
@@ -68,7 +71,10 @@ bookingController.cancelBooking = async (req, res) => {
       return res.status(403).send({ message: 'You cannot cancel this booking' });
     }
 
+    // a review stays verified only while its booking exists
+    await Review.deleteReviewByBookingId(booking._id);
     await Booking.deleteBookingById(booking._id);
+
     res.send({ message: 'Booking cancelled' });
   } catch (error) {
     console.error(error);

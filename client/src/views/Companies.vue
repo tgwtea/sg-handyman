@@ -17,6 +17,7 @@ axios.defaults.timeout = 3000
 const serverUrl = constantUrls.serverUrl;
 
 let companies = ref([]);
+const reviewSummaries = ref([]);
 
 async function getCompanies() {
   try {
@@ -30,9 +31,22 @@ async function getCompanies() {
   }
 }
 
+// the cards still show without ratings if this fails
+async function getReviewSummaries() {
+  try {
+    const response = await axios.get(`${serverUrl}/reviews/summary`)
+    reviewSummaries.value = response.data
+  } catch (error) {
+    console.log(error.message)
+  }
+}
+
 onMounted(() => {
   getCompanies();
+  getReviewSummaries();
 })
+
+const summaryByCompany = computed(() => new Map(reviewSummaries.value.map((summary) => [summary.companyId, summary])))
 
 // search text from the home page, e.g. /companies?q=leaking tap
 const searchQuery = computed(() => String(route.query.q ?? '').trim())
@@ -57,7 +71,7 @@ const filteredCompanies = computed(() => {
 
 <template>
   <!-- <Carousel /> -->
-   <h1>SG Handyman Booking</h1>
+   <h1 class="mb-4">SG Handyman Booking</h1>
 
    <div v-if="searchQuery" class="d-flex flex-wrap align-items-center gap-2 mb-3">
     <span class="fw-bold">
@@ -74,11 +88,11 @@ const filteredCompanies = computed(() => {
     </div>
    </div>
 
-   <div class="container">
-    <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 g-4">
-     <div v-for="company in filteredCompanies" :key="company._id" class="col">
-      <CompanyCard :companyId="company._id" :name=company.name :description=company.description />
-     </div>
+   <!-- App.vue already wraps the page in .container, so the row sits directly inside it -->
+   <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 g-4">
+    <div v-for="company in filteredCompanies" :key="company._id" class="col">
+     <CompanyCard :companyId="company._id" :name=company.name :description=company.description :services="company.services"
+      :rating="summaryByCompany.get(company._id)?.average" :reviewCount="summaryByCompany.get(company._id)?.count" />
     </div>
    </div>
 
