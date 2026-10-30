@@ -72,7 +72,7 @@ test.describe('Booking under race conditions', () => {
       // the grid polls every second, so the change must show within 2 s
       await expect(slot).toHaveClass(/slot-flash/, { timeout: 2000 })
       await expect(page.locator('.alert-warning')).toHaveText(TAKEN_MESSAGE, { timeout: 2000 })
-      await expect(slot).toHaveAttribute('title', 'Taken')
+      await expect(slot).toHaveAttribute('title', 'Unavailable')
       await expect(page.getByRole('button', { name: 'Confirm booking' })).toBeHidden()
     } finally {
       // the database is shared, so never leave a test booking behind

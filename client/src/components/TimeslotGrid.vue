@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import api, { errorMessage } from '@/api'
 import { useAuthStore } from '@/stores/auth'
@@ -26,6 +26,8 @@ const service = ref('')
 const submitting = ref(false)
 const confirming = ref(null) // null | 'book' | 'cancel'
 const flashId = ref(null) // slot that flashes red after someone else takes it
+const showBookingPrompt = ref(false) // a visitor who cannot book clicked a free slot
+const bookingPrompt = ref(null)
 
 let timer = null
 let flashTimer = null
@@ -81,6 +83,7 @@ const days = computed(() => {
 })
 
 const selected = computed(() => timeslots.value.find((slot) => slot._id === selectedId.value) ?? null)
+const canBook = computed(() => auth.user?.role === 'customer')
 
 watch(
   () => props.services,
@@ -97,7 +100,13 @@ function slotClass(slot) {
   return 'btn-outline-success'
 }
 
-function selectSlot(slot) {
+async function selectSlot(slot) {
+  if (!canBook.value) {
+    showBookingPrompt.value = true
+    await nextTick()
+    bookingPrompt.value?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    return
+  }
   message.value = null
   confirming.value = null
   selectedId.value = slot._id === selectedId.value ? null : slot._id
@@ -138,12 +147,12 @@ async function cancel() {
 <template>
   <section class="mt-4">
     <h3>Available timeslots</h3>
-    <p class="text-body-secondary small mb-2">
-      Singapore time.
-      <span class="badge text-bg-success">free</span>
-      <span class="badge text-bg-secondary">taken</span>
-      <span class="badge text-bg-primary">yours</span>
-    </p>
+    <div class="d-flex flex-wrap gap-2 mb-3">
+      <span class="btn btn-sm btn-outline-success legend-chip pe-none">Available</span>
+      <span class="btn btn-sm btn-outline-secondary legend-chip disabled">Unavailable</span>
+      <span class="btn btn-sm btn-success legend-chip pe-none">Selected</span>
+      <span class="btn btn-sm btn-primary legend-chip pe-none">Your booking</span>
+    </div>
 
     <div v-if="loadError" class="alert alert-warning py-2">Could not refresh timeslots: {{ loadError }}</div>
     <div v-if="message" :class="['alert', `alert-${message.type}`, 'py-2']">{{ message.text }}</div>
@@ -160,8 +169,8 @@ async function cancel() {
             :data-testid="`slot-${slot._id}`"
             type="button"
             :class="['btn', 'btn-sm', slotClass(slot), { 'slot-flash': slot._id === flashId }]"
-            :disabled="(slot.taken && !slot.mine) || !auth.isLoggedIn || auth.user.role !== 'customer'"
-            :title="slot.mine ? `Your booking: ${slot.service}` : slot.taken ? 'Taken' : 'Free'"
+            :disabled="slot.taken && !slot.mine"
+            :title="slot.mine ? `Your booking: ${slot.service}` : slot.taken ? 'Unavailable' : 'Available'"
             @click="selectSlot(slot)"
           >
             {{ formatTime(slot.start) }}
@@ -170,9 +179,12 @@ async function cancel() {
       </div>
     </div>
 
-    <div v-if="!auth.isLoggedIn" class="alert alert-info mt-3 py-2">
-      <RouterLink :to="{ path: '/login', query: { redirect: route.fullPath } }">Log in</RouterLink>
-      as a customer to book.
+    <div v-if="showBookingPrompt && !canBook" ref="bookingPrompt" class="alert alert-info mt-3 py-2" role="status">
+      <template v-if="auth.isLoggedIn">Only customer accounts can book.</template>
+      <template v-else>
+        <RouterLink :to="{ path: '/login', query: { redirect: route.fullPath } }">Log in</RouterLink>
+        as a customer to book.
+      </template>
     </div>
 
     <div v-if="selected" class="card mt-3">
@@ -215,6 +227,13 @@ async function cancel() {
 </template>
 
 <style scoped>
+/* same colours as the slot buttons, without their tap-target size */
+.legend-chip {
+  min-height: 0;
+  padding: 0.125rem 0.625rem;
+  font-size: 0.75rem;
+  box-shadow: none;
+}
 
 /* a taken slot is disabled, and Bootstrap fades disabled buttons; keep the red fully visible */
 .slot-flash {
