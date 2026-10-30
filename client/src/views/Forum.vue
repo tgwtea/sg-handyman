@@ -529,7 +529,7 @@ function formatDate(date) {
 }
 
 .forum-header {
-  background: #234c3e;
+  background: var(--primary);
   border-radius: 8px;
   color: white;
   margin-bottom: 24px;
@@ -555,9 +555,9 @@ function formatDate(date) {
   width: 100%;
   max-width: 440px;
   overflow: hidden;
-  border: 3px solid #c8201c;
+  border: 1px solid var(--danger);
   border-radius: 8px;
-  background: #fff1f0;
+  background: var(--danger-soft);
 }
 
 .delete-dialog-header {
@@ -565,7 +565,7 @@ function formatDate(date) {
   align-items: center;
   gap: 8px;
   padding: 12px;
-  background: #c8201c;
+  background: var(--danger);
   color: white;
 }
 
@@ -586,7 +586,7 @@ function formatDate(date) {
 
 .delete-dialog-body {
   padding: 16px;
-  background: #fff1f0;
+  background: var(--danger-soft);
 }
 
 .delete-warning {
@@ -594,10 +594,10 @@ function formatDate(date) {
   gap: 10px;
   margin: 0;
   padding: 12px;
-  border: 1px solid #f0a8a5;
+  border: 1px solid var(--danger-border);
   border-radius: 6px;
-  background: #fff1f0;
-  color: #244b38;
+  background: var(--danger-soft);
+  color: var(--ink);
   font-size: 14px;
 }
 
@@ -606,7 +606,7 @@ function formatDate(date) {
   height: 20px;
   flex-shrink: 0;
   border-radius: 50%;
-  background: #a31916;
+  background: var(--danger-dark);
   color: white;
   text-align: center;
   font-weight: bold;
@@ -614,7 +614,7 @@ function formatDate(date) {
 
 .delete-dialog-note {
   margin: 12px 0 0;
-  color: #68758a;
+  color: var(--ink-muted);
   font-size: 12px;
   font-style: italic;
 }
@@ -624,15 +624,16 @@ function formatDate(date) {
   justify-content: flex-end;
   gap: 8px;
   padding: 12px 16px;
-  border-top: 1px solid #f0a8a5;
-  background: #fee2e2;
+  border-top: 1px solid var(--danger-border);
+  background: var(--danger-soft);
 }
 
 .forum-section,
 .post {
   background: white;
-  border: 1px solid #ddd;
-  border-radius: 8px;
+  border: var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
   margin-bottom: 20px;
   padding: 20px;
 }
@@ -668,7 +669,7 @@ function formatDate(date) {
   min-width: 0;
   width: auto;
   margin: 0;
-  border: 1px solid #d5d9e2;
+  border: 1px solid var(--border-strong);
   border-radius: 6px;
   font: inherit;
 }
@@ -695,7 +696,7 @@ function formatDate(date) {
 }
 
 .popular-searches .active-category {
-  background: #fbd000;
+  background: var(--accent);
 }
 
 .post-form .category-radio-option {
@@ -704,7 +705,7 @@ function formatDate(date) {
   gap: 6px;
   margin: 0;
   padding: 8px 12px;
-  border: 2px solid #1a1a2e;
+  border: 1px solid var(--border-strong);
   border-radius: 20px;
   background: white;
   font-family: var(--font-display);
@@ -756,7 +757,7 @@ button {
 
 .category,
 .post-info {
-  color: #526159;
+  color: var(--ink-muted);
   font-size: 0.9rem;
 }
 
@@ -767,19 +768,19 @@ button {
 }
 
 .replies {
-  border-top: 1px solid #ddd;
+  border-top: var(--line);
   margin-top: 18px;
   padding-top: 12px;
 }
 
 .reply {
-  border-left: 3px solid #dce7d7;
+  border-left: 3px solid var(--primary-soft);
   margin: 12px 0;
   padding-left: 12px;
 }
 
 .message {
-  background: #edf5e9;
+  background: var(--success-soft);
   border-radius: 4px;
   padding: 10px;
 }
