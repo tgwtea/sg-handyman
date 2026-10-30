@@ -26,6 +26,13 @@ const cartSaving = ref(false)
 const cartReady = ref(false)
 const cartUnsaved = ref(false)
 const cartBusy = computed(() => placingOrder.value || cartLoading.value || cartSaving.value)
+const productName = ref('')
+const productPrice = ref('')
+const productBusy = ref(false)
+const productMessage = ref('')
+const editingProductId = ref(0)
+const pendingRemovalId = ref(0)
+
 let loginChecked = false
 
 //get the current user _id
@@ -47,7 +54,11 @@ async function saveCart() {
   cartMessage.value = ''
   try {
     if (owner) {
-      await api.put('/shop/cart', { items: cart.value })
+      const response = await api.put('/shop/cart', { items: cart.value })
+
+      //display product name and price confirmed by the server
+      if (currentUserId() === owner) cart.value = response.data
+
       // Guest items have now been included in the account cart.
       sessionStorage.removeItem('shopCart')
     } else {
@@ -119,6 +130,15 @@ async function loadCart() {
       }
     }
     if (currentUserId() !== owner) return
+
+    //also a update on session cart on latest price even if not log in
+    if (!owner) {
+      for (const item of items) {
+        for (const tool of tools.value) {
+          if (item.id === tool.id) {
+            item.name = tool.name
+            item.price = tool.price
+          }}}}
     cart.value = items
     cartReady.value = true
     if (owner && guestItems.length > 0) await saveCart()
@@ -133,6 +153,8 @@ async function loadCart() {
 watch(currentUserId, () => {
   if (!loginChecked) return
   receipt.value = null
+  resetProductForm()
+  productMessage.value = ''
   orders.value = []
   deliveryNotification.value = ''
   loadCart()
@@ -209,9 +231,125 @@ async function getProducts() {
   }
 }
 
+//checking companyrole and whether they own the tool
+function canManageProduct(tool) {
+  return auth.user && auth.user.role === 'business' && auth.user.companyId && tool.companyId === auth.user.companyId
+}
+
+//clear everything except productmessage
+function resetProductForm() {
+  productName.value = ''
+  productPrice.value = ''
+  editingProductId.value = 0
+  pendingRemovalId.value = 0
+}
+
+function startEditingProduct(tool) {
+  if (productBusy.value || !canManageProduct(tool)) return
+  editingProductId.value = tool.id
+  productName.value = tool.name
+  productPrice.value = tool.price
+  productMessage.value = ''
+  pendingRemovalId.value = 0
+}
+
+async function saveProduct() {
+  if (productBusy.value) return
+  if (!auth.user || auth.user.role !== 'business' || !auth.user.companyId) return
+  const owner = currentUserId()
+  const id = editingProductId.value
+  productBusy.value = true
+  productMessage.value = ''
+  try {
+    const details = { name: productName.value, price: productPrice.value }
+    if (id === 0) {
+      const response = await api.post('/shop/products', details)
+      tools.value.push(response.data)
+    } else {
+      const response = await api.put('/shop/products/' + id, details)
+      for (const tool of tools.value) {
+        if (tool.id === id) {
+          tool.name = response.data.name
+          tool.price = response.data.price
+        }
+      }
+      // Refresh this page's cart display too
+      for (const item of cart.value) {
+        if (item.id === id) {
+          item.name = response.data.name
+          item.price = response.data.price
+        }
+      }
+    }
+    if (currentUserId() === owner) {
+      resetProductForm()
+      productMessage.value = id === 0 ? 'Product added.' : 'Product updated.'
+    }
+  } catch (error) {
+    if (currentUserId() === owner) {
+      if (error.response && error.response.data.message) {
+        productMessage.value = error.response.data.message
+      } else {
+        productMessage.value = 'Could not save the product. Please try again.'
+      }
+    }
+  } finally {
+    productBusy.value = false
+  }
+}
+
+// This is called only after the user clicks the inline Confirm remove button.
+async function removeProduct(tool) {
+  if (productBusy.value || !canManageProduct(tool)) return
+  const owner = currentUserId()
+  productBusy.value = true
+  productMessage.value = ''
+  try {
+    await api.delete('/shop/products/' + tool.id)
+    const remainingTools = []
+    for (const item of tools.value) {
+      if (item.id !== tool.id) remainingTools.push(item)
+    }
+    tools.value = remainingTools
+    if (currentUserId() === owner) {
+      if (editingProductId.value === tool.id) resetProductForm()
+      pendingRemovalId.value = 0
+      productMessage.value = 'Product removed.'
+    }
+  } catch (error) {
+    if (currentUserId() === owner) {
+      if (error.response && error.response.data.message) {
+        productMessage.value = error.response.data.message
+      } else {
+        productMessage.value = 'Could not remove the product. Please try again.'
+      }
+    }
+  } finally {
+    productBusy.value = false
+  }
+}
+
+// A removed product may still be in an older saved cart. Let its owner remove it.
+function isProductAvailable(id) {
+  for (const tool of tools.value) {
+    if (tool.id === id) return true
+  }
+  return false
+}
+
+const cartHasUnavailableProducts = computed(() => {
+  for (const item of cart.value) {
+    if (!isProductAvailable(item.id)) return true
+  }
+  return false
+})
+
+
+
+
 // POST sends our form data to the server. Clear the cart only after success.
 async function placeOrder(deliveryDetails) {
-   if (cartBusy.value || !cartReady.value || cartUnsaved.value || cart.value.length === 0) return
+   if (cartBusy.value || !cartReady.value || cartUnsaved.value || cartHasUnavailableProducts.value || cart.value.length === 0) return
   if (!auth.isLoggedIn) {
     message.value = 'Please log in before placing an order.'
     return
@@ -268,7 +406,7 @@ async function getMyOrders() {
 
 // The login check must finish before we request personal order history.
 onMounted(async () => {
-  getProducts()
+  await getProducts()
   await auth.fetchMe()
   loginChecked= true
   await loadCart()
@@ -299,12 +437,49 @@ onMounted(async () => {
     <p v-if="message" class="text-danger">{{ message }}</p>
 
     <section v-if="route.path === '/shop'">
+
+  <!-- Only a linked business account sees the form-->
+      <form v-if="auth.user && auth.user.role === 'business' && auth.user.companyId" class="border rounded p-3 mb-4" @submit.prevent="saveProduct">
+        <fieldset :disabled="productBusy">
+          <legend>{{ editingProductId ? 'Edit product' : 'Add a product' }}</legend>
+          <label for="product-name" class="form-label">Product name</label>
+          <input id="product-name" v-model.trim="productName" class="form-control mb-3" maxlength="100" required />
+          <label for="product-price" class="form-label">Product price (SGD)</label>
+          <input id="product-price" v-model.number="productPrice" class="form-control mb-3" type="number" min="0" max="1000000" step="0.01" required />
+          <button type="submit" class="btn btn-primary">{{ productBusy ? 'Please wait...' : editingProductId ? 'Save changes' : 'Add product' }}</button>
+          <button v-if="editingProductId" type="button" class="btn btn-outline-secondary ms-2" @click="resetProductForm">Cancel edit</button>
+        </fieldset>
+        <p v-if="productMessage" class="mt-2 mb-0" role="status">{{ productMessage }}</p>
+      </form>
+      <form v-if="auth.user && auth.user.role === 'business' && auth.user.companyId" class="border rounded p-3 mb-4" @submit.prevent="addProduct">
+        <fieldset :disabled="addingProduct">
+          <legend>Add a product</legend>
+          <label for="product-name" class="form-label">Product name</label>
+          <input id="product-name" v-model.trim="productName" class="form-control mb-3" maxlength="100" required />
+          <label for="product-price" class="form-label">Product price (SGD)</label>
+          <input id="product-price" v-model.number="productPrice" class="form-control mb-3" type="number" min="0" max="1000000" step="0.01" required />
+          <button type="submit" class="btn btn-primary">{{ addingProduct ? 'Adding product...' : 'Add product' }}</button>
+        </fieldset>
+        <p v-if="productMessage" class="mt-2 mb-0" role="status">{{ productMessage }}</p>
+      </form>
+      <p v-else-if="auth.user && auth.user.role === 'business'" class="text-muted">Your account must be linked to a company before you can add products.</p>
+
+    <p v-if="tools.length === 0 && !message">No tools are available yet.</p>
       <div v-for="tool in tools" :key="tool.id">
         <h2>{{ tool.name }}</h2>
         <p>Price: ${{ tool.price }}</p>
         <button class="btn btn-primary mb-3" :disabled="cartBusy || !cartReady" @click="addToCart(tool)">
           Add to cart
         </button>
+                <div v-if="canManageProduct(tool)" class="mb-3">
+          <button type="button" class="btn btn-outline-primary me-2" :disabled="productBusy" @click="startEditingProduct(tool)">Edit</button>
+          <button type="button" class="btn btn-outline-danger" :disabled="productBusy" @click="pendingRemovalId = tool.id">Remove product</button>
+          <div v-if="pendingRemovalId === tool.id" class="mt-2">
+            <p>Remove {{ tool.name }} from the shop?</p>
+            <button type="button" class="btn btn-danger me-2" :disabled="productBusy" @click="removeProduct(tool)">Confirm remove</button>
+            <button type="button" class="btn btn-outline-secondary" :disabled="productBusy" @click="pendingRemovalId = 0">Cancel removal</button>
+          </div>
+        </div>
       </div>
 
     </section>
@@ -317,6 +492,7 @@ onMounted(async () => {
 
       <div v-for="item in cart" :key="item.id" class="border-bottom py-3">
         <h3 class="h5">{{ item.name }}</h3>
+                <p v-if="!isProductAvailable(item.id)" class="text-danger">This tool is unavailable. Remove it from your cart to continue.</p>
         <p>${{ item.price }} each | Subtotal: ${{ item.price * item.quantity }}</p>
         <div class="d-flex gap-2 align-items-center">
           <button
@@ -341,7 +517,7 @@ onMounted(async () => {
         <RouterLink to="/login?redirect=/shop/cart">Log in to place an order</RouterLink>.
         Your guest cart will be combined with your saved account cart when you log in.
       </p>
-            <RouterLink v-if="cart.length > 0 && auth.isLoggedIn && cartReady && !cartBusy && !cartUnsaved" to="/shop/checkout" class="btn btn-success">
+<RouterLink v-if="cart.length > 0 && auth.isLoggedIn && cartReady && !cartBusy && !cartUnsaved && !cartHasUnavailableProducts" to="/shop/checkout" class="btn btn-success">
         Continue to checkout
             </RouterLink>
             </section>
@@ -353,6 +529,7 @@ onMounted(async () => {
       <p v-else-if="!auth.isLoggedIn">
         <RouterLink to="/login?redirect=/shop/checkout">Log in to continue checkout</RouterLink>
       </p>
+      <p v-else-if="cartHasUnavailableProducts" class="text-danger">Your cart contains an unavailable tool. Go back to the cart and remove it.</p>
       <ShopCheckout v-else :total="cartTotal" :placing-order="cartBusy || cartUnsaved || !cartReady" @place-order="placeOrder" />
       </section>
 
