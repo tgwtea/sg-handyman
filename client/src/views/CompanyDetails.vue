@@ -78,8 +78,8 @@ function resetContact() {
     <table class="table">
       <thead>
         <tr>
-          <th scope="col">Service</th>
-          <th scope="col">Starting Price</th>
+          <th class="col-4">Service</th>
+          <th class="col-8">Starting Price</th>
         </tr>
       </thead>
       <tbody>
