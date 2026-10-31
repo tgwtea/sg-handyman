@@ -22,6 +22,17 @@ shopController.getProducts = async (req, res) => {
   }
 };
 
+function validateProductDetails(body) {
+  if (body.description !== undefined && (typeof body.description !== 'string' || body.description.trim().length > 1000)) return 'Keep the description within 1000 characters.';
+  if (body.specifications !== undefined && (typeof body.specifications !== 'string' || body.specifications.trim().length > 500)) return 'Keep the specifications within 500 characters.';
+  if (body.imageUrl !== undefined) {
+    if (typeof body.imageUrl !== 'string' || body.imageUrl.trim().length > 500) return 'Enter an image link of at most 500 characters.';
+    const url = body.imageUrl.trim();
+    if (url && !url.startsWith('https://') && !url.startsWith('http://')) return 'Use an http:// or https:// image link.';
+  }
+  return '';
+}
+
 shopController.createProduct = async (req, res) => {
   let companyId = req.session.user.companyId;
     if (req.session.user.role === 'admin') {
@@ -40,6 +51,8 @@ shopController.createProduct = async (req, res) => {
   if (typeof price !== 'number' || !(price >= 0 && price <= 1000000) || Math.round(price * 100) / 100 !== price) {
     return res.status(400).json({ message: 'Enter a price from $0 to $1,000,000 with at most two decimal places.' });
   }
+  const detailError = validateProductDetails(req.body);
+  if (detailError) return res.status(400).json({ message: detailError });
   try {
     const company = await Company.findCompanyById(companyId);
     if (!company) return res.status(404).json({ message: 'Your company could not be found.' });
@@ -55,7 +68,10 @@ shopController.createProduct = async (req, res) => {
       id: nextId,
       name: req.body.name.trim(),
       price: price,
-      companyId: companyId
+      companyId: companyId,
+      description: (req.body.description || '').trim(),
+      specifications:(req.body.specifications || '').trim(),
+      imageUrl: (req.body.imageUrl || '').trim()
     });
     res.status(201).json(product);
   } catch (error) {
@@ -82,6 +98,8 @@ shopController.updateProduct = async (req, res) => {
   if (typeof price !== 'number' || !(price >= 0 && price <= 1000000) || Math.round(price * 100) / 100 !== price) {
     return res.status(400).json({ message: 'Enter a price from $0 to $1,000,000 with at most two decimal places.' });
   }
+  const detailError = validateProductDetails(req.body);
+  if (detailError) return res.status(400).json({ message: detailError });
   try {
     const product = await Product.findProductById(id);
     if (!product || product.removed) return res.status(404).json({ message: 'This product is no longer available.' });
@@ -89,10 +107,20 @@ shopController.updateProduct = async (req, res) => {
     if (!canManageCompany(req.session.user, companyId)) {
       return res.status(403).json({ message: 'You can only edit your own company products.' });
     }
-    const result = await Product.updateProduct(id, companyId, req.body.name.trim(), price);
+    const details = {
+      name: req.body.name.trim(),
+      price: price,
+      description: req.body.description === undefined ? product.description : req.body.description.trim(),
+      specifications: req.body.specifications === undefined ? product.specifications : req.body.specifications.trim(),
+      imageUrl: req.body.imageUrl === undefined ? product.imageUrl : req.body.imageUrl.trim()
+    };
+    const result = await Product.updateProduct(id, companyId, details);
     if (result.matchedCount === 0) return res.status(404).json({ message: 'Product not found.' });
     product.name = req.body.name.trim();
     product.price = price;
+    product.description = details.description;
+    product.specifications = details.specifications;
+    product.imageUrl = details.imageUrl;
     res.json(product);
   } catch (error) {
     console.error(error.message);

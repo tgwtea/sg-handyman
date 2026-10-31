@@ -2,9 +2,10 @@
 import api from '@/api'
 import ShopCheckout from '@/components/shop/ShopCheckout.vue'
 import ShopDeliveryTracker from '@/components/shop/ShopDeliveryTracker.vue'
+import ShopProductDetails from '@/components/shop/ShopProductDetails.vue'
 import { useAuthStore } from '@/stores/auth'
 import { RouterLink, useRoute,useRouter } from 'vue-router'
-import { ref, computed, onMounted, watch  } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch  } from 'vue'
 
 // Reuse the existing login store and configured Axios client (api).
 const auth = useAuthStore()
@@ -26,9 +27,23 @@ const cartLoading = ref(true)
 const cartSaving = ref(false)
 const cartReady = ref(false)
 const cartUnsaved = ref(false)
-const cartBusy = computed(() => placingOrder.value || cartLoading.value || cartSaving.value)
+const cartBusy = computed(() => placingOrder.value || cartLoading.value)
+const cartSaved = ref(false)
+
 const productName = ref('')
 const productPrice = ref('')
+const productDescription = ref('')
+const productSpecifications = ref('')
+const productImageUrl = ref('')
+const selectedProduct = ref(null)
+const searchText = ref('')
+const companyFilter = ref('')
+const minimumPrice = ref('')
+const maximumPrice = ref('')
+const minimumRating = ref('')
+const catalogueSort = ref('name')
+const reviewSummaries = ref([])
+const ratingsMessage = ref('')
 const productBusy = ref(false)
 const productMessage = ref('')
 const editingProductId = ref(0)
@@ -42,6 +57,9 @@ const canManageProducts = computed(() => {
   return auth.user.role === 'admin' || (auth.user.role === 'business' && !!auth.user.companyId)
 })
 let loginChecked = false
+let shopActive = true
+let ordersTimer
+const managementTab = ref('orders')
 
 //get the current user _id
 function currentUserId() {
@@ -59,6 +77,7 @@ async function saveCart() {
   const owner = currentUserId()
   cartSaving.value = true
   cartUnsaved.value = true
+  cartSaved.value= false
   cartMessage.value = ''
   try {
     if (owner) {
@@ -66,12 +85,14 @@ async function saveCart() {
 
       //display product name and price confirmed by the server
       if (currentUserId() === owner) cart.value = response.data
-
+      
       // Guest items have now been included in the account cart.
       sessionStorage.removeItem('shopCart')
     } else {
       sessionStorage.setItem('shopCart', JSON.stringify(cart.value))
     }
+    cartUnsaved.value=false
+    cartSaved.value=true
     if (currentUserId() === owner) cartUnsaved.value = false
   } catch {
     if (currentUserId() === owner) {
@@ -111,6 +132,7 @@ async function loadCart() {
   cartReady.value = false
   cartSaving.value = false
   cartUnsaved.value = false
+  cartSaved.value = false
   cart.value = []
   cartMessage.value = ''
   try {
@@ -160,7 +182,11 @@ async function loadCart() {
 
 watch(currentUserId, () => {
   if (!loginChecked) return
+  managementTab.value= 'orders'
+  loadingOrders.value = false
+  ordersMessage.value=''
   receipt.value = null
+  selectedProduct.value=null
   resetProductForm()
   productMessage.value = ''
   companies.value = []
@@ -173,11 +199,11 @@ watch(currentUserId, () => {
 })
 
 // Add a new cart row, or increase the quantity of an existing row.
-function addToCart(tool) {
+function addToCart(tool, quantity=1) {
   if (cartBusy.value || !cartReady.value) return
   for (const item of cart.value) {
     if (item.id === tool.id) {
-      item.quantity += 1
+      item.quantity += quantity
       saveCart()
       return
     }
@@ -187,7 +213,7 @@ function addToCart(tool) {
     id: tool.id,
     name: tool.name,
     price: tool.price,
-    quantity: 1
+    quantity: quantity
   })
   saveCart()
 }
@@ -243,7 +269,6 @@ async function getProducts() {
 }
 
 async function getCompanies() {
-  if (!auth.user || auth.user.role !== 'admin') return
   const owner = currentUserId()
   companiesLoading.value =true
   companiesMessage.value = ''
@@ -256,6 +281,68 @@ async function getCompanies() {
     if (currentUserId() === owner) companiesLoading.value = false
   }
 }
+
+// Plain lookup functions keep the template readable.:D
+function companyName(companyId) {
+  for (const company of companies.value) {
+    if (company._id === companyId) return company.name
+  }
+  return 'Unassigned seller'
+}
+
+function productRating(productId) {
+  for (const summary of reviewSummaries.value) {
+    if (summary.productId === productId) return summary
+  }
+  return { average: 0, count: 0 }
+}
+
+async function getReviewSummaries() {
+  ratingsMessage.value = ''
+  try {
+    const response = await api.get('/shop/reviews/summary')
+    reviewSummaries.value = response.data
+  } catch {
+    ratingsMessage.value = 'Could not load ratings. You can still browse products.'
+  }
+}
+
+const filteredTools = computed(() => {
+  const result = []
+  const search = searchText.value.trim().toLowerCase()
+  for (const tool of tools.value) {
+    if (search && !tool.name.toLowerCase().includes(search)) continue
+    if (companyFilter.value && (tool.companyId || 'unassigned') !== companyFilter.value) continue
+    if (minimumPrice.value !== '' && tool.price < Number(minimumPrice.value)) continue
+    if (maximumPrice.value !== '' && tool.price > Number(maximumPrice.value)) continue
+    if (minimumRating.value && productRating(tool.id).average < Number(minimumRating.value)) continue
+    result.push(tool)
+  }
+
+  // const A = [20, 5, 12, 8]
+// A.sort((a, b) => a - b)
+// console.log(A) // [5, 8, 12, 20]
+  result.sort((a, b) => {
+    if (catalogueSort.value === 'price-low') return a.price - b.price
+    if (catalogueSort.value === 'price-high') return b.price - a.price
+    if (catalogueSort.value === 'rating') return productRating(b.id).average - productRating(a.id).average
+    const first = a.name.toLowerCase()
+    const second = b.name.toLowerCase()
+    if (first < second) return -1
+    if (first > second) return 1
+    return 0
+  })
+  return result
+})
+
+function clearFilters() {
+  searchText.value = ''
+  companyFilter.value = ''
+  minimumPrice.value = ''
+  maximumPrice.value = ''
+  minimumRating.value = ''
+  catalogueSort.value = 'name'
+}
 //checking companyrole and whether they own the tool
 function canManageProduct(tool) {
   if (!auth.user) return false
@@ -266,6 +353,9 @@ function canManageProduct(tool) {
 function resetProductForm() {
   productName.value = ''
   productPrice.value = ''
+  productDescription.value=''
+  productSpecifications.value=''
+  productImageUrl.value=''
   editingProductId.value = 0
   pendingRemovalId.value = 0
   selectedCompanyId.value = ''
@@ -276,6 +366,9 @@ function startEditingProduct(tool) {
   editingProductId.value = tool.id
   productName.value = tool.name
   productPrice.value = tool.price
+  productDescription.value = tool.description || ''
+  productSpecifications.value = tool.specifications || ''
+  productImageUrl.value = tool.imageUrl || ''
   productMessage.value = ''
   pendingRemovalId.value = 0
 }
@@ -288,7 +381,8 @@ async function saveProduct() {
   productBusy.value = true
   productMessage.value = ''
   try {
-    const details = { name: productName.value, price: productPrice.value }
+    const details = { name: productName.value, price: productPrice.value,description: productDescription.value, specifications: productSpecifications.value,
+      imageUrl: productImageUrl.value  }
     if (id === 0) {
       if (auth.user.role ===  'admin')details.companyId = selectedCompanyId.value
       const response = await api.post('/shop/products', details)
@@ -299,6 +393,9 @@ async function saveProduct() {
         if (tool.id === id) {
           tool.name = response.data.name
           tool.price = response.data.price
+          tool.description = response.data.description
+          tool.specifications = response.data.specifications
+          tool.imageUrl = response.data.imageUrl
         }
       }
       // Refresh this page's cart display too
@@ -415,24 +512,34 @@ async function placeOrder(deliveryDetails) {
 
 // Read the signed-in account's saved orders. History failures do not undo a successful purchase.
 async function getMyOrders() {
-  if (!auth.isLoggedIn) {
-    orders.value = []
-    return
-  }
+  if (!auth.isLoggedIn) { orders.value = []; return }
   if (loadingOrders.value) return
- const owner = currentUserId()
+  const owner = currentUserId()
   loadingOrders.value = true
   ordersMessage.value = ''
   try {
     const response = await api.get('/shop/orders')
-    if (currentUserId() === owner) orders.value = response.data
+    if (currentUserId() !== owner) return
+    const notices = []
+    for (const order of response.data) {
+      let previous
+      for (const existing of orders.value) if (existing._id === order._id) previous = existing
+      if (previous) {
+        for (const update of order.updates || []) {
+          let seen = false
+          for (const old of previous.updates || []) if (old._id === update._id) seen = true
+          if (!seen) notices.push(update.message)
+        }
+      }
+    }
+    orders.value = response.data
+    if (notices.length && route.path === '/shop/orders') deliveryNotification.value = notices.join(' ')
   } catch (error) {
-    ordersMessage.value = 'Could not load order history: ' + error.message
+    if (currentUserId() === owner) ordersMessage.value = 'Could not load order history: ' + error.message
   } finally {
-    loadingOrders.value = false
+    if (currentUserId() === owner) loadingOrders.value = false
   }
 }
-
 // The login check must finish before we request personal order history.
 onMounted(async () => {
   await getProducts()
@@ -454,15 +561,19 @@ onMounted(async () => {
       <h1 v-else-if="route.path === '/shop/checkout'">Checkout</h1>
       <h1 v-else-if="route.path === '/shop/orders'">Orders and delivery</h1>
       <h1 v-else>DIY tools shop</h1>
+      <div class="d-flex flex-wrap gap-2 ms-auto">
       <RouterLink to="/shop/orders" class="btn btn-outline-primary">Orders</RouterLink>
       <RouterLink to="/shop/cart" class="btn btn-outline-primary">
         <span aria-hidden="true">🛒</span> Cart ({{ cartCount }})
       </RouterLink>
-    </div>
+    </div></div>
     <RouterLink v-if="route.path === '/shop/cart' || route.path === '/shop/orders'" to="/shop">Continue shopping</RouterLink>
     <p v-if="cartMessage" class="text-danger">{{ cartMessage }}</p>
+    <div class="cart-save-status small mb-3" role="status">
     <p v-if="cartLoading">Loading cart...</p>
     <p v-else-if="cartSaving">Saving cart...</p>
+    <span v-else-if="cartSaved && !cartUnsaved">Saved</span>
+    </div>
     <button v-if="cartUnsaved && !cartBusy" class="btn btn-outline-primary mb-3" @click="saveCart">Retry saving cart</button>
     <button v-if="!cartReady && !cartBusy" class="btn btn-outline-primary mb-3" @click="loadCart">Retry loading cart</button>
 
@@ -491,6 +602,12 @@ onMounted(async () => {
           <input id="product-name" v-model.trim="productName" class="form-control mb-3" maxlength="100" required />
           <label for="product-price" class="form-label">Product price (SGD)</label>
           <input id="product-price" v-model.number="productPrice" class="form-control mb-3" type="number" min="0" max="1000000" step="0.01" required />
+          <label for="product-description" class="form-label">Description (optional)</label>
+          <textarea id="product-description" v-model.trim="productDescription" class="form-control mb-3" rows="3" maxlength="1000"></textarea>
+          <label for="product-specifications" class="form-label">Specifications (optional)</label>
+          <textarea id="product-specifications" v-model.trim="productSpecifications" class="form-control mb-3" rows="2" maxlength="500" placeholder="Size, material, suitable uses..."></textarea>
+          <label for="product-image-url" class="form-label">Product image link (optional)</label>
+          <input id="product-image-url" v-model.trim="productImageUrl" type="url" class="form-control mb-3" maxlength="500" placeholder="https://..." />
           <button type="submit" class="btn btn-primary">{{ productBusy ? 'Please wait...' : editingProductId ? 'Save changes' : 'Add product' }}</button>
           <button v-if="editingProductId" type="button" class="btn btn-outline-secondary ms-2" @click="resetProductForm">Cancel edit</button>
         </fieldset>
@@ -499,23 +616,79 @@ onMounted(async () => {
       </form>
       <p v-else-if="auth.user && auth.user.role === 'business'" class="text-muted">Your account must be linked to a company before you can add products.</p>
 
-    <p v-if="tools.length === 0 && !message">No tools are available yet.</p>
-      <div v-for="tool in tools" :key="tool.id">
-        <h2>{{ tool.name }}</h2>
-        <p>Price: ${{ tool.price }}</p>
-        <button class="btn btn-primary mb-3" :disabled="cartBusy || !cartReady" @click="addToCart(tool)">
-          Add to cart
-        </button>
-                <div v-if="canManageProduct(tool)" class="mb-3">
-          <button type="button" class="btn btn-outline-primary me-2" :disabled="productBusy" @click="startEditingProduct(tool)">Edit</button>
-          <button type="button" class="btn btn-outline-danger" :disabled="productBusy" @click="pendingRemovalId = tool.id">Remove product</button>
-          <div v-if="pendingRemovalId === tool.id" class="mt-2">
-            <p>Remove {{ tool.name }} from the shop?</p>
-            <button type="button" class="btn btn-danger me-2" :disabled="productBusy" @click="removeProduct(tool)">Confirm remove</button>
-            <button type="button" class="btn btn-outline-secondary" :disabled="productBusy" @click="pendingRemovalId = 0">Cancel removal</button>
+      <div class="border rounded p-3 mb-4">
+        <div class="row g-3">
+          <div class="col-md-6 col-xl-4">
+            <label for="tool-search" class="form-label">Search tools</label>
+            <input id="tool-search" v-model="searchText" type="search" class="form-control" placeholder="Search by product name" />
+          </div>  
+          <div class="col-md-6 col-xl-4">
+            <label for="tool-company" class="form-label">Seller</label>
+            <select id="tool-company" v-model="companyFilter" class="form-select" :disabled="companiesLoading">
+              <option value="">All sellers</option>
+              <option v-for="company in companies" :key="company._id" :value="company._id">{{ company.name }}</option>
+              <option value="unassigned">Unassigned seller</option>
+            </select>
+          </div>
+          <div class="col-md-6 col-xl-4">
+            <label for="tool-sort" class="form-label">Sort products</label>
+            <select id="tool-sort" v-model="catalogueSort" class="form-select">
+              <option value="name">Name A–Z</option><option value="price-low">Price: low to high</option><option value="price-high">Price: high to low</option><option value="rating">Highest rated</option>
+            </select>
+          </div>
+          <div class="col-6 col-md-4">
+            <label for="tool-min-price" class="form-label">Minimum price ($)</label>
+            <input id="tool-min-price" v-model.number="minimumPrice" type="number" min="0" step="0.01" class="form-control" />
+          </div>
+          <div class="col-6 col-md-4">
+            <label for="tool-max-price" class="form-label">Maximum price ($)</label>
+            <input id="tool-max-price" v-model.number="maximumPrice" type="number" min="0" step="0.01" class="form-control" />
+          </div>
+          <div class="col-md-4">
+            <label for="tool-min-rating" class="form-label">Minimum rating</label>
+            <select id="tool-min-rating" v-model="minimumRating" class="form-select"><option value="">Any rating</option><option value="4">4 stars and above</option><option value="3">3 stars and above</option></select>
           </div>
         </div>
+        <div class="d-flex flex-wrap align-items-center gap-3 mt-3">
+          <button type="button" class="btn btn-outline-secondary" @click="clearFilters">Clear filters</button>
+          <span role="status">{{ filteredTools.length }} of {{ tools.length }} products</span>
+        </div>
+        <p v-if="companiesMessage" class="text-danger mt-2">{{ companiesMessage }}</p>
+        <button v-if="companiesMessage" type="button" class="btn btn-outline-secondary btn-sm" @click="getCompanies">Retry seller list</button>
+        <p v-if="ratingsMessage" class="text-danger mt-2">{{ ratingsMessage }}</p>
+        <button v-if="ratingsMessage" type="button" class="btn btn-outline-secondary btn-sm" @click="getReviewSummaries">Retry product ratings</button>
       </div>
+
+
+    <p v-if="tools.length === 0 && !message">No tools are available yet.</p>
+    <p v-else-if="filteredTools.length === 0">No products match your filters. Try Clear filters.</p>
+      <div v-for="tool in tools" :key="tool.id">
+
+      <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-5 g-3">
+        <div v-for="tool in filteredTools" :key="tool.id" class="col">
+          <div class="card h-100">
+            <div class="card-body d-flex flex-column p-2 p-sm-3">
+
+        <h2 class="h5 card-title">{{ tool.name }}</h2>
+        <p class="small mb-1">{{ companyName(tool.companyId) }}</p>
+        <p v-if="productRating(tool.id).count" class="small">★ {{ productRating(tool.id).average.toFixed(1) }} / 5 · {{ productRating(tool.id).count }} reviews</p>
+        <p v-else class="small text-muted">No reviews yet</p>
+        <p class="card-text">Price: ${{ tool.price.toFixed(2) }}</p>
+        <button type="button" class="btn btn-outline-primary w-100 mb-2" @click="selectedProduct = tool">View details</button>
+        <button class="btn btn-primary w-100 mt-auto" :disabled="cartBusy || !cartReady" @click="addToCart(tool)">
+          Add to cart
+        </button>
+                <div v-if="canManageProduct(tool)" class="d-flex flex-wrap gap-2 mt-3">
+          <button type="button" class="btn btn-outline-primary btn-sm" :disabled="productBusy" @click="startEditingProduct(tool)">Edit</button>
+          <button type="button" class="btn btn-outline-danger btn-sm" :disabled="productBusy" @click="pendingRemovalId = tool.id">Remove product</button>
+          <div v-if="pendingRemovalId === tool.id" class="mt-2">
+            <p>Remove {{ tool.name }} from the shop?</p>
+            <button type="button" class="btn btn-danger btn-sm" :disabled="productBusy" @click="removeProduct(tool)">Confirm remove</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" :disabled="productBusy" @click="pendingRemovalId = 0">Cancel removal</button>
+          </div>
+        </div>
+      </div></div></div></div></div>
+      
 
     </section>
 
@@ -632,6 +805,10 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+
+.cart-save-status {
+  min-height: 1.5rem;
+}
 .delivery-notification {
   position: fixed;
   right: 1rem;

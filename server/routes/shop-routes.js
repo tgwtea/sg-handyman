@@ -1,5 +1,6 @@
 import express from 'express';
 import shopController from '../controllers/shop-controller.js';
+import productReviewController from '../controllers/product-review-controller.js';
 import { requireLogin, requireRole} from '../middleware/auth.js';
 
 const router = express.Router();
@@ -21,5 +22,12 @@ router.get('/orders', requireLogin, shopController.getMyOrders);
 // Account carts use the same login session as orders.
 router.get('/cart', requireLogin, shopController.getCart);
 router.put('/cart', requireLogin, shopController.saveCart);
+
+//for product review
+router.get('/reviews/summary', productReviewController.getSummaries);
+router.get('/products/:id/reviews', productReviewController.getReviews);
+router.post('/products/:id/reviews', requireLogin, productReviewController.createReview);
+router.put('/products/:id/reviews', requireLogin, productReviewController.updateReview);
+router.delete('/products/:id/reviews', requireLogin, productReviewController.deleteReview);
 
 export default router;
