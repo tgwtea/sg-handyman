@@ -101,7 +101,7 @@ async function pinPostalCode() {
 
 <template>
   <!-- <div ref="mapContainer" style="width: 100vw; height: 100vh"></div> -->
-  <div ref="mapContainer" style="width: 75vw; height: 75vh"></div>
+  <div ref="mapContainer" style="width: 60vw; height: 75vh"></div>
   <br>
   <button class="btn btn-outline-primary" id="pinPostalCodeBtn" @click="pinPostalCode">Reset map</button>
 </template>
