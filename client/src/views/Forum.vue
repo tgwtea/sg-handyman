@@ -56,10 +56,10 @@ const filteredPosts = computed(() => {
   })
 })
 
-// Loads the posts from the server and shows any errors.
+// Loads the posts from the server and shows any errors
 async function loadPosts() {
   try {
-    const response = await api.get('/forum')
+    const response = await api.get('/forum') 
     posts.value = response.data
   } catch (error) {
     message.value = errorMessage(error)
@@ -70,20 +70,19 @@ async function loadPosts() {
 
 onMounted(loadPosts)
 
-// Applies the text entered in the search bar.
+// Applies filtering by the text entered in the search bar
 function searchPosts() {
   searchTerm.value = searchInput.value.trim()
   selectedCategory.value = ''
 }
 
-// Filters posts by a popular category.
+// Filters posts by a popular category while ensuring it filters by both text and select category
 function searchByCategory(categoryName) {
   selectedCategory.value = categoryName
-  searchInput.value = ''
-  searchTerm.value = ''
+  searchTerm.value = searchInput.value.trim() 
 }
 
-// Clears the search and shows all posts again.
+// Clears the search bar and shows all posts again
 function showAllPosts() {
   selectedCategory.value = ''
   searchInput.value = ''
@@ -149,7 +148,7 @@ function editPost(post) {
   message.value = ''
 }
 
-// Creates a post or saves changes, then reloads the posts.
+// Creates a post or saves changes, then reloads the posts
 async function savePost() {
   message.value = ''
 
