@@ -5,7 +5,7 @@ Book handyman services in Singapore.
 | Folder | App |
 | --- | --- |
 | `client/` | Vue 3 + Vite frontend, on http://localhost:5173 |
-| `server/` | Express + MongoDB API, on http://localhost:8000 |
+| `server/` | Express + MongoDB API, on http://localhost:8000/api (the Vite dev server proxies /api to it) |
 
 ## Setup
 
@@ -230,3 +230,16 @@ To build it:
 ## History
 
 This repository joins the history of the two earlier repositories, `sg-handyman-server` and `sg-handyman-client`. `git log -- server/` and `git log -- client/` show the full history of each app.
+
+## Deploy on Vercel
+
+`vercel.json` deploys the repo as one Vercel project with two services:
+
+| Service | Folder | Public path |
+| --- | --- | --- |
+| `client` | `client/` (Vite) | `/` |
+| `server` | `server/` (Express) | `/api/*` |
+
+Set `DB` and `SECRET` in the Vercel project's environment variables. `CLIENT_ORIGIN` isn't needed, because the client and API share one domain. Sessions are stored in MongoDB (the `sessions` collection), so every function instance sees the same logins.
+
+To run both services together the way Vercel does, run `vercel dev` from the repo root.

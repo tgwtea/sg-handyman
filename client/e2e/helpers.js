@@ -1,8 +1,8 @@
 import process from 'node:process'
 import { expect, request } from '@playwright/test'
 
-// API base URL, same as client/constants/urls.js
-export const API_URL = process.env.E2E_API_URL ?? 'http://localhost:8000'
+// API base URL: the Express server, whose routes all live under /api
+export const API_URL = process.env.E2E_API_URL ?? 'http://localhost:8000/api'
 
 // Test accounts created by `pnpm seed` (see server/scripts/seed-data.js).
 // Override with E2E_PASSWORD if your database uses another password.

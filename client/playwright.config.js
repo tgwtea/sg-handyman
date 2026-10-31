@@ -90,7 +90,7 @@ export default defineConfig({
     {
       /* The Express API. The tests read and write the database it connects to. */
       command: 'pnpm --dir ../server dev',
-      url: 'http://localhost:8000/companies',
+      url: 'http://localhost:8000/api/companies',
       env: { PORT: '8000' },
       reuseExistingServer: !process.env.CI,
     },

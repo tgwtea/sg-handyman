@@ -27,7 +27,7 @@ test.describe('Booking a timeslot', () => {
     // the booking id from the API, so the finally block can clean up if the test fails midway
     let bookingId = null
     page.on('response', async (response) => {
-      if (response.url() === `${API_URL}/bookings` && response.request().method() === 'POST' && response.status() === 201) {
+      if (new URL(response.url()).pathname === '/api/bookings' && response.request().method() === 'POST' && response.status() === 201) {
         bookingId = (await response.json())._id
       }
     })
