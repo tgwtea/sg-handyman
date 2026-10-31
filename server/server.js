@@ -15,6 +15,7 @@ import bookingRouter from './routes/booking-routes.js';
 import forumRouter from './routes/forum-routes.js';
 import shopRouter from './routes/shop-routes.js';
 import reviewRouter from './routes/review-routes.js';
+import mapRouter from './routes/map-routes.js';
 
 const isVercel = !!process.env.VERCEL;
 
@@ -82,6 +83,7 @@ api.use('/bookings', bookingRouter);
 api.use('/forum', forumRouter);
 api.use('/shop', shopRouter);
 api.use('/reviews', reviewRouter);
+api.use('/map', mapRouter);
 app.use('/api', api);
 
 // Vercel runs the exported app as a function; locally, start a normal server

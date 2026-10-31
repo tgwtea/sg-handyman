@@ -11,6 +11,11 @@ import ReviewSection from '@/components/ReviewSection.vue';
 import { useAuthStore } from '@/stores/auth';
 import { useRoute } from 'vue-router'
 
+// OneMap - amanda
+import { useTemplateRef } from 'vue'
+import OneMap from '../components/OneMap.vue';
+const oneMapRef = useTemplateRef('oneMap')
+
 // for getting companyId via route params
 const route = useRoute()
 const auth = useAuthStore()
@@ -51,6 +56,10 @@ onMounted(async () => {
     await nextTick();
     document.getElementById(route.hash.slice(1))?.scrollIntoView({ behavior: 'smooth' });
   }
+
+  // OneMap - amanda
+  oneMapRef.value?.initialiseOneMap();
+  oneMapRef.value?.pinPostalCode();
 })
 
 // demo contact form, not sent to the server
@@ -105,6 +114,12 @@ function resetContact() {
     <h3>Contact</h3>
     <p class="mb-1" v-if="company.address">{{ company.address }}</p>
     <p v-if="company.website"><a :href="company.website">{{ company.website }}</a></p>
+
+    <!-- OneMap - amanda -->
+    <OneMap ref="oneMap" v-if="company.address" :address="company.address"/>
+    <!-- <div :address="address">test</div> -->
+    <!-- <div :address="company.address">test</div> -->
+    <br><br>
 
     <div v-if="contactSent" class="alert alert-success" role="status">
       <p>Thanks, {{ contactForm.name }}. {{ company.name }} will contact you at {{ contactForm.email }}.</p>
