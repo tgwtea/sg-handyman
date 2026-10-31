@@ -106,6 +106,11 @@ forumModel.deleteForumPostById = function(postId) {
   return ForumPost.findByIdAndDelete(postId);
 };
 
+// Deletes every forum post. Used by the seed script.
+forumModel.deleteAllForumPosts = function() {
+  return ForumPost.deleteMany({});
+};
+
 // Adds or removes a user's thumbs-up from a post.
 forumModel.toggleForumPostLike = async function(post, userId) {
   const likeIndex = post.likes.findIndex(like => String(like) === String(userId));

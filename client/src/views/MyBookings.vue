@@ -3,7 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import api, { errorMessage } from '@/api'
 import { useAuthStore } from '@/stores/auth'
-import { formatDay, formatTime } from '@/utils/sgTime'
+import { formatDay, formatTimeRange } from '@/utils/sgTime'
 
 const auth = useAuthStore()
 const route = useRoute()
@@ -49,7 +49,7 @@ const sections = computed(() => [
 
 function whenLabel(booking) {
   const { timeslotId: slot } = booking
-  return slot ? `${formatDay(slot.start)}, ${formatTime(slot.start)}` : 'Time no longer available'
+  return slot ? `${formatDay(slot.start)}, ${formatTimeRange(slot.start, slot.end)}` : 'Time no longer available'
 }
 
 async function loadBookings() {

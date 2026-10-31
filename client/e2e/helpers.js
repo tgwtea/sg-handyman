@@ -42,8 +42,8 @@ export function uniqueTitle(prefix) {
 }
 
 // Seeded timeslots expire as days pass, so a booking test makes its own free slot.
-// test-business creates a 30-minute slot tomorrow evening (outside the seeded 09:00-18:00
-// Singapore hours). Call `remove()` in `finally`, after any booking on it is cancelled.
+// test-business creates a 30-minute slot tomorrow evening (after every seeded closing time, which is
+// 19:00 Singapore time at the latest). Call `remove()` in `finally`, after any booking on it is cancelled.
 export async function createFreeSlot(companyName = BUSINESS_COMPANY) {
   const api = await request.newContext({ baseURL: API_BASE_URL })
   const login = await api.post('auth/login', { data: { username: USERS.business, password: TEST_PASSWORD } })
