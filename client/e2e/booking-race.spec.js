@@ -1,19 +1,19 @@
 import { test, expect, request } from '@playwright/test'
-import { API_URL, TEST_PASSWORD, BUSINESS_COMPANY, USERS, login, openCompany, createFreeSlot } from './helpers.js'
+import { API_BASE_URL, TEST_PASSWORD, BUSINESS_COMPANY, USERS, login, openCompany, createFreeSlot } from './helpers.js'
 
 const CUSTOMERS = ['test-customer-1', 'test-customer-2']
 const TAKEN_MESSAGE = 'Someone else just booked this slot. Pick another one.'
 
 // An API client with its own session cookie, logged in as `username`
 async function loggedInApi(username) {
-  const api = await request.newContext({ baseURL: API_URL })
-  const response = await api.post('/auth/login', { data: { username, password: TEST_PASSWORD } })
+  const api = await request.newContext({ baseURL: API_BASE_URL })
+  const response = await api.post('auth/login', { data: { username, password: TEST_PASSWORD } })
   expect(response.ok()).toBeTruthy()
   return api
 }
 
 async function findCompanyId(api, companyName) {
-  const companies = await (await api.get('/companies')).json()
+  const companies = await (await api.get('companies')).json()
   const company = companies.find((item) => item.name === companyName)
   expect(company).toBeTruthy()
   return company._id
@@ -30,7 +30,7 @@ test.describe('Booking under race conditions', () => {
 
       // both requests leave together, so neither sees the other's booking first
       const responses = await Promise.all(apis.map((api) =>
-        api.post('/bookings', { data: { timeslotId: freeSlot._id } })
+        api.post('bookings', { data: { timeslotId: freeSlot._id } })
       ))
       const statuses = responses.map((response) => response.status()).sort()
       expect(statuses).toEqual([201, 409])
@@ -43,7 +43,7 @@ test.describe('Booking under race conditions', () => {
     } finally {
       // the database is shared, so never leave a test booking behind
       if (bookingId) {
-        const owners = await Promise.all(apis.map((api) => api.delete(`/bookings/${bookingId}`)))
+        const owners = await Promise.all(apis.map((api) => api.delete(`bookings/${bookingId}`)))
         expect(owners.some((response) => response.ok())).toBeTruthy()
       }
       await created.remove()
@@ -65,7 +65,7 @@ test.describe('Booking under race conditions', () => {
       await slot.click()
       await expect(page.getByRole('button', { name: 'Confirm booking' })).toBeVisible()
 
-      const response = await otherApi.post('/bookings', { data: { timeslotId: freeSlot._id } })
+      const response = await otherApi.post('bookings', { data: { timeslotId: freeSlot._id } })
       expect(response.status()).toBe(201)
       bookingId = (await response.json())._id
 
@@ -77,7 +77,7 @@ test.describe('Booking under race conditions', () => {
     } finally {
       // the database is shared, so never leave a test booking behind
       if (bookingId) {
-        const cancelled = await otherApi.delete(`/bookings/${bookingId}`)
+        const cancelled = await otherApi.delete(`bookings/${bookingId}`)
         expect(cancelled.ok()).toBeTruthy()
       }
       await created.remove()
@@ -86,10 +86,10 @@ test.describe('Booking under race conditions', () => {
   })
 
   test('next-free lists each company\'s earliest free slot in the future', async () => {
-    const api = await request.newContext({ baseURL: API_URL })
+    const api = await request.newContext({ baseURL: API_BASE_URL })
     const created = await createFreeSlot()
     try {
-      const response = await api.get('/timeslots/next-free')
+      const response = await api.get('timeslots/next-free')
       expect(response.ok()).toBeTruthy()
       const nextFree = await response.json()
 

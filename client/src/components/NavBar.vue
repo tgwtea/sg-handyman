@@ -72,7 +72,7 @@ async function logout() {
         </div>
         <div v-else class="d-flex flex-wrap gap-2">
           <RouterLink class="btn btn-ghost" to="/login">Log in</RouterLink>
-          <button class="btn btn-primary" type="button">Sign up</button>
+          <RouterLink class="btn btn-primary" to="/sign-up">Sign up</RouterLink>
         </div>
       </div>
     </div>

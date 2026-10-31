@@ -1,8 +1,12 @@
 import process from 'node:process'
 import { expect, request } from '@playwright/test'
 
-// API base URL, same as client/constants/urls.js
-export const API_URL = process.env.E2E_API_URL ?? 'http://localhost:8000'
+// API base URL: the Express server, whose routes all live under /api
+export const API_URL = process.env.E2E_API_URL ?? 'http://localhost:8000/api'
+
+// For request.newContext: with a trailing slash, a relative path such as 'auth/login'
+// keeps /api. A leading slash ('/auth/login') would replace /api and hit a 404.
+export const API_BASE_URL = `${API_URL.replace(/\/$/, '')}/`
 
 // Test accounts created by `pnpm seed` (see server/scripts/seed-data.js).
 // Override with E2E_PASSWORD if your database uses another password.
@@ -41,11 +45,11 @@ export function uniqueTitle(prefix) {
 // test-business creates a 30-minute slot tomorrow evening (outside the seeded 09:00-18:00
 // Singapore hours). Call `remove()` in `finally`, after any booking on it is cancelled.
 export async function createFreeSlot(companyName = BUSINESS_COMPANY) {
-  const api = await request.newContext({ baseURL: API_URL })
-  const login = await api.post('/auth/login', { data: { username: USERS.business, password: TEST_PASSWORD } })
+  const api = await request.newContext({ baseURL: API_BASE_URL })
+  const login = await api.post('auth/login', { data: { username: USERS.business, password: TEST_PASSWORD } })
   expect(login.ok()).toBeTruthy()
 
-  const companies = await (await api.get('/companies')).json()
+  const companies = await (await api.get('companies')).json()
   const companyId = companies.find((item) => item.name === companyName)._id
 
   // 12:00 UTC is 20:00 in Singapore; a random minute avoids a slot that another run left behind
@@ -56,7 +60,7 @@ export async function createFreeSlot(companyName = BUSINESS_COMPANY) {
     const start = new Date(Date.UTC(tomorrow.getUTCFullYear(), tomorrow.getUTCMonth(), tomorrow.getUTCDate(),
       12, Math.floor(Math.random() * 30)))
     const end = new Date(start.getTime() + 30 * 60 * 1000)
-    const response = await api.post('/timeslots', { data: { companyId, start, end } })
+    const response = await api.post('timeslots', { data: { companyId, start, end } })
     if (response.status() === 201) slot = await response.json()
   }
   expect(slot).toBeTruthy()
@@ -65,7 +69,7 @@ export async function createFreeSlot(companyName = BUSINESS_COMPANY) {
     slot,
     companyId,
     async remove() {
-      await api.delete(`/timeslots/${slot._id}`)
+      await api.delete(`timeslots/${slot._id}`)
       await api.dispose()
     }
   }

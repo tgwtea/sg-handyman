@@ -5,6 +5,7 @@ import CompanyDetails from '@/views/CompanyDetails.vue'
 import Forum from '@/views/Forum.vue'
 import Shop from '@/views/Shop.vue'
 import Login from '@/views/Login.vue'
+import Signup from '@/views/Signup.vue'
 import MyBookings from '@/views/MyBookings.vue'
 
 const router = createRouter({
@@ -60,6 +61,11 @@ const router = createRouter({
       path: '/login',
       name: 'login',
       component: Login,
+    },
+    {
+      path: '/sign-up',
+      name: 'sign-up',
+      component: Signup,
     },
         {
       path: '/my-bookings',
