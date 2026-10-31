@@ -81,7 +81,16 @@ function resetContact() {
 <template>
   <header class="pixel-card p-4 mb-4">
     <h2>{{ company.name }}</h2>
+    <div class="d-flex flex-wrap gap-1 mb-3">
+      <span v-for="category in company.services" class="badge rounded-pill text-bg-light border">
+        {{ category.category }}
+      </span>
+    </div>
+    <span v-if="company.isPubLicensed" class="badge rounded-pill text-bg-danger border">PUB Licensed</span>
+    <span v-else class="badge rounded-pill text-bg-dark border">Not PUB Licensed</span>
+    <br><br>
     <p class="mb-2">{{ company.description }}</p>
+    <p class="mb-2">{{ company.address }}</p>
     <a :href="company.website">{{ company.website }}</a>
   </header>
 

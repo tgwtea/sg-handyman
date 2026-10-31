@@ -45,7 +45,8 @@ export const COMPANIES = [
       { category: 'Floor Traps & Drains', details: [
         { service: 'Floor Trap Choke Clearance', startingPrice: 40 }
       ] }
-    ]
+    ],
+    isPubLicensed: true
   },
   {
     name: 'Tan Repair',
@@ -62,7 +63,8 @@ export const COMPANIES = [
         { service: 'Toilet Bowl Choke Clearance (Labour Only)', startingPrice: 60 },
         { service: 'Toilet Siphon Replacement', startingPrice: 80 }
       ] }
-    ]
+    ],
+    isPubLicensed: true
   },
   {
     name: 'Lion City Plumbing Works',
@@ -83,7 +85,8 @@ export const COMPANIES = [
         { service: 'Storage Water Heater Installation', startingPrice: 180 },
         { service: 'Instant Water Heater Repair', startingPrice: 80 }
       ] }
-    ]
+    ],
+    isPubLicensed: true
   },
   {
     name: 'Woodcraft Carpentry SG',
@@ -103,7 +106,8 @@ export const COMPANIES = [
       { category: 'Furniture', details: [
         { service: 'Flat-Pack Furniture Assembly', startingPrice: 60 }
       ] }
-    ]
+    ],
+    isPubLicensed: false
   },
   {
     name: 'Tiles & Grout Pro',
@@ -120,7 +124,8 @@ export const COMPANIES = [
         { service: 'Bathroom Regrouting (Per Bathroom)', startingPrice: 250 },
         { service: 'Bathroom Waterproofing (Per Bathroom)', startingPrice: 600 }
       ] }
-    ]
+    ],
+    isPubLicensed: false
   },
   {
     name: 'KeyMaster Locksmith',
@@ -137,7 +142,8 @@ export const COMPANIES = [
         { service: 'Door Lock Cylinder Replacement', startingPrice: 90 },
         { service: 'Digital Lock Installation', startingPrice: 350 }
       ] }
-    ]
+    ],
+    isPubLicensed: false
   },
   {
     name: 'CoolBreeze Aircon Services',
@@ -157,7 +163,8 @@ export const COMPANIES = [
       { category: 'Aircon Installation', details: [
         { service: 'System 2 Aircon Installation', startingPrice: 1800 }
       ] }
-    ]
+    ],
+    isPubLicensed: false
   },
   {
     name: 'BrightSpark Electrical',
@@ -177,7 +184,8 @@ export const COMPANIES = [
       { category: 'Distribution Board', details: [
         { service: 'Distribution Board (DB Box) Replacement', startingPrice: 450 }
       ] }
-    ]
+    ],
+    isPubLicensed: false
   },
   {
     name: 'HomeFix Handyman Services',
@@ -197,7 +205,8 @@ export const COMPANIES = [
         { service: 'Wall Drilling (Per Hole)', startingPrice: 15 },
         { service: 'Handyman Service (Per Hour)', startingPrice: 60 }
       ] }
-    ]
+    ],
+    isPubLicensed: false
   },
   {
     name: 'Fresh Coat Painters',
@@ -216,7 +225,8 @@ export const COMPANIES = [
       { category: 'Touch-Ups & Patching', details: [
         { service: 'Wall Patching & Touch-Up', startingPrice: 120 }
       ] }
-    ]
+    ],
+    isPubLicensed: false
   },
   {
     name: 'Arctic Air Aircon',
@@ -232,7 +242,8 @@ export const COMPANIES = [
       { category: 'Aircon Repair', details: [
         { service: 'Refrigerant Gas Top-Up', startingPrice: 50 }
       ] }
-    ]
+    ],
+    isPubLicensed: false
   },
   {
     name: 'Polar Comfort Aircon',
@@ -252,7 +263,8 @@ export const COMPANIES = [
         { service: 'Aircon Compressor Replacement', startingPrice: 450 },
         { service: 'Water Leakage Repair', startingPrice: 60 }
       ] }
-    ]
+    ],
+    isPubLicensed: false
   },
   {
     name: 'Tile Doctor SG',
@@ -269,7 +281,8 @@ export const COMPANIES = [
         { service: 'Anti-Slip Floor Coating (Per Bathroom)', startingPrice: 220 },
         { service: 'Bathroom Regrouting (Per Bathroom)', startingPrice: 200 }
       ] }
-    ]
+    ],
+    isPubLicensed: false
   },
   {
     name: 'Ohm Sweet Ohm Electricians',
@@ -289,7 +302,8 @@ export const COMPANIES = [
       { category: 'Distribution Board', details: [
         { service: 'Distribution Board (DB Box) Replacement', startingPrice: 520 }
       ] }
-    ]
+    ],
+    isPubLicensed: false
   },
   {
     name: 'Fix-It-All Home Services',
@@ -310,7 +324,8 @@ export const COMPANIES = [
       { category: 'General Handyman', details: [
         { service: 'Handyman Service (Per Hour)', startingPrice: 75 }
       ] }
-    ]
+    ],
+    isPubLicensed: true
   },
   {
     name: 'GreenLeaf Pest Control',
@@ -324,7 +339,8 @@ export const COMPANIES = [
         { service: 'Termite Treatment', startingPrice: 380 },
         { service: 'Bed Bug Treatment', startingPrice: 250 }
       ] }
-    ]
+    ],
+    isPubLicensed: false
   },
   {
     name: 'Pipeline Pros',
@@ -344,7 +360,8 @@ export const COMPANIES = [
       { category: 'Basins & Taps', details: [
         { service: 'Basin Supply & Installation', startingPrice: 220 }
       ] }
-    ]
+    ],
+    isPubLicensed: true
   },
   {
     name: 'Volt Masters Electrical',
@@ -361,7 +378,8 @@ export const COMPANIES = [
         { service: 'Power Trip Troubleshooting', startingPrice: 70 },
         { service: 'Isolator Switch Installation', startingPrice: 85 }
       ] }
-    ]
+    ],
+    isPubLicensed: false
   },
   {
     name: 'Colour Me Home Painting',
@@ -378,7 +396,8 @@ export const COMPANIES = [
       { category: 'Touch-Ups & Patching', details: [
         { service: 'Wall Patching & Touch-Up', startingPrice: 100 }
       ] }
-    ]
+    ],
+    isPubLicensed: false
   },
   {
     name: 'Secure Lock & Key',
@@ -397,7 +416,8 @@ export const COMPANIES = [
       { category: 'Safes', details: [
         { service: 'Locked Safe Opening', startingPrice: 180 }
       ] }
-    ]
+    ],
+    isPubLicensed: false
   },
   {
     name: 'Handy Andy SG',
@@ -417,7 +437,8 @@ export const COMPANIES = [
       { category: 'Curtains & Blinds', details: [
         { service: 'Curtain Rail Installation', startingPrice: 40 }
       ] }
-    ]
+    ],
+    isPubLicensed: false
   },
   {
     name: 'Oak & Nail Carpentry',
@@ -434,7 +455,8 @@ export const COMPANIES = [
         { service: 'Flat-Pack Furniture Assembly', startingPrice: 50 },
         { service: 'Wooden Chair Repair', startingPrice: 40 }
       ] }
-    ]
+    ],
+    isPubLicensed: false
   },
   {
     name: 'Rapid Plumb Express',
@@ -454,7 +476,8 @@ export const COMPANIES = [
       { category: 'Floor Traps & Drains', details: [
         { service: 'Floor Trap Choke Clearance', startingPrice: 35 }
       ] }
-    ]
+    ],
+    isPubLicensed: true
   },
   {
     name: 'Premier Wall Finishes',
@@ -470,7 +493,8 @@ export const COMPANIES = [
         { service: 'Wallpaper Installation (Per Roll)', startingPrice: 60 },
         { service: 'Wallpaper Removal (Per Room)', startingPrice: 180 }
       ] }
-    ]
+    ],
+    isPubLicensed: false
   },
   {
     name: 'Sparkle Glass & Windows',
@@ -486,7 +510,8 @@ export const COMPANIES = [
       { category: 'Mosquito Nets', details: [
         { service: 'Mosquito Net Installation (Per Window)', startingPrice: 85 }
       ] }
-    ]
+    ],
+    isPubLicensed: false
   }
 ];
 
