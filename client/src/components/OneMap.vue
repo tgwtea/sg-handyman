@@ -68,12 +68,12 @@ async function pinPostalCode() {
       const address = result.ADDRESS;
 
       // 2. Remove previous marker if it exists to keep map clear
-      if (currentMarker) {
+      if (currentMarker.value) {
         map.value.removeLayer(currentMarker);
       }
 
       // 3. Drop a new marker at the geocoded coordinates and bind a popup window
-      currentMarker = L.marker([lat, lng])
+      currentMarker.value = L.marker([lat, lng])
         .addTo(map.value)
         .bindPopup(`<b>${result.BUILDING || 'Location'}</b><br>${address}`)
         .openPopup();
