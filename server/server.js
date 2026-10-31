@@ -5,6 +5,7 @@ import MongoStore from 'connect-mongo';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 
+// Specify the path to the environment variable file
 // Load server/.env for local runs. On Vercel, env vars come from the project settings.
 dotenv.config({ path: './.env' });
 
@@ -47,11 +48,41 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Session configuration
+app.use(session({
+  secret: process.env.SECRET,
+  resave: false,
+  saveUninitialized: false,  // set to false to avoid saving empty session objects, to save storage space
+  cookie: { secure: false }
+}));
+
+import companyRouter from './routes/company-routes.js';
+import authRouter from './routes/auth-routes.js';
+import timeslotRouter from './routes/timeslot-routes.js';
+import bookingRouter from './routes/booking-routes.js';
+import forumRouter from './routes/forum-routes.js';
+import shopRouter from './routes/shop-routes.js';
+import reviewRouter from './routes/review-routes.js';
+import mapRouter from './routes/map-routes.js';
+
+app.use('/companies', companyRouter);
+app.use('/auth', authRouter);
+app.use('/timeslots', timeslotRouter);
+app.use('/bookings', bookingRouter);
+app.use('/forum', forumRouter);
+app.use('/shop', shopRouter);
+app.use('/reviews', reviewRouter);
+app.use('/map', mapRouter);
+
+// async function to connect to DB
+async function connectDB() {
+
 // Every API route lives under /api, the path Vercel sends to this service
 const api = express.Router();
 
 // Make sure the database is connected before any route runs
 api.use(async (req, res, next) => {
+
   try {
     await connectDB();
     next();
