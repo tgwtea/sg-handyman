@@ -1,47 +1,53 @@
-import dotenv from 'dotenv';
-dotenv.config({ path: './.env' });
+import tokenService, { OneMapAuthenticationError } from '../services/onemap-token-service.js';
 
-const mapController = {};
-
-// Programmatically fetch coordinates from OneMap API and update the map marker
-mapController.fetchPostalCodeCoordinates = async (req, res) => {
-  let postalCode = req.params.postalCode;
-  console.log(postalCode);
-
-  if (!postalCode || postalCode.length !== 6) {
-    res.send('Invalid 6-digit postal code.');
-    return;
-  }
-
-  try {
-    // 1. Query the OneMap Elastic Search API using the postal code string
-    const targetUrl = `https://www.onemap.gov.sg/api/common/elastic/search?searchVal=${postalCode}&returnGeom=Y&getAddrDetails=Y&pageNum=1`;
-    const authToken = process.env.ONEMAP_API_TOKEN;
-    // console.log('authToken', authToken)
-    const response = await fetch(targetUrl, {
-        method: 'GET',
-        headers: {
-          'Authorization': `${authToken}`,  // API token for authorization
-        }
-      });
-      // .then(response => response.json())  // Parse response as JSON
-      // .then(data => console.log(data))     // Log the data to the console
-      // .catch(error => console.error('Error:', error));  // Log any errors;
-
-    const data = await response.json();
-    
-    if (data.results && data.results.length > 0) {
-      res.send(data);
-      // console.log('server map data:', data)
-    } else {
-      res.send('No matching location found for this postal code.');
-      console.log('No matching location found for this postal code.');
-    }
-  } catch (error) {
-    res.send('Failed to geocode postal code via OneMap');
-    console.error('Failed to geocode postal code via OneMap:', error);
-  }
+function hasAuthenticationError(response, data) {
+  const message = typeof data?.error === 'string' ? data.error : '';
+  return response.status === 401
+    || /token.*(?:expir|invalid|missing)|(?:expir|invalid|missing).*token|authentication.*(?:fail|requir)/i.test(message);
 }
 
+export function createMapController({
+  tokens = tokenService,
+  fetchImpl = globalThis.fetch,
+  timeoutSignal = () => AbortSignal.timeout(8_000),
+} = {}) {
+  return {
+    async fetchPostalCodeCoordinates(req, res) {
+      const postalCode = req.params.postalCode;
+      if (!postalCode || postalCode.length !== 6) {
+        res.send('Invalid 6-digit postal code.');
+        return;
+      }
+      try {
+        let token = await tokens.getToken();
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+          const query = new URLSearchParams({ searchVal: postalCode, returnGeom: 'Y', getAddrDetails: 'Y', pageNum: '1' });
+          const response = await fetchImpl(`https://www.onemap.gov.sg/api/common/elastic/search?${query}`, {
+            headers: { Authorization: token },
+            signal: timeoutSignal(),
+          });
+          // HTTP 401 does not require a JSON body.
+          const data = response.status === 401 ? null : await response.json();
+          if (hasAuthenticationError(response, data)) {
+            await tokens.invalidate(token);
+            if (attempt === 1) throw new OneMapAuthenticationError();
+            token = await tokens.getToken();
+            continue;
+          }
+          if (!response.ok || !data || data.error || !Array.isArray(data.results)) {
+            throw new Error('OneMap search unavailable');
+          }
+          res.send(data.results.length ? data : 'No matching location found for this postal code.');
+          return;
+        }
+      } catch (error) {
+        const authenticationFailed = error instanceof OneMapAuthenticationError;
+        res.status(authenticationFailed ? 503 : 502).send(authenticationFailed
+          ? 'OneMap authentication unavailable.'
+          : 'Failed to geocode postal code via OneMap');
+      }
+    },
+  };
+}
 
-export default mapController;
+export default createMapController();
