@@ -27,7 +27,7 @@ const cartLoading = ref(true)
 const cartSaving = ref(false)
 const cartReady = ref(false)
 const cartUnsaved = ref(false)
-const cartBusy = computed(() => placingOrder.value || cartLoading.value)
+const cartBusy = computed(() => placingOrder.value || cartLoading.value || cartSaving.value)
 const cartSaved = ref(false)
 
 const productName = ref('')
@@ -570,11 +570,10 @@ onMounted(async () => {
     <RouterLink v-if="route.path === '/shop/cart' || route.path === '/shop/orders'" to="/shop">Continue shopping</RouterLink>
     <p v-if="cartMessage" class="text-danger">{{ cartMessage }}</p>
     <div class="cart-save-status small mb-3" role="status">
-    <p v-if="cartLoading">Loading cart...</p>
-    <p v-else-if="cartSaving">Saving cart...</p>
+    <span v-if="cartLoading">Loading cart...</span>
+    <span v-else-if="cartSaving">Saving cart...</span>
     <span v-else-if="cartSaved && !cartUnsaved">Saved</span>
     </div>
-    <button v-if="cartUnsaved && !cartBusy" class="btn btn-outline-primary mb-3" @click="saveCart">Retry saving cart</button>
     <button v-if="!cartReady && !cartBusy" class="btn btn-outline-primary mb-3" @click="loadCart">Retry loading cart</button>
 
     <p v-if="message" class="text-danger">{{ message }}</p>
@@ -662,7 +661,6 @@ onMounted(async () => {
 
     <p v-if="tools.length === 0 && !message">No tools are available yet.</p>
     <p v-else-if="filteredTools.length === 0">No products match your filters. Try Clear filters.</p>
-      <div v-for="tool in tools" :key="tool.id">
 
       <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-5 g-3">
         <div v-for="tool in filteredTools" :key="tool.id" class="col">
@@ -687,7 +685,7 @@ onMounted(async () => {
             <button type="button" class="btn btn-outline-secondary btn-sm" :disabled="productBusy" @click="pendingRemovalId = 0">Cancel removal</button>
           </div>
         </div>
-      </div></div></div></div></div>
+      </div></div></div></div>
       
 
     </section>
@@ -796,6 +794,7 @@ onMounted(async () => {
       </div>
     </section>
 
+    <ShopProductDetails v-if="selectedProduct" :key="selectedProduct.id" :tool="selectedProduct" :company-name="companyName(selectedProduct.companyId)" :cart-disabled="cartBusy || !cartReady" @close="selectedProduct = null" @add-to-cart="addToCart" @reviews-changed="getReviewSummaries" />
     <div v-if="deliveryNotification && auth.isLoggedIn" class="delivery-notification alert alert-success shadow" role="status">
       <p>{{ deliveryNotification }}</p>
       <button type="button" class="btn btn-outline-secondary btn-sm" @click="deliveryNotification = ''">Dismiss</button>
