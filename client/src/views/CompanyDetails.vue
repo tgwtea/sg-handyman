@@ -77,18 +77,18 @@ function resetContact() {
   </header>
 
   <div v-for="category in company.services">
-    <h3>{{ category.category }}</h3>
+    <h3 class="text-center">{{ category.category }}</h3>
     <table class="table">
       <thead>
         <tr>
-          <th scope="col">Service</th>
-          <th scope="col" class="w-25">Starting Price</th>
+          <th class="col-5 text-end">Service</th>
+          <th class="col-5 text-start">Starting Price</th>
         </tr>
       </thead>
       <tbody>
         <tr v-for="service in category.details">
-          <td>{{ service.service }}</td>
-          <td>${{ service.startingPrice }}</td>
+          <td class="col-5 text-end">{{ service.service }}</td>
+          <td class="col-5 text-start">${{ service.startingPrice }}</td>
         </tr>
       </tbody>
     </table>
