@@ -29,6 +29,10 @@ export function formatTime(value) {
   return timeFormat.format(new Date(value))
 }
 
+export function formatTimeRange(start, end) {
+  return `${formatTime(start)} – ${formatTime(end)}`
+}
+
 export function toDateInput(value) {
   return dateInputFormat.format(new Date(value))
 }

@@ -32,7 +32,7 @@ export const COMPANIES = [
     owner: '24hrsplumber',
     description: '24hrs Plumber provides a comprehensive range of plumbing services in Singapore. From basic leak repair, to complete hot water heater installations– and re-piping of entire house.',
     website: 'https://www.24hrsplumber.com.sg',
-    address: '15 Hougang Street 11, #01-23, Singapore 534064',
+    address: '2 Defu South Street 1, #01-23, Singapore 533755',
     services: [
       { category: 'Basins & Taps', details: [
         { service: 'Basin Supply & Installation', startingPrice: 150 },
@@ -45,14 +45,15 @@ export const COMPANIES = [
       { category: 'Floor Traps & Drains', details: [
         { service: 'Floor Trap Choke Clearance', startingPrice: 40 }
       ] }
-    ]
+    ],
+    isPubLicensed: true
   },
   {
     name: 'Tan Repair',
     owner: 'tanrepair',
     description: 'Family-run repair service handling basin, toilet and general plumbing jobs for HDB and condo homes in the east.',
     website: 'https://www.tanrepair.example',
-    address: '4 Bedok North Street 5, #02-08, Singapore 486350',
+    address: '3015 Bedok North Street 5, #02-08, Singapore 486350',
     services: [
       { category: 'Basins & Taps', details: [
         { service: 'Basin Supply & Installation', startingPrice: 150 },
@@ -62,7 +63,8 @@ export const COMPANIES = [
         { service: 'Toilet Bowl Choke Clearance (Labour Only)', startingPrice: 60 },
         { service: 'Toilet Siphon Replacement', startingPrice: 80 }
       ] }
-    ]
+    ],
+    isPubLicensed: true
   },
   {
     name: 'Lion City Plumbing Works',
@@ -83,7 +85,8 @@ export const COMPANIES = [
         { service: 'Storage Water Heater Installation', startingPrice: 180 },
         { service: 'Instant Water Heater Repair', startingPrice: 80 }
       ] }
-    ]
+    ],
+    isPubLicensed: true
   },
   {
     name: 'Woodcraft Carpentry SG',
@@ -103,14 +106,15 @@ export const COMPANIES = [
       { category: 'Furniture', details: [
         { service: 'Flat-Pack Furniture Assembly', startingPrice: 60 }
       ] }
-    ]
+    ],
+    isPubLicensed: false
   },
   {
     name: 'Tiles & Grout Pro',
     owner: 'tilesandgrout',
     description: 'Tile replacement, regrouting and waterproofing for bathrooms and kitchens.',
     website: 'https://www.tilesandgroutpro.example',
-    address: '50 Tampines Industrial Avenue 5, #06-02, Singapore 528642',
+    address: '65 Tampines Industrial Avenue 5, #06-02, Singapore 528642',
     services: [
       { category: 'Floors & Floor Traps', details: [
         { service: 'Floor Trap Choke Clearance', startingPrice: 45 },
@@ -120,14 +124,15 @@ export const COMPANIES = [
         { service: 'Bathroom Regrouting (Per Bathroom)', startingPrice: 250 },
         { service: 'Bathroom Waterproofing (Per Bathroom)', startingPrice: 600 }
       ] }
-    ]
+    ],
+    isPubLicensed: false
   },
   {
     name: 'KeyMaster Locksmith',
     owner: 'keymaster',
     description: '24/7 emergency lockout service and digital lock installation.',
     website: 'https://www.keymasterlocksmith.example',
-    address: '134 Jurong Gateway Road, #01-309, Singapore 600134',
+    address: '34 Toh Guan Road East, #01-30, Singapore 608579',
     services: [
       { category: 'Emergency Lockout', details: [
         { service: 'Emergency Door Unlocking', startingPrice: 80 },
@@ -137,7 +142,8 @@ export const COMPANIES = [
         { service: 'Door Lock Cylinder Replacement', startingPrice: 90 },
         { service: 'Digital Lock Installation', startingPrice: 350 }
       ] }
-    ]
+    ],
+    isPubLicensed: false
   },
   {
     name: 'CoolBreeze Aircon Services',
@@ -157,7 +163,8 @@ export const COMPANIES = [
       { category: 'Aircon Installation', details: [
         { service: 'System 2 Aircon Installation', startingPrice: 1800 }
       ] }
-    ]
+    ],
+    isPubLicensed: false
   },
   {
     name: 'BrightSpark Electrical',
@@ -177,14 +184,15 @@ export const COMPANIES = [
       { category: 'Distribution Board', details: [
         { service: 'Distribution Board (DB Box) Replacement', startingPrice: 450 }
       ] }
-    ]
+    ],
+    isPubLicensed: false
   },
   {
     name: 'HomeFix Handyman Services',
     owner: 'homefix',
     description: 'All-round handyman for small jobs: drilling, mounting, curtain rails and minor repairs.',
     website: 'https://www.homefixhandyman.example',
-    address: '681 Punggol Drive, #01-05, Singapore 820681',
+    address: '17 Kaki Bukit Crescent, #01-05, Singapore 416248',
     services: [
       { category: 'Mounting & Installation', details: [
         { service: 'TV Wall Mounting', startingPrice: 80 },
@@ -197,14 +205,15 @@ export const COMPANIES = [
         { service: 'Wall Drilling (Per Hole)', startingPrice: 15 },
         { service: 'Handyman Service (Per Hour)', startingPrice: 60 }
       ] }
-    ]
+    ],
+    isPubLicensed: false
   },
   {
     name: 'Fresh Coat Painters',
     owner: 'freshcoat',
     description: 'Interior and exterior painting for HDB flats, condos and landed homes. Low-VOC paints available.',
     website: 'https://www.freshcoatpainters.example',
-    address: '1003 Aljunied Avenue 5, #02-14, Singapore 389919',
+    address: '42 Mactaggart Road, #02-14, Singapore 368086',
     services: [
       { category: 'Interior Painting', details: [
         { service: 'Bedroom Painting (Per Room)', startingPrice: 280 },
@@ -216,14 +225,15 @@ export const COMPANIES = [
       { category: 'Touch-Ups & Patching', details: [
         { service: 'Wall Patching & Touch-Up', startingPrice: 120 }
       ] }
-    ]
+    ],
+    isPubLicensed: false
   },
   {
     name: 'Arctic Air Aircon',
     owner: 'arcticair',
     description: 'Budget-friendly aircon servicing with annual contract packages.',
     website: 'https://www.arcticair.example',
-    address: '760 Yishun Ring Road, #01-2830, Singapore 760760',
+    address: '11 Yishun Industrial Street 1, #01-28, Singapore 768089',
     services: [
       { category: 'Aircon Servicing', details: [
         { service: 'General Servicing (Per Unit)', startingPrice: 20 },
@@ -232,7 +242,8 @@ export const COMPANIES = [
       { category: 'Aircon Repair', details: [
         { service: 'Refrigerant Gas Top-Up', startingPrice: 50 }
       ] }
-    ]
+    ],
+    isPubLicensed: false
   },
   {
     name: 'Polar Comfort Aircon',
@@ -252,14 +263,15 @@ export const COMPANIES = [
         { service: 'Aircon Compressor Replacement', startingPrice: 450 },
         { service: 'Water Leakage Repair', startingPrice: 60 }
       ] }
-    ]
+    ],
+    isPubLicensed: false
   },
   {
     name: 'Tile Doctor SG',
     owner: 'tiledoctor',
     description: 'Fast tile repairs, hollow tile fixing and anti-slip coating.',
     website: 'https://www.tiledoctor.example',
-    address: '5 Tampines Street 92, #02-11, Singapore 528871',
+    address: '9 Tampines Street 92, #02-11, Singapore 528871',
     services: [
       { category: 'Floor Tiles', details: [
         { service: 'Cracked Floor Tile Replacement', startingPrice: 75 },
@@ -269,7 +281,8 @@ export const COMPANIES = [
         { service: 'Anti-Slip Floor Coating (Per Bathroom)', startingPrice: 220 },
         { service: 'Bathroom Regrouting (Per Bathroom)', startingPrice: 200 }
       ] }
-    ]
+    ],
+    isPubLicensed: false
   },
   {
     name: 'Ohm Sweet Ohm Electricians',
@@ -289,14 +302,15 @@ export const COMPANIES = [
       { category: 'Distribution Board', details: [
         { service: 'Distribution Board (DB Box) Replacement', startingPrice: 520 }
       ] }
-    ]
+    ],
+    isPubLicensed: false
   },
   {
     name: 'Fix-It-All Home Services',
     owner: 'fixitall',
     description: 'Multi-trade team covering plumbing, electrical and carpentry in one visit.',
     website: 'https://www.fixitall.example',
-    address: '80 Marine Parade Road, #12-03, Singapore 449269',
+    address: '10 Ubi Crescent, #02-03, Singapore 408564',
     services: [
       { category: 'Basins & Taps', details: [
         { service: 'Basin Tap Replacement (Labour Only)', startingPrice: 65 }
@@ -310,7 +324,8 @@ export const COMPANIES = [
       { category: 'General Handyman', details: [
         { service: 'Handyman Service (Per Hour)', startingPrice: 75 }
       ] }
-    ]
+    ],
+    isPubLicensed: true
   },
   {
     name: 'GreenLeaf Pest Control',
@@ -324,14 +339,15 @@ export const COMPANIES = [
         { service: 'Termite Treatment', startingPrice: 380 },
         { service: 'Bed Bug Treatment', startingPrice: 250 }
       ] }
-    ]
+    ],
+    isPubLicensed: false
   },
   {
     name: 'Pipeline Pros',
     owner: 'pipelinepros',
     description: 'Premium plumbing for condos and landed homes, specialising in concealed piping and full re-piping.',
     website: 'https://www.pipelinepros.example',
-    address: '9 Bukit Timah Road, #03-05, Singapore 229839',
+    address: '315 Alexandra Road, #03-05, Singapore 159944',
     services: [
       { category: 'Piping', details: [
         { service: 'Concealed Pipe Replacement (Per Metre)', startingPrice: 120 },
@@ -344,7 +360,8 @@ export const COMPANIES = [
       { category: 'Basins & Taps', details: [
         { service: 'Basin Supply & Installation', startingPrice: 220 }
       ] }
-    ]
+    ],
+    isPubLicensed: true
   },
   {
     name: 'Volt Masters Electrical',
@@ -361,14 +378,15 @@ export const COMPANIES = [
         { service: 'Power Trip Troubleshooting', startingPrice: 70 },
         { service: 'Isolator Switch Installation', startingPrice: 85 }
       ] }
-    ]
+    ],
+    isPubLicensed: false
   },
   {
     name: 'Colour Me Home Painting',
     owner: 'colourmehome',
     description: 'HDB and BTO painting specialists. Free colour consultation with every whole-house job.',
     website: 'https://www.colourmehome.example',
-    address: '701 Ang Mo Kio Avenue 8, #01-2501, Singapore 560701',
+    address: '1 Ang Mo Kio Industrial Park 2A, #01-25, Singapore 568049',
     services: [
       { category: 'Interior Painting', details: [
         { service: 'Bedroom Painting (Per Room)', startingPrice: 240 },
@@ -378,14 +396,15 @@ export const COMPANIES = [
       { category: 'Touch-Ups & Patching', details: [
         { service: 'Wall Patching & Touch-Up', startingPrice: 100 }
       ] }
-    ]
+    ],
+    isPubLicensed: false
   },
   {
     name: 'Secure Lock & Key',
     owner: 'securelock',
     description: 'Locksmiths for homes and offices: digital locks, safes and key duplication.',
     website: 'https://www.securelock.example',
-    address: '1 Sengkang Square, #B1-14, Singapore 545078',
+    address: '3 Irving Road, #01-14, Singapore 369522',
     services: [
       { category: 'Locks & Digital Locks', details: [
         { service: 'Digital Lock Installation', startingPrice: 320 },
@@ -397,14 +416,15 @@ export const COMPANIES = [
       { category: 'Safes', details: [
         { service: 'Locked Safe Opening', startingPrice: 180 }
       ] }
-    ]
+    ],
+    isPubLicensed: false
   },
   {
     name: 'Handy Andy SG',
     owner: 'handyandy',
     description: 'One-man handyman service for quick fixes, mounting and odd jobs in the north-east.',
     website: 'https://www.handyandysg.example',
-    address: '275 Compassvale Link, #09-31, Singapore 540275',
+    address: '4012 Ang Mo Kio Avenue 10, #03-31, Singapore 569628',
     services: [
       { category: 'Mounting & Installation', details: [
         { service: 'TV Wall Mounting', startingPrice: 65 },
@@ -417,14 +437,15 @@ export const COMPANIES = [
       { category: 'Curtains & Blinds', details: [
         { service: 'Curtain Rail Installation', startingPrice: 40 }
       ] }
-    ]
+    ],
+    isPubLicensed: false
   },
   {
     name: 'Oak & Nail Carpentry',
     owner: 'oakandnail',
     description: 'Built-in wardrobes, kitchen cabinets and on-site furniture repairs.',
     website: 'https://www.oakandnail.example',
-    address: '60 Sungei Kadut Loop, #02-01, Singapore 729495',
+    address: '45 Sungei Kadut Loop, #02-01, Singapore 729495',
     services: [
       { category: 'Cabinets & Wardrobes', details: [
         { service: 'Kitchen Cabinet Door Replacement', startingPrice: 100 },
@@ -434,14 +455,15 @@ export const COMPANIES = [
         { service: 'Flat-Pack Furniture Assembly', startingPrice: 50 },
         { service: 'Wooden Chair Repair', startingPrice: 40 }
       ] }
-    ]
+    ],
+    isPubLicensed: false
   },
   {
     name: 'Rapid Plumb Express',
     owner: 'rapidplumb',
     description: 'Same-day plumbing repairs across the west. No call-out fee within Jurong and Clementi.',
     website: 'https://www.rapidplumb.example',
-    address: '22 Jurong West Street 41, #01-112, Singapore 649413',
+    address: '48 Toh Guan Road East, #01-112, Singapore 608586',
     services: [
       { category: 'Basins & Taps', details: [
         { service: 'Basin Tap Replacement (Labour Only)', startingPrice: 45 },
@@ -454,7 +476,8 @@ export const COMPANIES = [
       { category: 'Floor Traps & Drains', details: [
         { service: 'Floor Trap Choke Clearance', startingPrice: 35 }
       ] }
-    ]
+    ],
+    isPubLicensed: true
   },
   {
     name: 'Premier Wall Finishes',
@@ -470,14 +493,15 @@ export const COMPANIES = [
         { service: 'Wallpaper Installation (Per Roll)', startingPrice: 60 },
         { service: 'Wallpaper Removal (Per Room)', startingPrice: 180 }
       ] }
-    ]
+    ],
+    isPubLicensed: false
   },
   {
     name: 'Sparkle Glass & Windows',
     owner: 'sparkleglass',
     description: 'Window repairs, glass replacement and mosquito-net installation.',
     website: 'https://www.sparkleglass.example',
-    address: '33 Bendemeer Road, #03-22, Singapore 330033',
+    address: '8 Kallang Avenue, #03-22, Singapore 339509',
     services: [
       { category: 'Windows & Glass', details: [
         { service: 'Window Glass Panel Replacement', startingPrice: 150 },
@@ -486,7 +510,8 @@ export const COMPANIES = [
       { category: 'Mosquito Nets', details: [
         { service: 'Mosquito Net Installation (Per Window)', startingPrice: 85 }
       ] }
-    ]
+    ],
+    isPubLicensed: false
   }
 ];
 

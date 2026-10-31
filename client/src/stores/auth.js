@@ -20,6 +20,12 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = response.data
   }
 
+  // the server logs the new account in, so the response is the session user
+  async function signup(username, password) {
+    const response = await api.post('/auth/signup', { username, password })
+    user.value = response.data
+  }
+
   async function logout() {
     await api.post('/auth/logout')
     user.value = null
@@ -32,5 +38,5 @@ export const useAuthStore = defineStore('auth', () => {
     return user.value.role === 'business' && user.value.companyId === companyId
   }
 
-  return { user, isLoggedIn, fetchMe, login, logout, canManage }
+  return { user, isLoggedIn, fetchMe, login, signup, logout, canManage }
 })

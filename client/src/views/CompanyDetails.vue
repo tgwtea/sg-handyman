@@ -11,6 +11,11 @@ import ReviewSection from '@/components/ReviewSection.vue';
 import { useAuthStore } from '@/stores/auth';
 import { useRoute } from 'vue-router'
 
+// OneMap - amanda
+import { useTemplateRef } from 'vue'
+import OneMap from '../components/OneMap.vue';
+const oneMapRef = useTemplateRef('oneMap')
+
 // for getting companyId via route params
 const route = useRoute()
 const auth = useAuthStore()
@@ -51,6 +56,10 @@ onMounted(async () => {
     await nextTick();
     document.getElementById(route.hash.slice(1))?.scrollIntoView({ behavior: 'smooth' });
   }
+
+  // OneMap - amanda
+  oneMapRef.value?.initialiseOneMap();
+  oneMapRef.value?.pinPostalCode();
 })
 
 // demo contact form, not sent to the server
@@ -72,23 +81,32 @@ function resetContact() {
 <template>
   <header class="pixel-card p-4 mb-4">
     <h2>{{ company.name }}</h2>
+    <div class="d-flex flex-wrap gap-1 mb-3">
+      <span v-for="category in company.services" class="badge rounded-pill text-bg-light border">
+        {{ category.category }}
+      </span>
+    </div>
+    <span v-if="company.isPubLicensed" class="badge rounded-pill text-bg-danger border">PUB Licensed</span>
+    <span v-else class="badge rounded-pill text-bg-dark border">Not PUB Licensed</span>
+    <br><br>
     <p class="mb-2">{{ company.description }}</p>
+    <p class="mb-2">{{ company.address }}</p>
     <a :href="company.website">{{ company.website }}</a>
   </header>
 
   <div v-for="category in company.services">
-    <h3>{{ category.category }}</h3>
+    <h3 class="text-center">{{ category.category }}</h3>
     <table class="table">
       <thead>
         <tr>
-          <th scope="col">Service</th>
-          <th scope="col" class="w-25">Starting Price</th>
+          <th class="col-5 text-end">Service</th>
+          <th class="col-5 text-start">Starting Price</th>
         </tr>
       </thead>
       <tbody>
         <tr v-for="service in category.details">
-          <td>{{ service.service }}</td>
-          <td>${{ service.startingPrice }}</td>
+          <td class="col-5 text-end">{{ service.service }}</td>
+          <td class="col-5 text-start">${{ service.startingPrice }}</td>
         </tr>
       </tbody>
     </table>
@@ -105,6 +123,12 @@ function resetContact() {
     <h3>Contact</h3>
     <p class="mb-1" v-if="company.address">{{ company.address }}</p>
     <p v-if="company.website"><a :href="company.website">{{ company.website }}</a></p>
+
+    <!-- OneMap - amanda -->
+    <OneMap ref="oneMap" v-if="company.address" :address="company.address"/>
+    <!-- <div :address="address">test</div> -->
+    <!-- <div :address="company.address">test</div> -->
+    <br><br>
 
     <div v-if="contactSent" class="alert alert-success" role="status">
       <p>Thanks, {{ contactForm.name }}. {{ company.name }} will contact you at {{ contactForm.email }}.</p>

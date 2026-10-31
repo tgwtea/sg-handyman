@@ -3,7 +3,7 @@ import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import api, { errorMessage } from '@/api'
 import { useAuthStore } from '@/stores/auth'
-import { formatDay, formatTime } from '@/utils/sgTime'
+import { formatDay, formatTimeRange } from '@/utils/sgTime'
 
 const props = defineProps({
   companyId: { type: String, required: true },
@@ -116,7 +116,7 @@ async function book() {
   submitting.value = true
   try {
     await api.post('/bookings', { timeslotId: selectedId.value, service: service.value })
-    message.value = { type: 'success', text: `Booked ${formatDay(selected.value.start)}, ${formatTime(selected.value.start)}.` }
+    message.value = { type: 'success', text: `Booked ${formatDay(selected.value.start)}, ${formatTimeRange(selected.value.start, selected.value.end)}.` }
   } catch (error) {
     if (error.response?.status === 409) flash(selectedId.value)
     message.value = { type: 'danger', text: errorMessage(error) }
@@ -173,7 +173,7 @@ async function cancel() {
             :title="slot.mine ? `Your booking: ${slot.service}` : slot.taken ? 'Unavailable' : 'Available'"
             @click="selectSlot(slot)"
           >
-            {{ formatTime(slot.start) }}
+            {{ formatTimeRange(slot.start, slot.end) }}
           </button>
         </div>
       </div>
@@ -189,13 +189,13 @@ async function cancel() {
 
     <div v-if="selected" class="card mt-3">
       <div class="card-body">
-        <h5 class="card-title slot-heading">{{ formatDay(selected.start) }}, {{ formatTime(selected.start) }}</h5>
+        <h5 class="card-title slot-heading">{{ formatDay(selected.start) }}, {{ formatTimeRange(selected.start, selected.end) }}</h5>
 
         <template v-if="selected.mine">
           <p class="card-text">Your booking: {{ selected.service }}</p>
           <div v-if="confirming === 'cancel'">
             <p class="card-text">
-              Cancel your {{ selected.service }} booking on {{ formatDay(selected.start) }}, {{ formatTime(selected.start) }}?
+              Cancel your {{ selected.service }} booking on {{ formatDay(selected.start) }}, {{ formatTimeRange(selected.start, selected.end) }}?
               Any review you left for it will also be deleted.
             </p>
             <div class="d-flex gap-2">
@@ -208,7 +208,7 @@ async function cancel() {
 
         <template v-else>
           <div v-if="confirming === 'book'">
-            <p class="card-text">Book {{ formatDay(selected.start) }}, {{ formatTime(selected.start) }} for {{ service }}?</p>
+            <p class="card-text">Book {{ formatDay(selected.start) }}, {{ formatTimeRange(selected.start, selected.end) }} for {{ service }}?</p>
             <div class="d-flex gap-2">
               <button class="btn btn-success" :disabled="submitting" @click="book">Yes, book it</button>
               <button class="btn btn-outline-secondary" :disabled="submitting" @click="confirming = null">No</button>

@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import api, { errorMessage } from '@/api'
-import { formatDay, formatTime, toDateInput, toTimeInput, fromInputs } from '@/utils/sgTime'
+import { formatDay, formatTime, formatTimeRange, toDateInput, toTimeInput, fromInputs } from '@/utils/sgTime'
 
 const props = defineProps({
   companyId: { type: String, required: true },
@@ -125,7 +125,7 @@ async function remove(slot) {
           <tbody>
             <tr v-for="slot in timeslots" :key="slot._id" :class="{ 'table-active': slot._id === editingId }">
               <td>{{ formatDay(slot.start) }}</td>
-              <td>{{ formatTime(slot.start) }} – {{ formatTime(slot.end) }}</td>
+              <td>{{ formatTimeRange(slot.start, slot.end) }}</td>
               <td>
                 <span :class="['badge', slot.taken ? 'text-bg-secondary' : 'text-bg-success']">
                   {{ slot.taken ? 'Booked' : 'Free' }}

@@ -47,6 +47,10 @@ const companySchema = new mongoose.Schema({
       }
     ],
     default: []
+  },
+  isPubLicensed: {
+    type: Boolean,
+    default: null
   }
 });
 

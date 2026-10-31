@@ -51,5 +51,9 @@ async function submit() {
         {{ submitting ? 'Logging in…' : 'Log in' }}
       </button>
     </form>
+    <p class="mt-3 mb-0 text-center">
+      New here?
+      <RouterLink :to="{ path: '/sign-up', query: route.query }">Sign up</RouterLink>
+    </p>
   </div>
 </template>
