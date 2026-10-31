@@ -4,7 +4,7 @@ import session from 'express-session';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 
-// Specify the path to the environment variable file 'config.env'
+// Specify the path to the environment variable file
 dotenv.config({ path: './.env' });
 
 const app = express();
@@ -32,6 +32,7 @@ import bookingRouter from './routes/booking-routes.js';
 import forumRouter from './routes/forum-routes.js';
 import shopRouter from './routes/shop-routes.js';
 import reviewRouter from './routes/review-routes.js';
+import mapRouter from './routes/map-routes.js';
 
 app.use('/companies', companyRouter);
 app.use('/auth', authRouter);
@@ -40,6 +41,7 @@ app.use('/bookings', bookingRouter);
 app.use('/forum', forumRouter);
 app.use('/shop', shopRouter);
 app.use('/reviews', reviewRouter);
+app.use('/map', mapRouter);
 
 // async function to connect to DB
 async function connectDB() {
