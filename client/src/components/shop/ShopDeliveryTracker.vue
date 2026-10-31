@@ -63,7 +63,6 @@ onUnmounted(() => {
   <div class="border rounded p-3 mb-3">
     <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
       <strong>Delivery: {{ deliveryStage }}</strong>
-      <button type="button" class="btn btn-outline-secondary btn-sm" @click="updateDelivery">Refresh progress</button>
     </div>
     <div class="progress" role="progressbar" aria-label="Delivery progress" :aria-valuenow="progress" aria-valuemin="0" aria-valuemax="100">
       <div class="progress-bar bg-success" :style="{ width: progress + '%' }">{{ progress }}%</div>
