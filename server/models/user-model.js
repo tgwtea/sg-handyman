@@ -41,6 +41,11 @@ userModel.findUsersByRole = function(role) {
   return User.find({ role });
 };
 
+// role uses the schema default, customer
+userModel.createUser = function({ username, password }) {
+  return User.create({ username, password });
+};
+
 userModel.insertManyUsers = function(users) {
   return User.insertMany(users);
 };
