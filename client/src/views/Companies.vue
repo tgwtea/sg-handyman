@@ -20,7 +20,9 @@ let filteredCompanies = ref([]);
 let searchStr = ref('');
 const selectedCategories = ref([]);
 const pubLicenseFilter = ref('all'); // 'all' | 'true' | 'false'
+const sortBy = ref('default'); // 'default' | 'earliest-slot' | 'highest-rating' | 'latest-review' | 'name-asc' | 'name-desc'
 const reviewSummaries = ref([]);
+const nextFreeTimeslots = ref([]);
 
 // dynamically extract unique service categories from the actual MongoDB data
 const availableCategories = computed(() => {
@@ -37,12 +39,25 @@ const availableCategories = computed(() => {
   return Array.from(categorySet).sort();
 });
 
+const summaryByCompany = computed(() => new Map(reviewSummaries.value.map((summary) => [summary.companyId, summary])));
+
+const nextFreeByCompany = computed(() => {
+  const map = new Map();
+  for (const slot of nextFreeTimeslots.value) {
+    if (slot.companyId && slot.start) {
+      map.set(slot.companyId, new Date(slot.start).getTime());
+    }
+  }
+  return map;
+});
+
 function filterCompanies() {
   const query = (typeof searchStr.value === 'string' ? searchStr.value : String(searchStr.value ?? '')).trim().toLowerCase();
   const words = query.split(/\s+/).filter(Boolean);
   const selected = selectedCategories.value;
 
-  filteredCompanies.value = companies.value.filter((company) => {
+  // 1. Filter
+  const result = companies.value.filter((company) => {
     const services = company.services ?? [];
 
     // Filter by search text (company name, category names, or service details)
@@ -73,6 +88,41 @@ function filterCompanies() {
 
     return matchesSearch && matchesCategory && matchesPubLicensed;
   });
+
+  // 2. Sort
+  if (sortBy.value === 'earliest-slot') {
+    result.sort((a, b) => {
+      const timeA = nextFreeByCompany.value.get(a._id) ?? Infinity;
+      const timeB = nextFreeByCompany.value.get(b._id) ?? Infinity;
+      if (timeA !== timeB) return timeA - timeB;
+      return (a.name ?? '').localeCompare(b.name ?? '');
+    });
+  } else if (sortBy.value === 'highest-rating') {
+    result.sort((a, b) => {
+      const ratingA = summaryByCompany.value.get(a._id)?.average ?? 0;
+      const ratingB = summaryByCompany.value.get(b._id)?.average ?? 0;
+      if (ratingB !== ratingA) return ratingB - ratingA;
+      const countA = summaryByCompany.value.get(a._id)?.count ?? 0;
+      const countB = summaryByCompany.value.get(b._id)?.count ?? 0;
+      if (countB !== countA) return countB - countA;
+      return (a.name ?? '').localeCompare(b.name ?? '');
+    });
+  } else if (sortBy.value === 'latest-review') {
+    result.sort((a, b) => {
+      const reviewA = summaryByCompany.value.get(a._id)?.latestReview;
+      const reviewB = summaryByCompany.value.get(b._id)?.latestReview;
+      const timeA = reviewA ? new Date(reviewA).getTime() : -Infinity;
+      const timeB = reviewB ? new Date(reviewB).getTime() : -Infinity;
+      if (timeB !== timeA) return timeB - timeA;
+      return (a.name ?? '').localeCompare(b.name ?? '');
+    });
+  } else if (sortBy.value === 'name-asc') {
+    result.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
+  } else if (sortBy.value === 'name-desc') {
+    result.sort((a, b) => (b.name ?? '').localeCompare(a.name ?? ''));
+  }
+
+  filteredCompanies.value = result;
 }
 
 async function getCompanies() {
@@ -95,16 +145,33 @@ async function getCompanies() {
 // the cards still show without ratings if this fails
 async function getReviewSummaries() {
   try {
-    const response = await axios.get(`${serverUrl}/reviews/summary`)
-    reviewSummaries.value = response.data
+    const response = await axios.get(`${serverUrl}/reviews/summary`);
+    reviewSummaries.value = response.data;
+    if (sortBy.value === 'highest-rating' || sortBy.value === 'latest-review') {
+      filterCompanies();
+    }
   } catch (error) {
-    console.log(error.message)
+    console.log(error.message);
+  }
+}
+
+// fetch each company's earliest upcoming free timeslot
+async function getNextFreeTimeslots() {
+  try {
+    const response = await axios.get(`${serverUrl}/timeslots/next-free`);
+    nextFreeTimeslots.value = response.data;
+    if (sortBy.value === 'earliest-slot') {
+      filterCompanies();
+    }
+  } catch (error) {
+    console.log(error.message);
   }
 }
 
 onMounted(() => {
   getCompanies();
   getReviewSummaries();
+  getNextFreeTimeslots();
 })
 
 watch(
@@ -115,12 +182,11 @@ watch(
   }
 );
 
-const summaryByCompany = computed(() => new Map(reviewSummaries.value.map((summary) => [summary.companyId, summary])))
-
 function resetListings() {
   searchStr.value = '';
   selectedCategories.value = [];
   pubLicenseFilter.value = 'all';
+  sortBy.value = 'default';
   filterCompanies();
 }
 
@@ -145,11 +211,33 @@ function removeCategory(cat) {
   <!-- <Carousel /> -->
   <h1 class="mb-4">SG Handyman Booking</h1>
 
-  <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-    <span class="fw-bold">
-      {{ filteredCompanies.length }} {{ filteredCompanies.length === 1 ? 'company' : 'companies' }} found
-    </span>
-    <button class="btn btn-light btn-sm" @click="resetListings">Reset listings</button>
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+    <div class="d-flex flex-wrap align-items-center gap-2">
+      <span class="fw-bold">
+        {{ filteredCompanies.length }} {{ filteredCompanies.length === 1 ? 'company' : 'companies' }} found
+      </span>
+      <button class="btn btn-light btn-sm" @click="resetListings">Reset listings</button>
+    </div>
+
+    <!-- Sort by feature -->
+    <div class="d-flex align-items-center gap-2 ms-sm-auto">
+      <label for="sortCompanies" class="form-label mb-0 fw-bold text-nowrap">Sort by:</label>
+      <select
+        id="sortCompanies"
+        class="form-select form-select-sm"
+        style="min-width: 210px; width: auto;"
+        v-model="sortBy"
+        @change="filterCompanies"
+        aria-label="Sort companies"
+      >
+        <option value="default">Default</option>
+        <option value="earliest-slot">Earliest free timeslot</option>
+        <option value="highest-rating">Highest rating</option>
+        <option value="latest-review">Latest user review</option>
+        <option value="name-asc">Ascending (alphabetical)</option>
+        <option value="name-desc">Descending (alphabetical)</option>
+      </select>
+    </div>
   </div>
 
   <!-- Filters: Search Input, PUB License Toggle & Category Multiselect Checkboxes -->

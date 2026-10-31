@@ -56,8 +56,23 @@ reviewModel.findReviewsByCompanyId = function(companyId) {
 // [{ companyId, average, count }]: one row per company that has reviews
 reviewModel.findReviewSummaries = function() {
   return Review.aggregate([
-    { $group: { _id: '$companyId', average: { $avg: '$rating' }, count: { $sum: 1 } } },
-    { $project: { _id: 0, companyId: '$_id', average: 1, count: 1 } }
+    {
+      $group: {
+        _id: '$companyId',
+        average: { $avg: '$rating' },
+        count: { $sum: 1 },
+        latestReview: { $max: '$createdAt' }
+      }
+    },
+    {
+      $project: {
+        _id: 0,
+        companyId: '$_id',
+        average: 1,
+        count: 1,
+        latestReview: 1
+      }
+    }
   ]);
 };
 
