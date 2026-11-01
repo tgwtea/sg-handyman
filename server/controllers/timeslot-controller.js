@@ -1,7 +1,9 @@
 import mongoose from 'mongoose';
 import Timeslot from '../models/timeslot-model.js';
 import Booking from '../models/booking-model.js';
+import Company from '../models/company-model.js';
 import { canManageCompany } from '../middleware/auth.js';
+import distanceService, { parseLocationBody } from '../services/distance-service.js';
 
 const timeslotController = {};
 
@@ -67,6 +69,51 @@ timeslotController.getNextFreeTimeslots = async (req, res) => {
   try {
     const nextFree = await Timeslot.findNextFreeTimeslots(new Date());
     res.send(nextFree);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ message: 'Failed to load free timeslots' });
+  }
+};
+
+// each company's earliest free slot, nearest company first.
+// Body: { postalCode } or { lat, lng }. Companies with no stored location go last.
+timeslotController.getNearbyFreeTimeslots = async (req, res) => {
+  const parsed = parseLocationBody(req.body);
+  if (parsed.error) {
+    return res.status(400).send({ message: parsed.error });
+  }
+
+  let point = parsed.point;
+  if (parsed.postalCode) {
+    try {
+      point = await distanceService.locatePostalCode(parsed.postalCode);
+    } catch (error) {
+      console.error(error);
+      return res.status(502).send({ message: 'Could not look up this postal code right now' });
+    }
+    if (!point) {
+      return res.status(404).send({ message: 'No Singapore location found for this postal code' });
+    }
+  }
+
+  try {
+    const [nextFree, companies] = await Promise.all([
+      Timeslot.findNextFreeTimeslots(new Date()),
+      Company.findAllCompanies()
+    ]);
+    const distances = await distanceService.distancesFrom(point, companies);
+
+    const nearby = nextFree.map((slot) => {
+      const distance = distances.get(String(slot.companyId));
+      return {
+        companyId: slot.companyId,
+        start: slot.start,
+        distanceKm: distance ? Math.round(distance.distanceKm * 10) / 10 : null,
+        estimated: distance?.estimated ?? false
+      };
+    });
+    nearby.sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
+    res.send(nearby);
   } catch (error) {
     console.error(error);
     res.status(500).send({ message: 'Failed to load free timeslots' });

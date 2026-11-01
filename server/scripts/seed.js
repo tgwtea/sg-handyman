@@ -14,6 +14,7 @@ import Timeslot from '../models/timeslot-model.js';
 import Booking from '../models/booking-model.js';
 import ForumPost from '../models/forum-model.js';
 import Shop from '../models/shop-model.js';
+import onemap from '../services/onemap-service.js';
 import {
   TEST_PASSWORD,
   ADMIN_USERNAME,
@@ -182,16 +183,32 @@ async function deleteEverything() {
   await Company.deleteAllCompanies();
 }
 
+// { lat, lng } for each company, from the postal code at the end of its address.
+// Runs before anything is deleted, so a OneMap failure leaves the database as it was.
+async function geocodeCompanies() {
+  const locations = [];
+  for (const company of COMPANIES) {
+    const postalCode = company.address.trim().split(' ').at(-1);
+    const location = await onemap.geocodePostalCode(postalCode);
+    if (!location) throw new Error(`OneMap has no location for ${company.name} (${postalCode})`);
+    locations.push(location);
+  }
+  return locations;
+}
+
 async function seed() {
   await mongoose.connect(process.env.DB);
   console.log('MongoDB connected');
+
+  const locations = await geocodeCompanies();
+  console.log(`Geocoded ${locations.length} company addresses`);
 
   await deleteEverything();
   await Booking.Booking.syncIndexes();
   await Timeslot.Timeslot.syncIndexes();
 
   const companies = await Company.insertManyCompanies(
-    COMPANIES.map(({ owner, ...company }) => company)
+    COMPANIES.map(({ owner, ...company }, index) => ({ ...company, location: locations[index] }))
   );
   const companyIdByName = new Map(companies.map((company) => [company.name, company._id]));
 

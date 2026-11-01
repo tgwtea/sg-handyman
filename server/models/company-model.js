@@ -51,6 +51,11 @@ const companySchema = new mongoose.Schema({
   isPubLicensed: {
     type: Boolean,
     default: null
+  },
+  // coordinates of the address; the seed geocodes them one time with OneMap
+  location: {
+    lat: { type: Number },
+    lng: { type: Number }
   }
 });
 
