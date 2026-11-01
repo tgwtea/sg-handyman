@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import api, { errorMessage } from '@/api'
 import { useAuthStore } from '@/stores/auth'
 import { formatDay } from '@/utils/sgTime'
+import DeleteDialog from '@/components/DeleteDialog.vue'
 
 const props = defineProps({
   companyId: { type: String, required: true },
@@ -21,7 +22,7 @@ const submitting = ref(false)
 const form = ref({ bookingId: '', rating: 0, comment: '' })
 const hoverRating = ref(0) // star under the mouse, 0 when there is none
 const editingId = ref(null)
-const deletingId = ref(null) // review waiting for the delete confirmation
+const reviewToDelete = ref(null) // review waiting for the delete confirmation
 const showForm = computed(() => reviewableBookings.value.length > 0 || editingId.value !== null)
 
 const average = computed(() => {
@@ -113,12 +114,13 @@ async function deleteReview(review) {
     message.value = { type: 'danger', text: errorMessage(error) }
   } finally {
     submitting.value = false
-    deletingId.value = null
+    reviewToDelete.value = null
   }
 }
 
 // reload when the user logs in or out, because canReview and "mine" depend on who is viewing
 watch(() => auth.user?._id, loadReviews, { immediate: true })
+defineExpose({ loadReviews })
 </script>
 
 <template>
@@ -197,21 +199,23 @@ watch(() => auth.user?._id, loadReviews, { immediate: true })
           <small class="text-muted">{{ formatDate(review.createdAt) }}</small>
         </div>
         <p v-if="review.comment" class="mb-1 mt-2">{{ review.comment }}</p>
-        <div v-if="deletingId === review._id" class="alert alert-danger mt-3 mb-0 py-2">
-
-          <p class="fw-semibold mb-2">Delete this review? This can't be undone.</p>
-          <div class="d-flex gap-2">
-            <button type="button" class="btn btn-sm btn-danger" :disabled="submitting" @click="deleteReview(review)">Yes, delete it</button>
-            <button type="button" class="btn btn-sm btn-outline-secondary" :disabled="submitting" @click="deletingId = null">No, keep it</button>
-          </div>
-        </div>
-        <div v-else-if="review.mine || auth.user?.role === 'admin'" class="d-flex gap-2 mt-2">
+        <div v-if="review.mine || auth.user?.role === 'admin'" class="d-flex gap-2 mt-2">
           <button v-if="review.mine" type="button" class="btn btn-sm btn-outline-primary" @click="startEdit(review)">Edit</button>
-          <button type="button" class="btn btn-sm btn-outline-danger" @click="deletingId = review._id">Delete</button>
+          <button type="button" class="btn btn-sm btn-outline-danger" @click="reviewToDelete = review">Delete</button>
         </div>
 
       </li>
     </ul>
+
+    <DeleteDialog
+      v-if="reviewToDelete"
+      message="Are you sure you want to delete this review? This action cannot be undone."
+      note="Note: Deleting will permanently erase this review and its star rating."
+      confirmLabel="✓ Yes, Delete Review"
+      :busy="submitting"
+      @cancel="reviewToDelete = null"
+      @confirm="deleteReview(reviewToDelete)"
+    />
   </section>
 </template>
 
