@@ -28,6 +28,11 @@ const moveInJobs = [
 
 const companies = ref([])
 const nextFree = ref([]) // [{ companyId, start }] from GET /timeslots/next-free
+const nearby = ref(null) // [{ companyId, start, distanceKm, estimated }] nearest first, or null with no location
+const nearLabel = ref('') // "your location" or the postal code
+const postalInput = ref('')
+const locating = ref(false)
+const locationError = ref('')
 const loadFailed = ref(false)
 const loaded = ref(false)
 const todayOnly = ref(true)
@@ -50,14 +55,38 @@ function lowestPrice(company) {
   return prices.length > 0 ? Math.min(...prices) : null
 }
 
-// the four companies with the earliest free slot, earliest first
-// SAMPLE: the panel says "near you", but there is no location filter yet (OneMap is not wired in)
+const POSTAL_KEY = 'home.postalCode'
+
+function readSavedPostalCode() {
+  try {
+    return localStorage.getItem(POSTAL_KEY) ?? ''
+  } catch {
+    return ''
+  }
+}
+
+function savePostalCode(postalCode) {
+  try {
+    if (postalCode) localStorage.setItem(POSTAL_KEY, postalCode)
+    else localStorage.removeItem(POSTAL_KEY)
+  } catch {
+    // storage blocked: the visitor types the postal code again next time
+  }
+}
+
+// "3.2 km", or "~3.2 km" when the server could not get a driving route
+function distanceText(slot) {
+  if (slot.distanceKm === null || slot.distanceKm === undefined) return ''
+  return `${slot.estimated ? '~' : ''}${slot.distanceKm} km`
+}
+
+// the four companies to show: nearest first with a location, else earliest first
 const availablePros = computed(() => {
   const byId = new Map(companies.value.map((company) => [company._id, company]))
-  return nextFree.value
+  const slots = nearby.value ?? [...nextFree.value].sort((a, b) => new Date(a.start) - new Date(b.start))
+  return slots
     .filter((slot) => byId.has(slot.companyId))
     .filter((slot) => !todayOnly.value || formatDay(slot.start) === todayLabel)
-    .sort((a, b) => new Date(a.start) - new Date(b.start))
     .slice(0, 4)
     .map((slot) => {
       const company = byId.get(slot.companyId)
@@ -65,6 +94,7 @@ const availablePros = computed(() => {
         id: company._id,
         name: company.name,
         slot: `${dayName(slot.start)} ${formatTime(slot.start)}`,
+        distance: distanceText(slot),
         fromPrice: lowestPrice(company),
         // pubLicenceNo is planned (see README "Planned work"); the badge shows once it exists
         pubLicensed: Boolean(company.pubLicenceNo),
@@ -87,12 +117,70 @@ async function loadHome() {
   }
 }
 
+const panelTitle = computed(() => {
+  const near = nearby.value ? ' near you' : ''
+  return todayOnly.value ? `Free today${near}` : `Earliest free slots${near}`
+})
+
+// body: { postalCode } or { lat, lng }; the server sorts the companies by driving distance
+async function findNear(body, label) {
+  locating.value = true
+  locationError.value = ''
+  try {
+    const response = await api.post('/timeslots/next-free/near', body)
+    nearby.value = response.data
+    nearLabel.value = label
+    if (body.postalCode) savePostalCode(body.postalCode)
+  } catch (error) {
+    locationError.value = error.response?.data?.message ?? 'Could not find slots near you right now.'
+  } finally {
+    locating.value = false
+  }
+}
+
+function useMyLocation() {
+  if (!navigator.geolocation) {
+    locationError.value = 'Your browser cannot share its location. Type your postal code.'
+    return
+  }
+  locating.value = true
+  locationError.value = ''
+  navigator.geolocation.getCurrentPosition(
+    ({ coords }) => findNear({ lat: coords.latitude, lng: coords.longitude }, 'your location'),
+    () => {
+      locating.value = false
+      locationError.value = 'Location is blocked or not available. Type your postal code.'
+    },
+    { timeout: 10_000, maximumAge: 5 * 60 * 1000 },
+  )
+}
+
+function searchPostalCode() {
+  const postalCode = postalInput.value.trim()
+  findNear({ postalCode }, postalCode)
+}
+
+function clearLocation() {
+  nearby.value = null
+  nearLabel.value = ''
+  postalInput.value = ''
+  locationError.value = ''
+  savePostalCode('')
+}
+
 function searchFor(q) {
   const trimmed = q.trim()
   router.push({ path: '/companies', query: trimmed ? { q: trimmed } : {} })
 }
 
-onMounted(loadHome)
+onMounted(() => {
+  loadHome()
+  const saved = readSavedPostalCode()
+  if (saved) {
+    postalInput.value = saved
+    findNear({ postalCode: saved }, saved)
+  }
+})
 </script>
 
 <template>
@@ -144,9 +232,7 @@ onMounted(loadHome)
           <div class="col-lg-5">
             <aside class="pixel-card overflow-hidden" aria-labelledby="free-title">
               <div class="panel-head">
-                <h2 id="free-title" class="h4 mb-0">
-                  {{ todayOnly ? 'Free today near you' : 'Earliest free slots near you' }}
-                </h2>
+                <h2 id="free-title" class="h4 mb-0">{{ panelTitle }}</h2>
                 <button
                   type="button"
                   :class="['today-toggle', { 'today-on': todayOnly }]"
@@ -158,12 +244,31 @@ onMounted(loadHome)
               </div>
 
               <div class="px-3 pb-3">
-                <!-- SAMPLE: "near you" is not real yet. The slots are real, but the list is not
-                     sorted by distance, because location (OneMap) is not wired in. -->
-                <p class="sample-note mt-3 mb-0">
-                  Sample: "near you" is not wired in yet. These are the earliest free slots across
-                  Singapore, not sorted by distance.
-                </p>
+                <!-- location: browser location first, typed postal code as the fallback -->
+                <div v-if="nearby" class="near-bar mt-3">
+                  <span class="fw-semibold">Nearest to {{ nearLabel }}, by driving distance</span>
+                  <button type="button" class="btn btn-light btn-sm" @click="clearLocation">Change</button>
+                </div>
+                <div v-else class="d-flex flex-column gap-2 mt-3">
+                  <button type="button" class="btn btn-success" :disabled="locating" @click="useMyLocation">
+                    {{ locating ? 'Finding slots near you…' : 'Use my location' }}
+                  </button>
+                  <form class="d-flex gap-2" @submit.prevent="searchPostalCode">
+                    <label for="home-postal" class="visually-hidden">Postal code</label>
+                    <input
+                      id="home-postal"
+                      v-model="postalInput"
+                      class="form-control"
+                      inputmode="numeric"
+                      pattern="[0-9]{6}"
+                      maxlength="6"
+                      required
+                      placeholder="or postal code, e.g. 569933"
+                    />
+                    <button type="submit" class="btn btn-light" :disabled="locating">Go</button>
+                  </form>
+                </div>
+                <p v-if="locationError" class="alert alert-warning mt-3 mb-0" role="alert">{{ locationError }}</p>
                 <p v-if="loadFailed" class="alert alert-warning mt-3 mb-0">Could not load free slots right now.</p>
                 <p v-else-if="loaded && availablePros.length === 0" class="text-body-secondary fw-semibold mt-3 mb-0">
                   {{ todayOnly ? 'No free slots left today. Turn off "Today only" to see the next ones.' : 'No free slots right now.' }}
@@ -179,7 +284,8 @@ onMounted(loadHome)
                     <span class="fw-bold">{{ pro.name }}</span>
                     <span class="pro-slot">{{ pro.slot }}</span>
                   </span>
-                  <span class="d-flex flex-wrap gap-2">
+                  <span class="d-flex flex-wrap align-items-center gap-2">
+                    <span v-if="pro.distance" class="pro-distance">{{ pro.distance }}</span>
                     <span v-if="pro.fromPrice !== null" class="coin-badge">from ${{ pro.fromPrice }}</span>
                     <span v-if="pro.pubLicensed" class="pub-badge">PUB Licensed</span>
                   </span>
@@ -407,13 +513,17 @@ onMounted(loadHome)
   color: var(--white);
 }
 
-.sample-note {
-  padding: 0.4rem 0.6rem;
-  background: #fff4c2;
-  border: 2px dashed var(--ink);
-  border-radius: var(--radius);
-  font-size: 0.85rem;
-  font-weight: 700;
+.near-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.pro-distance {
+  font-weight: 800;
+  white-space: nowrap;
 }
 
 .pro-row {
