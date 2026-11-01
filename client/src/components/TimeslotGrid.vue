@@ -10,6 +10,7 @@ const props = defineProps({
   services: { type: Array, default: () => [] },
 })
 
+const emit = defineEmits(['bookings-changed'])
 const POLL_MS = 1000
 const FLASH_MS = 1500
 // same text as server/controllers/booking-controller.js
@@ -117,6 +118,7 @@ async function book() {
   try {
     await api.post('/bookings', { timeslotId: selectedId.value, service: service.value })
     message.value = { type: 'success', text: `Booked ${formatDay(selected.value.start)}, ${formatTimeRange(selected.value.start, selected.value.end)}.` }
+    emit('bookings-changed')
   } catch (error) {
     if (error.response?.status === 409) flash(selectedId.value)
     message.value = { type: 'danger', text: errorMessage(error) }
@@ -133,6 +135,7 @@ async function cancel() {
   try {
     await api.delete(`/bookings/${selected.value.bookingId}`)
     message.value = { type: 'success', text: 'Booking cancelled.' }
+    emit('bookings-changed')
   } catch (error) {
     message.value = { type: 'danger', text: errorMessage(error) }
   } finally {
