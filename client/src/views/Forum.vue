@@ -89,7 +89,7 @@ function showAllPosts() {
   searchTerm.value = ''
 }
 
-// Checks whether the signed-in user can edit this post or reply.
+// Checks whether the signed-in user can edit this post or reply
 function canEdit(author) {
   if (!auth.user) {
     return false
@@ -146,6 +146,7 @@ function editPost(post) {
   content.value = post.content
   editingPostId.value = post._id
   message.value = ''
+  document.getElementById('post-form-section').scrollIntoView() //  jump into edit portion 
 }
 
 // Creates a post or saves changes, then reloads the posts
@@ -288,7 +289,7 @@ function formatDate(date) {
       <p>Ask questions and share tips about fixing things at home.</p>
     </header>
 
-    <section class="forum-section">
+    <section id="post-form-section" class="forum-section">
       <h2>{{ editingPostId ? 'Edit your post' : 'Create a post' }}</h2>
 
       <p v-if="message" class="message" role="status">{{ message }}</p>
