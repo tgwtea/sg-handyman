@@ -66,6 +66,7 @@ onMounted(async () => {
 // the browser blocks submit until every field passes its built-in validation
 const contactForm = reactive({ name: '', email: '', phone: '', message: '' });
 const contactSent = ref(false);
+const reviewSection = useTemplateRef('reviewSection');
 
 function submitContact() {
   contactSent.value = true;
@@ -114,10 +115,10 @@ function resetContact() {
   </div>
 
   <div id="book-a-slot">
-    <TimeslotGrid :companyId="companyId" :services="serviceNames" />
+    <TimeslotGrid :companyId="companyId" :services="serviceNames" @bookings-changed="reviewSection?.loadReviews()" />
   </div>
   <TimeslotManager v-if="auth.canManage(companyId)" :companyId="companyId" />
-  <ReviewSection :companyId="companyId" />
+  <ReviewSection ref="reviewSection" :companyId="companyId" />
 
   <section class="mt-5">
     <h3>Contact</h3>
