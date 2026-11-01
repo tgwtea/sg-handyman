@@ -128,7 +128,7 @@ function authorName(author) {
     return author.username
   }
 
-  return 'Former member'
+  return 'Deleted Account'
 }
 
 // Clears the post form and stops editing.
@@ -466,7 +466,7 @@ function formatDate(date) {
       v-if="postToDelete"
       class="delete-dialog-backdrop"
       @click.self="cancelDeletePost"
-    >
+    > <!--.self cancels the deletion process when u click on the area outside the dialog-->
       <section
         class="delete-dialog"
         role="alertdialog"
@@ -493,7 +493,7 @@ function formatDate(date) {
             <span>Are you sure you want to delete this DIY post? This action cannot be undone.</span>
           </p>
           <p class="delete-dialog-note">
-            Note: Deleting will permanently erase this topic and all associated replies.
+            Note: Deleting will permanently erase this post and all associated replies.
           </p>
         </div>
         <footer class="delete-dialog-actions">
