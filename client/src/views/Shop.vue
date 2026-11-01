@@ -1,5 +1,7 @@
 <script setup>
 import api from '@/api'
+import ShopOrderManagement from '@/components/shop/ShopOrderManagement.vue'
+import ShopReviewManagement from '@/components/shop/ShopReviewManagement.vue'
 import ShopCheckout from '@/components/shop/ShopCheckout.vue'
 import ShopDeliveryTracker from '@/components/shop/ShopDeliveryTracker.vue'
 import ShopProductDetails from '@/components/shop/ShopProductDetails.vue'
@@ -343,6 +345,14 @@ function clearFilters() {
   minimumRating.value = ''
   catalogueSort.value = 'name'
 }
+
+//when url change it close product popup, and get my order when go order page
+watch(() => route.path, () => {
+  selectedProduct.value = null
+  if (route.path === '/shop/orders' && loginChecked) getMyOrders()
+})
+
+
 //checking companyrole and whether they own the tool
 function canManageProduct(tool) {
   if (!auth.user) return false
@@ -469,7 +479,20 @@ const cartHasUnavailableProducts = computed(() => {
   return false
 })
 
-
+function packageItems(order, parcel) {
+  const items = []
+  for (const item of order.items) if (item.companyId === parcel.companyId) items.push(item)
+  return items
+}
+function packageHasItems(order, parcel) {
+  for (const item of packageItems(order, parcel)) if (!item.rejected) return true
+  return false
+}
+function remainingOrderTotal(order) {
+  let total = 0
+  for (const item of order.items) if (!item.rejected) total += item.price * item.quantity
+  return total
+}
 
 
 // POST sends our form data to the server. Clear the cart only after success.
@@ -543,13 +566,25 @@ async function getMyOrders() {
 // The login check must finish before we request personal order history.
 onMounted(async () => {
   await getProducts()
+  if (!shopActive) return
   await auth.fetchMe()
+  if (!shopActive) return
   loginChecked= true
   getCompanies()
+  getReviewSummaries()
+  ordersTimer = setInterval(() => {
+    if (route.path === '/shop/orders' && auth.isLoggedIn) getMyOrders()
+  }, 10000)  
   await loadCart()
   if (auth.isLoggedIn) {
     getMyOrders()
   }
+})
+
+onUnmounted(() => {
+  shopActive = false
+  clearInterval(ordersTimer)
+  cartReady.value = false
 })
 </script>
 
@@ -781,19 +816,40 @@ onMounted(async () => {
         <p>Recipient: {{ order.recipientName }}</p>
         <p v-if="order.deliveryAddress">Delivery address: {{ order.deliveryAddress }}</p>
         <p v-if="order.deliveryNote">Delivery note: {{ order.deliveryNote }}</p>
-        <ul>
-          <li v-for="item in order.items" :key="item.id">
-            {{ item.name }} x {{ item.quantity }} — ${{ item.price * item.quantity }}
-          </li>
-        </ul>
-        <p class="fw-bold">Total: ${{ order.total }}</p>
-        
-        <!-- part where show delivertrack -->
-        <ShopDeliveryTracker v-if="order.deliveryDurationSeconds" :order="order" @delivery-update="showDeliveryNotification" />
-        <p v-else class="text-muted">Delivery tracking is unavailable for this older order.</p>
+        <div v-if="order.packages && order.packages.length">
+          <div v-for="parcel in order.packages" :key="parcel.companyId" class="border rounded p-3 mb-3">
+            <h3 class="h5">{{ parcel.companyName }} package</h3>
+            <ul>
+              <li v-for="item in packageItems(order, parcel)" :key="item.id">
+                {{ item.name }} × {{ item.quantity }} — ${{ (item.price * item.quantity).toFixed(2) }}
+                <span v-if="item.rejected" class="text-danger"> — Rejected: {{ item.rejectionReason }}</span>
+              </li>
+            </ul>
+            <ShopDeliveryTracker v-if="packageHasItems(order, parcel)" :order="order" :parcel="parcel" @delivery-update="showDeliveryNotification" />
+            <p v-else class="text-danger">All items in this package were rejected. No delivery is expected.</p>
+          </div>
+        </div>
+        <!-- for a fall back for orders that is made before the addition of the new stuff, so that it will show in old format and wont bug out -->
+        <template v-else>
+          <ul><li v-for="item in order.items" :key="item.id">{{ item.name }} × {{ item.quantity }} — ${{ item.price * item.quantity }}</li></ul>
+          <ShopDeliveryTracker v-if="order.deliveryDurationSeconds" :order="order" @delivery-update="showDeliveryNotification" />
+          <p v-else class="text-muted">Delivery tracking is unavailable for this older order.</p>
+        </template>
+        <p>Original total: ${{ order.total.toFixed(2) }} · Remaining items: ${{ remainingOrderTotal(order).toFixed(2) }}</p>
+        <div v-if="order.updates && order.updates.length" class="alert alert-info">
+          <strong>Order updates</strong>
+          <p v-for="update in order.updates" :key="update._id" class="mb-1">{{ update.message }}</p>
+        </div>
       </div>
     </section>
-
+        <section v-if="route.path === '/shop/orders' && canManageProducts">
+      <div class="d-flex flex-wrap gap-2">
+        <button class="btn btn-outline-primary" @click="managementTab = 'orders'">Manage orders</button>
+        <button v-if="auth.user.role === 'admin'" class="btn btn-outline-primary" @click="managementTab = 'reviews'">Manage reviews</button>
+      </div>
+      <ShopOrderManagement v-if="managementTab === 'orders'" :key="currentUserId()" />
+      <ShopReviewManagement v-if="managementTab === 'reviews' && auth.user.role === 'admin'" :key="currentUserId()" @reviews-changed="getReviewSummaries" />
+    </section>
     <ShopProductDetails v-if="selectedProduct" :key="selectedProduct.id" :tool="selectedProduct" :company-name="companyName(selectedProduct.companyId)" :cart-disabled="cartBusy || !cartReady" @close="selectedProduct = null" @add-to-cart="addToCart" @reviews-changed="getReviewSummaries" />
     <div v-if="deliveryNotification && auth.isLoggedIn" class="delivery-notification alert alert-success shadow" role="status">
       <p>{{ deliveryNotification }}</p>

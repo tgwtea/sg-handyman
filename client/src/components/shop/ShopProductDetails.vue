@@ -25,7 +25,6 @@ const reviewSort = ref('newest')
 const rating = ref(0)
 const comment = ref('')
 const editingReview = ref(false)
-const preview = ref(false)
 const confirmDelete = ref(false)
 let active = true
 
@@ -36,6 +35,7 @@ const averageRating = computed(() => {
   return (total / reviews.value.length).toFixed(1) + ' / 5'
 })
 
+//to filter/ sort the review within each product popup
 const visibleReviews = computed(() => {
   const result = []
   for (const review of reviews.value) {
@@ -79,7 +79,6 @@ function startEditingReview(review) {
   comment.value = review.comment
   editingReview.value = true
   reviewMessage.value = ''
-  preview.value = false
   confirmDelete.value = false
 }
 
@@ -87,7 +86,6 @@ function resetReviewForm() {
   rating.value = 0
   comment.value = ''
   editingReview.value = false
-  preview.value = false
 }
 
 async function saveReview() {
@@ -135,9 +133,6 @@ async function deleteReview() {
 }
 
 // Let a review write finish before closing; Escape works normally otherwise.
-function handleCancel(event) {
-  if (reviewBusy.value) event.preventDefault()
-}
 
 onMounted(() => {
   productDialog.value.showModal()
@@ -149,7 +144,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <dialog ref="productDialog" class="product-details p-3 p-md-4" aria-labelledby="product-details-title" @close="emit('close')" @cancel="handleCancel">
+  <dialog ref="productDialog" class="product-details p-3 p-md-4" aria-labelledby="product-details-title" @close="emit('close')" >
     <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
       <h2 id="product-details-title" class="h3">{{ tool.name }}</h2>
       <button type="button" class="btn btn-outline-secondary btn-sm" :disabled="reviewBusy" @click="productDialog.close()" aria-label="Close product details">Close</button>
@@ -202,6 +197,7 @@ onUnmounted(() => {
         <article v-for="review in visibleReviews" :key="review._id" class="border rounded p-3 mb-3">
           <p class="mb-1"><strong>{{ review.username }}</strong> · {{ review.rating }} / 5 <span class="small text-muted">Verified purchase</span></p>
           <p class="review-comment">{{ review.comment }}</p>
+          <p v-if="review.editedByAdmin" class="small text-muted">Edited by admin</p>
           <div v-if="review.mine" class="d-flex flex-wrap gap-2">
             <button type="button" class="btn btn-outline-primary btn-sm" :disabled="reviewBusy" @click="startEditingReview(review)">Edit review</button>
             <button type="button" class="btn btn-outline-danger btn-sm" :disabled="reviewBusy" @click="confirmDelete = true">Delete review</button>
@@ -227,13 +223,8 @@ onUnmounted(() => {
             <textarea id="product-review-comment" v-model="comment" class="form-control" rows="3" maxlength="1000" required></textarea>
             <p class="small">{{ comment.length }} / 1000 characters</p>
             <div class="d-flex flex-wrap gap-2">
-              <button type="button" class="btn btn-outline-secondary" @click="preview = !preview">{{ preview ? 'Hide preview' : 'Preview review' }}</button>
               <button type="submit" class="btn btn-primary">{{ reviewBusy ? 'Saving review...' : editingReview ? 'Save review changes' : 'Submit review' }}</button>
               <button v-if="editingReview" type="button" class="btn btn-outline-secondary" @click="resetReviewForm">Cancel review edit</button>
-            </div>
-            <div v-if="preview" class="border rounded p-3 mt-3">
-              <strong>Review preview · {{ rating }} / 5</strong>
-              <p class="review-comment mb-0">{{ comment || 'Your review will appear here.' }}</p>
             </div>
           </fieldset>
         </form>

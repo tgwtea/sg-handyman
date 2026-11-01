@@ -2,22 +2,24 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 
 // The parent supplies the saved order. Timing survives refresh because it comes from MongoDB.
-const props = defineProps({ order: Object })
+const props = defineProps({ order: Object, parcel: Object })
 const emit = defineEmits(['delivery-update'])
 const currentTime = ref(Date.now())
 let timer
 let previousStage = ''
 
+const duration = computed(() => props.order.deliveryDurationSeconds + (props.parcel ? props.parcel.extraSeconds : 0))
+
 const remainingSeconds = computed(() => {
   const startTime = new Date(props.order.createdAt).getTime()
-  const finishTime = startTime + props.order.deliveryDurationSeconds * 1000
+  const finishTime = startTime + duration.value * 1000
   return Math.max(0, Math.ceil((finishTime - currentTime.value) / 1000))
 })
 
 // Clamp the percentage between 0 and 100, including when the computer clock is behind.
 const progress = computed(() => {
-  const elapsed = props.order.deliveryDurationSeconds - remainingSeconds.value
-  return Math.max(0, Math.min(100, Math.floor(elapsed / props.order.deliveryDurationSeconds * 100)))
+  const elapsed = duration.value - remainingSeconds.value
+  return Math.max(0, Math.min(100, Math.floor(elapsed / duration.value * 100)))
 })
 
 const deliveryStage = computed(() => {
@@ -39,21 +41,20 @@ function updateDelivery() {
   const stage = deliveryStage.value
   if (stage !== previousStage) {
     if (stage === 'At doorstep' || stage === 'Delivered') {
-      emit('delivery-update', 'Order ' + props.order._id + ': ' + stage + '.')
+      emit('delivery-update', 'Order ' + props.order._id + (props.parcel ? ' · ' + props.parcel.companyName : '') + ': ' + stage + '.')
     }
     previousStage = stage
   }
-  if (stage === 'Delivered') clearInterval(timer)
 }
 
 onMounted(() => {
-  // Show existing status immediately, without replaying notifications for old orders.
+  
   currentTime.value = Date.now()
   previousStage = deliveryStage.value
-  if (previousStage !== 'Delivered') timer = setInterval(updateDelivery, 1000)
+  timer = setInterval(updateDelivery, 1000)
 })
 
-// Stop checking when this order's component is removed or the user leaves the shop.
+
 onUnmounted(() => {
   clearInterval(timer)
 })

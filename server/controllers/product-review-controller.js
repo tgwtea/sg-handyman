@@ -10,7 +10,7 @@ async function hasPurchased(userId, productId) {
   const orders = await Shop.findOrdersByUserId(userId);
   for (const order of orders) {
     for (const item of order.items) {
-      if (item.id === productId) return true;
+      if (item.id === productId && !item.rejected) return true;
     }
   }
   return false;
@@ -60,7 +60,7 @@ reviewController.getReviews = async (req, res) => {
     for (const review of reviews) {
       const mine = !!user && String(review.userId) === user._id;
       if (mine) alreadyReviewed = true;
-      result.push({ _id: review._id, rating: review.rating, comment: review.comment, username: review.username, createdAt: review.createdAt, mine: mine });
+      result.push({ _id: review._id, rating: review.rating, comment: review.comment, username: review.username, createdAt: review.createdAt, mine: mine,editedByAdmin: review.adminEdits.length > 0  });
     }
     let purchased = false;
     if (user) purchased = await hasPurchased(user._id, id);
@@ -118,6 +118,43 @@ reviewController.deleteReview = async (req, res) => {
   } catch (error) {
     console.error(error.message);
     res.status(500).json({ message: 'Could not delete your review.' });
+  }
+};
+
+reviewController.getAdminReviews = async (req, res) => {
+  try {
+    const reviews = await Review.findAll();
+    const products = await Product.findProducts();
+    const result = [];
+    for (const review of reviews) {
+      
+      let name = 'Product unavailable';
+      for (const product of products) if (product.id === review.productId) name = product.name;
+      result.push({ _id: review._id, productName: name, username: review.username, rating: review.rating,
+        comment: review.comment, adminEdits: review.adminEdits });
+    }
+    res.json(result);
+  } catch (error) { res.status(500).json({ message: 'Could not load reviews.' }); }
+};
+reviewController.editAdminReview = async (req, res) => {
+  const invalid = validateReview(req.body);
+  if (invalid) return res.status(400).json({ message: invalid });
+  if (typeof req.body.reason !== 'string' || !req.body.reason.trim() || req.body.reason.trim().length > 300) {
+    return res.status(400).json({ message: 'Explain the edit in 1–300 characters.' });
+  }
+  try {
+    const review = await Review.findById(req.params.reviewId);
+    if (!review) return res.status(404).json({ message: 'Review not found.' });
+    review.adminEdits.push({ adminId: req.session.user._id, previousRating: review.rating, previousComment: review.comment,
+      rating: req.body.rating, comment: req.body.comment.trim(), reason: req.body.reason.trim() });
+    review.rating = req.body.rating;
+    review.comment = req.body.comment.trim();
+    const result = await Review.saveAdminEdit(review);
+    if (result.matchedCount === 0) return res.status(404).json({ message: 'Review not found.' });
+    res.json({ message: 'Review updated and marked as edited by admin.' });
+  } catch (error) {
+    if (error.name === 'CastError') return res.status(400).json({ message: 'Invalid review reference.' });
+    res.status(500).json({ message: 'Could not edit this review.' });
   }
 };
 export default reviewController;

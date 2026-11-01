@@ -1,0 +1,130 @@
+[
+  {
+    "slug": "hammer",
+    "name": "Claw hammer",
+    "price": 12,
+    "description": "Drive and remove small nails during everyday household repairs.",
+    "specifications": "Head: 16 oz steel; handle: fibreglass with rubber grip; length: 330 mm.",
+    "imageUrl": "/shop-tools/hammer.svg"
+  },
+  {
+    "slug": "screwdrivers",
+    "name": "Screwdriver set",
+    "price": 18,
+    "description": "A compact set for tightening cabinet handles, hinges and household fittings.",
+    "specifications": "6 pieces; Phillips PH0/PH1/PH2 and slotted 3/5/6 mm; chrome-vanadium shafts.",
+    "imageUrl": "/shop-tools/screwdrivers.svg"
+  },
+  {
+    "slug": "wrench",
+    "name": "Adjustable wrench",
+    "price": 15.9,
+    "description": "Adjust the jaw to grip different nut sizes for assembly and plumbing maintenance.",
+    "specifications": "Length: 200 mm; maximum jaw opening: 24 mm; chrome-plated steel.",
+    "imageUrl": "/shop-tools/wrench.svg"
+  },
+  {
+    "slug": "tape",
+    "name": "Tape measure",
+    "price": 6.5,
+    "description": "Measure furniture, shelves and repair spaces before cutting or drilling.",
+    "specifications": "Length: 5 m; blade width: 19 mm; metric markings; sliding blade lock.",
+    "imageUrl": "/shop-tools/tape.svg"
+  },
+  {
+    "slug": "pliers",
+    "name": "Combination pliers",
+    "price": 11.9,
+    "description": "Grip, bend and cut small wire during general household repair tasks.",
+    "specifications": "Length: 180 mm; hardened steel jaws; non-insulated comfort grips.",
+    "imageUrl": "/shop-tools/pliers.svg"
+  },
+  {
+    "slug": "knife",
+    "name": "Utility knife",
+    "price": 7.9,
+    "description": "Make controlled cuts through cardboard, packaging and other light materials.",
+    "specifications": "18 mm snap-off blade; manual blade lock; ABS handle; retract blade after use.",
+    "imageUrl": "/shop-tools/knife.svg"
+  },
+  {
+    "slug": "hex",
+    "name": "Hex key set",
+    "price": 8.9,
+    "description": "Tighten hex-socket screws when assembling flat-pack furniture and fixtures.",
+    "specifications": "9 metric keys: 1.5\u201310 mm; hardened steel; folding storage holder.",
+    "imageUrl": "/shop-tools/hex.svg"
+  },
+  {
+    "slug": "level",
+    "name": "Spirit level",
+    "price": 14.9,
+    "description": "Check whether shelves and picture frames are level before fixing them in place.",
+    "specifications": "Length: 300 mm; aluminium body; horizontal and vertical bubble vials.",
+    "imageUrl": "/shop-tools/level.svg"
+  },
+  {
+    "slug": "brush",
+    "name": "Paint brush",
+    "price": 4.9,
+    "description": "Apply water-based paint to trim, corners and small repair areas.",
+    "specifications": "Width: 50 mm; synthetic bristles; wooden handle; wash after use.",
+    "imageUrl": "/shop-tools/brush.svg"
+  },
+  {
+    "slug": "roller",
+    "name": "Mini paint roller",
+    "price": 9.9,
+    "description": "Refresh small wall patches and narrow spaces with a compact roller.",
+    "specifications": "Roller width: 100 mm; 10 mm pile; frame and sleeve included.",
+    "imageUrl": "/shop-tools/roller.svg"
+  },
+  {
+    "slug": "scraper",
+    "name": "Paint scraper",
+    "price": 5.9,
+    "description": "Remove loose paint and spread small amounts of filler on repair surfaces.",
+    "specifications": "Blade width: 50 mm; stainless-steel blade; polypropylene handle.",
+    "imageUrl": "/shop-tools/scraper.svg"
+  },
+  {
+    "slug": "clamp",
+    "name": "Quick-grip clamp",
+    "price": 16.9,
+    "description": "Hold small timber pieces steady while positioning or gluing them together.",
+    "specifications": "Maximum opening: 150 mm; non-marking pads; quick-release lever.",
+    "imageUrl": "/shop-tools/clamp.svg"
+  },
+  {
+    "slug": "saw",
+    "name": "Hand saw",
+    "price": 19.9,
+    "description": "Cut small timber boards for basic carpentry and shelving projects.",
+    "specifications": "Blade length: 400 mm; 8 teeth per inch; hardened steel blade; protective cover.",
+    "imageUrl": "/shop-tools/saw.svg"
+  },
+  {
+    "slug": "mallet",
+    "name": "Rubber mallet",
+    "price": 10.9,
+    "description": "Tap furniture joints and position parts without striking them with a steel head.",
+    "specifications": "Head weight: 450 g; black rubber head; wooden handle; length: 300 mm.",
+    "imageUrl": "/shop-tools/mallet.svg"
+  },
+  {
+    "slug": "goggles",
+    "name": "Safety goggles",
+    "price": 8.9,
+    "description": "Protect eyes from light dust and debris during common DIY activities.",
+    "specifications": "Clear polycarbonate lens; adjustable elastic strap; wear over eyes before work.",
+    "imageUrl": "/shop-tools/goggles.svg"
+  },
+  {
+    "slug": "seal",
+    "name": "Thread seal tape",
+    "price": 2.9,
+    "description": "Wrap threaded water fittings before assembly to help seal compatible joints.",
+    "specifications": "PTFE tape; width: 12 mm; length: 10 m; for compatible threaded water fittings.",
+    "imageUrl": "/shop-tools/seal.svg"
+  }
+]

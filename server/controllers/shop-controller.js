@@ -170,10 +170,13 @@ shopController.createOrder = async (req, res) => {
   if (!Array.isArray(req.body.items) || req.body.items.length === 0) {
     return res.status(400).json({ message: 'Your cart is empty.' });
   }
+
+
   try{
   const tools = await Product.findProducts();
   let total = 0;
   const purchasedItems = []
+  const packages = []
   for (const item of req.body.items) {
     //check whether number of item is valid
     if (!item || typeof item.quantity !== 'number' || item.quantity < 1 || item.quantity % 1 !== 0) {
@@ -190,7 +193,21 @@ shopController.createOrder = async (req, res) => {
     if (!selectedTool || selectedTool.removed) {
       return res.status(400).json({ message: 'A tool in your cart is unavailable.' });
     }
-
+      
+      //to create a package for each company mentioned in the cart
+      const companyId = selectedTool.companyId ? String(selectedTool.companyId) : '';
+      let existingPackage;
+      for (const parcel of packages) {
+        if (parcel.companyId === companyId) existingPackage = parcel;
+      }
+      if (!existingPackage) {
+        const company = companyId ? await Company.findCompanyById(companyId) : null;
+        packages.push({ companyId: companyId, companyName: company ? company.name : 'Unassigned seller', extraSeconds: 0 });
+      }
+      // Reject duplicate rows so one product can be managed without ambiguity.
+      for (const savedItem of purchasedItems) {
+        if (savedItem.id === item.id) return res.status(400).json({ message: 'Each tool should appear once.' });
+      }
     // Use the server price, rather than a price sent by the browser.
     total += selectedTool.price * item.quantity;
 
@@ -198,7 +215,8 @@ shopController.createOrder = async (req, res) => {
       id: selectedTool.id,
       name: selectedTool.name,
       price: selectedTool.price,
-      quantity: item.quantity
+      quantity: item.quantity,
+      companyId : companyId
     });
   }
 //create the order at the user model
@@ -208,6 +226,7 @@ shopController.createOrder = async (req, res) => {
       deliveryAddress: req.body.deliveryAddress.trim(),
       deliveryNote: deliveryNote,
       items: purchasedItems,
+      packages : packages,
       total: total,
       //random generate a delivery time to simulate delivery status
       deliveryDurationSeconds: (Math.floor(Math.random() * 10) + 1) * 60

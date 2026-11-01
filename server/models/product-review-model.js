@@ -8,6 +8,14 @@ const reviewSchema = new mongoose.Schema({
   username: { type: String, required: true },
   rating: { type: Number, required: true, min: 1, max: 5 },
   comment: { type: String, required: true, maxlength: 1000 },
+  createdAt: { type: Date, default: Date.now },
+  adminEdits: [{ adminId: mongoose.Schema.Types.ObjectId, 
+    previousRating: Number, 
+    previousComment: String,
+    rating: Number, 
+    comment: String, 
+    reason: String, 
+    createdAt: { type: Date, default: Date.now } }],
   createdAt: { type: Date, default: Date.now }
 });
 // Approved extra: the pair must be unique, even if two requests arrive together.
@@ -33,5 +41,12 @@ reviewModel.updateOwn = function(productId, userId, rating, comment) {
 };
 reviewModel.deleteOwn = function(productId, userId) {
   return Review.deleteOne({ productId: productId, userId: userId });
+};
+
+reviewModel.findById = function(id) { return Review.findById(id); };
+reviewModel.saveAdminEdit = function(review) {
+  return Review.updateOne({ _id: review._id }, {
+    rating: review.rating, comment: review.comment, adminEdits: review.adminEdits
+  }, { runValidators: true });
 };
 export default reviewModel;
