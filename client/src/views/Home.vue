@@ -7,6 +7,20 @@ import { formatDay, formatTime } from '@/utils/sgTime'
 const router = useRouter()
 
 const query = ref('')
+const wheelOpen = ref(true)
+const wheelRotation = ref(270)
+const isSpinning = ref(false)
+const spinResult = ref('')
+const pendingResult = ref('')
+
+const wheelOptions = [
+  'Car',
+  'Banner colour',
+  'Icon',
+  'Nintendo Switch',
+  'Free trip to Bali',
+  'PlayStation 4',
+]
 
 // label: what an urgent user says; q: the search word that matches the seeded services
 const urgentProblems = [
@@ -171,6 +185,26 @@ function clearLocation() {
 function searchFor(q) {
   const trimmed = q.trim()
   router.push({ path: '/companies', query: trimmed ? { q: trimmed } : {} })
+}
+
+function spinWheel() {
+  if (isSpinning.value) {
+    return
+  }
+
+  const winningIndex = Math.random() < 0.5 ? 1 : 2
+  const winningAngle = winningIndex * 60 + 30
+  const fullTurns = Math.floor(wheelRotation.value / 360) + 6
+
+  pendingResult.value = wheelOptions[winningIndex]
+  spinResult.value = ''
+  isSpinning.value = true
+  wheelRotation.value = fullTurns * 360 + (360 - winningAngle)
+}
+
+function finishSpin() {
+  isSpinning.value = false
+  spinResult.value = pendingResult.value
 }
 
 onMounted(() => {
@@ -404,6 +438,63 @@ onMounted(() => {
         </div>
       </div>
     </section>
+
+    <aside v-if="wheelOpen" class="wheel-panel pixel-card" aria-labelledby="wheel-title">
+      <div class="wheel-panel-header">
+        <h2 id="wheel-title" class="h5 mb-0">Spin the wheel</h2>
+        <button
+          type="button"
+          class="wheel-close"
+          aria-label="Close spin the wheel"
+          :disabled="isSpinning"
+          @click="wheelOpen = false"
+        >
+          ×
+        </button>
+      </div>
+
+      <div class="wheel-frame">
+        <span class="wheel-pointer" aria-hidden="true"></span>
+        <div
+          class="wheel"
+          role="img"
+          aria-label="Wheel options: Car, Banner colour, Icon, Nintendo Switch, Free trip to Bali, and PlayStation 4"
+          :style="{ transform: `rotate(${wheelRotation}deg)` }"
+          @transitionend="finishSpin"
+        >
+          <span class="wheel-label wheel-label-one">{{ wheelOptions[0] }}</span>
+          <span class="wheel-label wheel-label-two">{{ wheelOptions[1] }}</span>
+          <span class="wheel-label wheel-label-three">{{ wheelOptions[2] }}</span>
+          <span class="wheel-label wheel-label-four">{{ wheelOptions[3] }}</span>
+          <span class="wheel-label wheel-label-five">{{ wheelOptions[4] }}</span>
+          <span class="wheel-label wheel-label-six">{{ wheelOptions[5] }}</span>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        class="btn btn-primary w-100"
+        :disabled="isSpinning"
+        @click="spinWheel"
+      >
+        {{ isSpinning ? 'Spinning...' : 'Spin' }}
+      </button>
+      <p v-if="spinResult" class="wheel-result mb-0" role="status">
+        You landed on: <strong>{{ spinResult }}</strong>
+      </p>
+      <p v-else class="wheel-note mb-0">
+        The wheel can land on Banner colour or Icon.
+      </p>
+    </aside>
+
+    <button
+      v-else
+      type="button"
+      class="wheel-open btn btn-primary"
+      @click="wheelOpen = true"
+    >
+      Spin the wheel
+    </button>
   </div>
 </template>
 
@@ -616,5 +707,141 @@ onMounted(() => {
   font-family: var(--font-display);
   font-size: 1.5rem;
   font-weight: 700;
+}
+
+.wheel-panel {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 1050;
+  width: min(310px, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  padding: 0.75rem;
+  background: var(--white);
+}
+
+.wheel-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.wheel-close {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: var(--line);
+  background: var(--white);
+  color: var(--ink);
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.wheel-frame {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  padding-top: 14px;
+  margin-bottom: 0.75rem;
+}
+
+.wheel-pointer {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  z-index: 1;
+  width: 0;
+  height: 0;
+  border-top: 22px solid var(--red);
+  border-right: 12px solid transparent;
+  border-left: 12px solid transparent;
+  transform: translateX(-50%);
+}
+
+.wheel {
+  position: relative;
+  width: min(250px, 72vw);
+  aspect-ratio: 1;
+  border: 5px solid var(--ink);
+  border-radius: 50%;
+  background: conic-gradient(
+    var(--green) 0deg 60deg,
+    #f46645 60deg 120deg,
+    #d6df3e 120deg 180deg,
+    #4b85cc 180deg 240deg,
+    #7dba3a 240deg 300deg,
+    #8671b2 300deg 360deg
+  );
+  transition: transform 4s cubic-bezier(0.12, 0.75, 0.15, 1);
+}
+
+.wheel::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 28px;
+  height: 28px;
+  border: 4px solid var(--red);
+  border-radius: 50%;
+  background: var(--coin);
+  content: '';
+  transform: translate(-50%, -50%);
+}
+
+.wheel-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 68px;
+  font-family: var(--font-display);
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.05;
+  text-align: center;
+  transform: translate(-50%, -50%);
+}
+
+.wheel-label-one {
+  transform: translate(-50%, -50%) translate(32px, -57px);
+}
+
+.wheel-label-two {
+  transform: translate(-50%, -50%) translate(68px, 0);
+}
+
+.wheel-label-three {
+  transform: translate(-50%, -50%) translate(32px, 57px);
+}
+
+.wheel-label-four {
+  transform: translate(-50%, -50%) translate(-32px, 57px);
+}
+
+.wheel-label-five {
+  transform: translate(-50%, -50%) translate(-68px, 0);
+}
+
+.wheel-label-six {
+  transform: translate(-50%, -50%) translate(-32px, -57px);
+}
+
+.wheel-panel > .btn {
+  margin-bottom: 0.5rem;
+}
+
+.wheel-result,
+.wheel-note {
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.wheel-open {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 1050;
 }
 </style>
