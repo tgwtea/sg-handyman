@@ -7,7 +7,6 @@ import { formatDay, formatTime } from '@/utils/sgTime'
 const router = useRouter()
 
 const query = ref('')
-const wheelOpen = ref(true)
 const wheelRotation = ref(270)
 const isSpinning = ref(false)
 const spinResult = ref('')
@@ -187,6 +186,7 @@ function searchFor(q) {
   router.push({ path: '/companies', query: trimmed ? { q: trimmed } : {} })
 }
 
+// Spins the wheel and randomly chooses Banner colour or Icon as the result.
 function spinWheel() {
   if (isSpinning.value) {
     return
@@ -202,6 +202,7 @@ function spinWheel() {
   wheelRotation.value = fullTurns * 360 + (360 - winningAngle)
 }
 
+// Shows the chosen result after the wheel finishes spinning.
 function finishSpin() {
   isSpinning.value = false
   spinResult.value = pendingResult.value
@@ -328,6 +329,39 @@ onMounted(() => {
                 <RouterLink to="/companies" class="btn btn-light w-100 mt-3">See all companies</RouterLink>
               </div>
             </aside>
+
+            <aside class="wheel-panel pixel-card mt-4" aria-labelledby="wheel-title">
+              <h2 id="wheel-title" class="h5 mb-2">Spin the wheel</h2>
+              <div class="wheel-frame">
+                <span class="wheel-pointer" aria-hidden="true"></span>
+                <div
+                  class="wheel"
+                  role="img"
+                  aria-label="Wheel options: Car, Banner colour, Icon, Nintendo Switch, Free trip to Bali, and PlayStation 4"
+                  :style="{ transform: `rotate(${wheelRotation}deg)` }"
+                  @transitionend="finishSpin"
+                >
+                  <span class="wheel-label wheel-label-one">{{ wheelOptions[0] }}</span>
+                  <span class="wheel-label wheel-label-two">{{ wheelOptions[1] }}</span>
+                  <span class="wheel-label wheel-label-three">{{ wheelOptions[2] }}</span>
+                  <span class="wheel-label wheel-label-four">{{ wheelOptions[3] }}</span>
+                  <span class="wheel-label wheel-label-five">{{ wheelOptions[4] }}</span>
+                  <span class="wheel-label wheel-label-six">{{ wheelOptions[5] }}</span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                class="btn btn-primary w-100"
+                :disabled="isSpinning"
+                @click="spinWheel"
+              >
+                {{ isSpinning ? 'Spinning...' : 'Spin' }}
+              </button>
+              <p v-if="spinResult" class="wheel-result mb-0 mt-2" role="status">
+                You landed on: <strong>{{ spinResult }}</strong>
+              </p>
+            </aside>
           </div>
         </div>
       </div>
@@ -439,62 +473,6 @@ onMounted(() => {
       </div>
     </section>
 
-    <aside v-if="wheelOpen" class="wheel-panel pixel-card" aria-labelledby="wheel-title">
-      <div class="wheel-panel-header">
-        <h2 id="wheel-title" class="h5 mb-0">Spin the wheel</h2>
-        <button
-          type="button"
-          class="wheel-close"
-          aria-label="Close spin the wheel"
-          :disabled="isSpinning"
-          @click="wheelOpen = false"
-        >
-          ×
-        </button>
-      </div>
-
-      <div class="wheel-frame">
-        <span class="wheel-pointer" aria-hidden="true"></span>
-        <div
-          class="wheel"
-          role="img"
-          aria-label="Wheel options: Car, Banner colour, Icon, Nintendo Switch, Free trip to Bali, and PlayStation 4"
-          :style="{ transform: `rotate(${wheelRotation}deg)` }"
-          @transitionend="finishSpin"
-        >
-          <span class="wheel-label wheel-label-one">{{ wheelOptions[0] }}</span>
-          <span class="wheel-label wheel-label-two">{{ wheelOptions[1] }}</span>
-          <span class="wheel-label wheel-label-three">{{ wheelOptions[2] }}</span>
-          <span class="wheel-label wheel-label-four">{{ wheelOptions[3] }}</span>
-          <span class="wheel-label wheel-label-five">{{ wheelOptions[4] }}</span>
-          <span class="wheel-label wheel-label-six">{{ wheelOptions[5] }}</span>
-        </div>
-      </div>
-
-      <button
-        type="button"
-        class="btn btn-primary w-100"
-        :disabled="isSpinning"
-        @click="spinWheel"
-      >
-        {{ isSpinning ? 'Spinning...' : 'Spin' }}
-      </button>
-      <p v-if="spinResult" class="wheel-result mb-0" role="status">
-        You landed on: <strong>{{ spinResult }}</strong>
-      </p>
-      <p v-else class="wheel-note mb-0">
-        The wheel can land on Banner colour or Icon.
-      </p>
-    </aside>
-
-    <button
-      v-else
-      type="button"
-      class="wheel-open btn btn-primary"
-      @click="wheelOpen = true"
-    >
-      Spin the wheel
-    </button>
   </div>
 </template>
 
@@ -710,34 +688,8 @@ onMounted(() => {
 }
 
 .wheel-panel {
-  position: fixed;
-  right: 1rem;
-  bottom: 1rem;
-  z-index: 1050;
-  width: min(310px, calc(100vw - 2rem));
-  max-height: calc(100vh - 2rem);
-  overflow-y: auto;
   padding: 0.75rem;
   background: var(--white);
-}
-
-.wheel-panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.wheel-close {
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  border: var(--line);
-  background: var(--white);
-  color: var(--ink);
-  font-size: 1.4rem;
-  line-height: 1;
 }
 
 .wheel-frame {
@@ -838,10 +790,4 @@ onMounted(() => {
   text-align: center;
 }
 
-.wheel-open {
-  position: fixed;
-  right: 1rem;
-  bottom: 1rem;
-  z-index: 1050;
-}
 </style>
