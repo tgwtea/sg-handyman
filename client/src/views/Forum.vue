@@ -11,6 +11,9 @@ const posts = ref([])
 const title = ref('')
 const category = ref('')
 const content = ref('')
+const selectedPostImage = ref(null)
+const editingPostMedia = ref([])
+const postImageInput = ref(null)
 const replyDrafts = ref({})
 const editingPostId = ref('')
 const editingReplyId = ref('')
@@ -19,6 +22,8 @@ const message = ref('')
 const loading = ref(true)
 const postToDelete = ref(null)
 const deletingPost = ref(false)
+const replyToDelete = ref(null)
+const deletingReply = ref(false)
 const searchInput = ref('')
 const searchTerm = ref('')
 const selectedCategory = ref('')
@@ -137,7 +142,27 @@ function clearPostForm() {
   title.value = ''
   category.value = ''
   content.value = ''
+  selectedPostImage.value = null
+  editingPostMedia.value = []
+  if (postImageInput.value) {
+    postImageInput.value.value = ''
+  }
   editingPostId.value = ''
+}
+
+// Keeps one small JPG or PNG image selected for a new post.
+function selectPostImages(event) {
+  const image = event.target.files[0]
+
+  if (image && ((image.type !== 'image/jpeg' && image.type !== 'image/png')
+    || image.size > 5 * 1024 * 1024)) {
+    message.value = 'Choose one JPG or PNG image, 5 MB or smaller.'
+    selectedPostImage.value = null
+    event.target.value = ''
+    return
+  }
+
+  selectedPostImage.value = image || null
 }
 
 // Puts the selected post's details into the form.
@@ -145,6 +170,11 @@ function editPost(post) {
   title.value = post.title
   category.value = post.category
   content.value = post.content
+  selectedPostImage.value = null
+  editingPostMedia.value = post.media || []
+  if (postImageInput.value) {
+    postImageInput.value.value = ''
+  }
   editingPostId.value = post._id
   message.value = ''
   document.getElementById('post-form-section').scrollIntoView() //  jump into edit portion 
@@ -170,7 +200,16 @@ async function savePost() {
       await api.put(`/forum/${editingPostId.value}`, post)
       message.value = 'Post updated.'
     } else {
-      await api.post('/forum', post)
+      const postForm = new FormData()
+      postForm.append('title', title.value)
+      postForm.append('category', category.value)
+      postForm.append('content', content.value)
+
+      if (selectedPostImage.value) {
+        postForm.append('media', selectedPostImage.value)
+      }
+
+      await api.post('/forum', postForm)
       message.value = 'Post created.'
     }
 
@@ -261,20 +300,36 @@ async function saveReply(post, reply) {
   }
 }
 
-// Asks before deleting a reply, then reloads the posts.
-async function deleteReply(post, reply) {
-  const shouldDelete = window.confirm('Delete this reply?')
-  if (!shouldDelete) {
+// Opens the confirmation dialog for deleting a reply.
+function deleteReply(post, reply) {
+  replyToDelete.value = { post, reply }
+}
+
+// Deletes the selected reply after the user confirms.
+async function confirmDeleteReply() {
+  if (!replyToDelete.value) {
     return
   }
 
+  deletingReply.value = true
   try {
-    await api.delete(`/forum/${post._id}/replies/${reply._id}`)
+    await api.delete(
+      `/forum/${replyToDelete.value.post._id}/replies/${replyToDelete.value.reply._id}`
+    )
     message.value = 'Reply deleted.'
+    replyToDelete.value = null
     await loadPosts()
   } catch (error) {
     message.value = errorMessage(error)
+    replyToDelete.value = null
+  } finally {
+    deletingReply.value = false
   }
+}
+
+// Closes the dialog without deleting the reply.
+function cancelDeleteReply() {
+  replyToDelete.value = null
 }
 
 // Shows the date and time in the user's local format.
@@ -333,6 +388,31 @@ function formatDate(date) {
           required
         ></textarea>
 
+        <div v-if="!editingPostId" class="post-image-upload">
+          <label for="post-images">Add images (optional)</label>
+          <input
+            id="post-images"
+            ref="postImageInput"
+            type="file"
+            accept="image/jpeg,image/png"
+            @change="selectPostImages"
+          />
+          <p class="post-image-note">
+            Choose one JPG or PNG image, up to 5 MB. Images cannot be changed after posting.
+          </p>
+        </div>
+        <div v-else-if="editingPostMedia.length" class="post-image-upload">
+          <p>These images are already attached and cannot be changed:</p>
+          <div class="post-images">
+            <img
+              v-for="(media, index) in editingPostMedia"
+              :key="media._id || index"
+              :src="`${api.defaults.baseURL}/forum/${editingPostId}/media/${index}`"
+              :alt="media.name || 'Forum post image'"
+            />
+          </div>
+        </div>
+
         <button type="submit" class="btn btn-primary mb-3">{{ editingPostId ? 'Save changes' : 'Create post' }}</button>
         <button v-if="editingPostId" type="button" class="btn btn-primary mb-3" @click="clearPostForm">Cancel</button>
       </form>
@@ -390,6 +470,14 @@ function formatDate(date) {
         <p class="category">{{ post.category || 'General' }}</p>
         <h3>{{ post.title }}</h3>
         <p class="post-content">{{ post.content }}</p>
+        <div v-if="post.media && post.media.length" class="post-images">
+          <img
+            v-for="(media, index) in post.media"
+            :key="media._id || index"
+            :src="`${api.defaults.baseURL}/forum/${post._id}/media/${index}`"
+            :alt="media.name || 'Forum post image'"
+          />
+        </div>
         <p class="post-info">
           Posted by {{ authorName(post.authorId) }}
           on {{ formatDate(post.createdAt) }}
@@ -472,6 +560,15 @@ function formatDate(date) {
       :busy="deletingPost"
       @cancel="cancelDeletePost"
       @confirm="confirmDeletePost"
+    />
+    <DeleteDialog
+      v-if="replyToDelete"
+      message="Are you sure you want to delete this reply? This action cannot be undone."
+      note="Note: Deleting will permanently erase this reply."
+      confirmLabel="✓ Yes, Delete Reply"
+      :busy="deletingReply"
+      @cancel="cancelDeleteReply"
+      @confirm="confirmDeleteReply"
     />
   </main>
 </template>
@@ -605,6 +702,34 @@ textarea {
   margin-bottom: 12px;
   padding: 10px;
   width: 100%;
+}
+
+.post-image-upload {
+  margin-bottom: 12px;
+}
+
+.post-image-upload input[type='file'] {
+  margin-bottom: 4px;
+}
+
+.post-image-note {
+  color: #526159;
+  font-size: 0.9rem;
+}
+
+.post-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.post-images img {
+  max-width: 100%;
+  max-height: 320px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  object-fit: contain;
 }
 
 textarea {

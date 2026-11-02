@@ -25,6 +25,21 @@ const replySchema = new mongoose.Schema({
   }
 });
 
+const mediaSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true
+  },
+  data: {
+    type: Buffer,
+    required: true
+  },
+  mimetype: {
+    type: String,
+    required: true
+  }
+});
+
 // Describes the information saved for each forum post and its replies.
 const postSchema = new mongoose.Schema({
   authorId: {
@@ -61,6 +76,10 @@ const postSchema = new mongoose.Schema({
     type: [replySchema],
     default: []
   },
+  media: {
+    type: [mediaSchema],
+    default: []
+  },
   createdAt: {
     type: Date,
     default: Date.now
@@ -77,6 +96,7 @@ const ForumPost = mongoose.model('ForumPost', postSchema, 'forumPosts');
 // Gets all forum posts with their authors, sorted by most recently updated.
 forumModel.findAllForumPosts = function() {
   return ForumPost.find()
+    .select('-media.data')
     .populate('authorId', 'username')
     .populate('replies.authorId', 'username')
     .sort({ updatedAt: -1 });
@@ -101,38 +121,29 @@ forumModel.updateForumPost = function(post, updates) {
   return post.save();
 };
 
-// Deletes a forum post by its ID.
+// Saves changes made to a forum post.
+forumModel.saveForumPost = function(post) {
+  return post.save();
+};
+
+// Deletes a forum post by its ID
 forumModel.deleteForumPostById = function(postId) {
   return ForumPost.findByIdAndDelete(postId);
 };
 
-// Deletes every forum post. Used by the seed script.
+// Deletes every forum post
 forumModel.deleteAllForumPosts = function() {
   return ForumPost.deleteMany({});
 };
 
-// Adds or removes a user's thumbs-up from a post.
-forumModel.toggleForumPostLike = async function(post, userId) {
-  const likeIndex = post.likes.findIndex(like => String(like) === String(userId));
-
-  if (likeIndex >= 0) {
-    post.likes.splice(likeIndex, 1);
-  } else {
-    post.likes.push(userId);
-  }
-
-  await post.save();
-  return post;
-};
-
-// Adds a reply to a post and saves the post.
+// Adds a reply to a post and saves the post
 forumModel.createForumReply = function(post, reply) {
   post.replies.push(reply);
   post.updatedAt = new Date();
   return post.save();
 };
 
-// Finds a reply in a forum post by its ID.
+// Finds a reply in a forum post by its ID
 forumModel.findForumReplyById = function(post, replyId) {
   return post.replies.id(replyId);
 };
@@ -150,81 +161,6 @@ forumModel.deleteForumReply = function(post, reply) {
   reply.deleteOne();
   post.updatedAt = new Date();
   return post.save();
-};
-
-// Converts a value to trimmed text, or an empty string if it is not text.
-forumModel.getText = function(value) {
-  if (typeof value !== 'string') {
-    return '';
-  }
-
-  return value.trim();
-};
-
-// Cleans and checks the details for a forum post.
-forumModel.getPostDetails = function(details) {
-  const title = forumModel.getText(details.title);
-  const content = forumModel.getText(details.content);
-  let category = forumModel.getText(details.category);
-
-  if (category === '') {
-    category = 'General';
-  }
-
-  if (title === '' || content === '') {
-    return {
-      error: 'Title and post content are required'
-    };
-  }
-
-  if (title.length > 120 || content.length > 5000 || category.length > 40) {
-    return {
-      error: 'Title, content, or category is too long'
-    };
-  }
-
-  return {
-    error: '',
-    title: title,
-    content: content,
-    category: category
-  };
-};
-
-// Cleans and checks the text for a forum reply.
-forumModel.getReplyContent = function(value) {
-  const content = forumModel.getText(value);
-
-  if (content === '') {
-    return {
-      error: 'Reply content is required'
-    };
-  }
-
-  if (content.length > 2000) {
-    return {
-      error: 'Reply content must be 2000 characters or fewer'
-    };
-  }
-
-  return {
-    error: '',
-    content: content
-  };
-};
-
-// Checks whether a user owns content or is an admin.
-forumModel.userCanEdit = function(user, authorId) {
-  if (user.role === 'admin') {
-    return true;
-  }
-
-  let id = authorId;
-  if (authorId && authorId._id) {
-    id = authorId._id;
-  }
-
-  return String(id) === String(user._id);
 };
 
 export default forumModel;

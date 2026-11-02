@@ -4,6 +4,7 @@ import session from 'express-session';
 import MongoStore from 'connect-mongo';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
+import fileUpload from 'express-fileupload';
 
 // Load server/.env for local runs. On Vercel, env vars come from the project settings.
 dotenv.config({ path: './.env' });
@@ -47,6 +48,13 @@ app.use(cors({
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(fileUpload({
+  limits: {
+    fileSize: 5 * 1024 * 1024,
+    files: 1
+  },
+  abortOnLimit: true
+}));
 
 // Every API route lives under /api, the path Vercel sends to this service
 const api = express.Router();

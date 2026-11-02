@@ -7,18 +7,19 @@ import { formatDay, formatTime } from '@/utils/sgTime'
 const router = useRouter()
 
 const query = ref('')
-const wheelRotation = ref(270)
-const isSpinning = ref(false)
-const spinResult = ref('')
-const pendingResult = ref('')
+const questionnaireStep = ref(1)
+const problemCategory = ref('')
+const problemSeverity = ref(0)
+const experienceLevel = ref(0)
+const questionnaireScore = ref(0)
 
-const wheelOptions = [
-  'Car',
-  'Banner colour',
-  'Icon',
-  'Nintendo Switch',
-  'Free trip to Bali',
-  'PlayStation 4',
+const questionnaireCategories = [
+  'Leaking tap',
+  'Aircon servicing',
+  'Power trip',
+  'Door lock',
+  'Wall mounting',
+  'Other Problems',
 ]
 
 // label: what an urgent user says; q: the search word that matches the seeded services
@@ -186,26 +187,47 @@ function searchFor(q) {
   router.push({ path: '/companies', query: trimmed ? { q: trimmed } : {} })
 }
 
-// Spins the wheel and randomly chooses Banner colour or Icon as the result.
-function spinWheel() {
-  if (isSpinning.value) {
-    return
+// Saves the chosen problem and skips to the final step if category selected is for other problems
+function chooseProblemCategory(category) {
+  problemCategory.value = category
+
+  if (category === 'Other Problems') {
+    questionnaireStep.value = 4
+  } else {
+    questionnaireStep.value = 2
   }
-
-  const winningIndex = Math.random() < 0.5 ? 1 : 2
-  const winningAngle = winningIndex * 60 + 30
-  const fullTurns = Math.floor(wheelRotation.value / 360) + 6
-
-  pendingResult.value = wheelOptions[winningIndex]
-  spinResult.value = ''
-  isSpinning.value = true
-  wheelRotation.value = fullTurns * 360 + (360 - winningAngle)
 }
 
-// Shows the chosen result after the wheel finishes spinning.
-function finishSpin() {
-  isSpinning.value = false
-  spinResult.value = pendingResult.value
+// Moves the questionnaire back to the previous question 
+function previousQuestionnaireStep() {
+  questionnaireStep.value -= 1
+}
+
+// Saves the seriousness score and moves to the experience question
+function chooseProblemSeverity(score) {
+  problemSeverity.value = score
+  questionnaireStep.value = 3
+}
+
+// Saves the experience score and shows the questionnaire result 
+function chooseExperienceLevel(score) {
+  experienceLevel.value = score
+  showQuestionnaireResult()
+}
+
+// Adds both scores and provides a link based on the total score
+function showQuestionnaireResult() {
+  questionnaireScore.value = Number(problemSeverity.value) + Number(experienceLevel.value)
+  questionnaireStep.value = 4
+}
+
+// restarts the questionnaire again 
+function resetQuestionnaire() {
+  problemCategory.value = ''
+  problemSeverity.value = 0
+  experienceLevel.value = 0
+  questionnaireScore.value = 0
+  questionnaireStep.value = 1
 }
 
 onMounted(() => {
@@ -330,38 +352,104 @@ onMounted(() => {
               </div>
             </aside>
 
-            <aside class="wheel-panel pixel-card mt-4" aria-labelledby="wheel-title">
-              <h2 id="wheel-title" class="h5 mb-2">Spin the wheel</h2>
-              <div class="wheel-frame">
-                <span class="wheel-pointer" aria-hidden="true"></span>
-                <div
-                  class="wheel"
-                  role="img"
-                  aria-label="Wheel options: Car, Banner colour, Icon, Nintendo Switch, Free trip to Bali, and PlayStation 4"
-                  :style="{ transform: `rotate(${wheelRotation}deg)` }"
-                  @transitionend="finishSpin"
-                >
-                  <span class="wheel-label wheel-label-one">{{ wheelOptions[0] }}</span>
-                  <span class="wheel-label wheel-label-two">{{ wheelOptions[1] }}</span>
-                  <span class="wheel-label wheel-label-three">{{ wheelOptions[2] }}</span>
-                  <span class="wheel-label wheel-label-four">{{ wheelOptions[3] }}</span>
-                  <span class="wheel-label wheel-label-five">{{ wheelOptions[4] }}</span>
-                  <span class="wheel-label wheel-label-six">{{ wheelOptions[5] }}</span>
+            <section class="questionnaire pixel-card mt-4" aria-labelledby="questionnaire-title">
+              <h2 id="questionnaire-title" class="h5 mb-3">Find The RIght Help Today</h2>
+
+              <div v-if="questionnaireStep === 1">
+                <fieldset> <!-- groups related form elements together-->
+                  <legend class="questionnaire-question">What problem do you have?</legend>
+                  <!-- legend gives the title for contetnt of the fieldset portion -->
+                  <div class="questionnaire-category-options">
+                    <label
+                      v-for="category in questionnaireCategories"
+                      :key="category"
+                      class="questionnaire-category-option"
+                      :class="{ 'selected-category-option': problemCategory === category }"
+                    >
+                      <input
+                        :checked="problemCategory === category"
+                        type="radio"
+                        name="problem-category"
+                        :value="category"
+                        v-on:click="chooseProblemCategory(category)"
+                      />
+                      {{ category }}
+                    </label>
+                  </div>
+                </fieldset>
+              </div>
+
+              <div v-else-if="questionnaireStep === 2">
+                <fieldset>
+                  <legend class="questionnaire-question">How serious is your problem?</legend>
+                  <p class="questionnaire-hint">1 = not serious, 5 = very serious</p>
+                  <label v-for="score in 5" :key="score" class="questionnaire-option">
+                    <input
+                      :checked="problemSeverity === score"
+                      type="radio"
+                      name="problem-severity"
+                      :value="score"
+                      v-on:click="chooseProblemSeverity(score)"
+                    />
+                    {{ score }}
+                  </label>
+                </fieldset>
+                <div class="mt-3">
+                  <button type="button" class="btn btn-light w-100" @click="previousQuestionnaireStep">
+                    Back
+                  </button>
                 </div>
               </div>
 
-              <button
-                type="button"
-                class="btn btn-primary w-100"
-                :disabled="isSpinning"
-                @click="spinWheel"
-              >
-                {{ isSpinning ? 'Spinning...' : 'Spin' }}
-              </button>
-              <p v-if="spinResult" class="wheel-result mb-0 mt-2" role="status">
-                You landed on: <strong>{{ spinResult }}</strong>
-              </p>
-            </aside>
+              <div v-else-if="questionnaireStep === 3">
+                <fieldset>
+                  <legend class="questionnaire-question">How much experience do you have fixing this?</legend>
+                  <p class="questionnaire-hint">1 = no experience, 5 = very experienced</p>
+                  <label v-for="score in 5" :key="score" class="questionnaire-option">
+                    <input
+                      :checked="experienceLevel === score"
+                      type="radio"
+                      name="experience-level"
+                      :value="score"
+                      v-on:click="chooseExperienceLevel(score)"
+                    />
+                    {{ score }}
+                  </label>
+                </fieldset>
+                <div class="mt-3">
+                  <button type="button" class="btn btn-light w-100" @click="previousQuestionnaireStep">
+                    Back
+                  </button>
+                </div>
+              </div>
+
+              <div v-else>
+                <p class="mb-2"><strong>Problem:</strong> {{ problemCategory }}</p>
+                <p v-if="problemCategory === 'Other Problems'" class="mb-2">
+                  Please visit the forum for help with this problem.
+                </p>
+                <p v-else class="mb-2">
+                  <strong>Your score:</strong> {{ questionnaireScore }} out of 10
+                </p>
+                <RouterLink
+                  v-if="problemCategory !== 'Other Problems' && questionnaireScore > 5"
+                  :to="{ path: '/companies', query: { q: problemCategory } }"
+                  class="btn btn-success w-100"
+                > <!--link the page to the booking section for the category-->
+                  Find a pro to book
+                </RouterLink>
+                <RouterLink v-else to="/forum" class="btn btn-success w-100">
+                  Get help in the forum
+                </RouterLink>
+                <button
+                  type="button"
+                  class="btn btn-light w-100 mt-3"
+                  @click="resetQuestionnaire"
+                >
+                  Start again
+                </button>
+              </div>
+            </section>
           </div>
         </div>
       </div>
@@ -687,107 +775,69 @@ onMounted(() => {
   font-weight: 700;
 }
 
-.wheel-panel {
-  padding: 0.75rem;
+.questionnaire {
+  padding: 1rem;
   background: var(--white);
 }
 
-.wheel-frame {
-  position: relative;
-  display: flex;
-  justify-content: center;
-  padding-top: 14px;
-  margin-bottom: 0.75rem;
+.questionnaire fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
 }
 
-.wheel-pointer {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  z-index: 1;
-  width: 0;
-  height: 0;
-  border-top: 22px solid var(--red);
-  border-right: 12px solid transparent;
-  border-left: 12px solid transparent;
-  transform: translateX(-50%);
-}
-
-.wheel {
-  position: relative;
-  width: min(250px, 72vw);
-  aspect-ratio: 1;
-  border: 5px solid var(--ink);
-  border-radius: 50%;
-  background: conic-gradient(
-    var(--green) 0deg 60deg,
-    #f46645 60deg 120deg,
-    #d6df3e 120deg 180deg,
-    #4b85cc 180deg 240deg,
-    #7dba3a 240deg 300deg,
-    #8671b2 300deg 360deg
-  );
-  transition: transform 4s cubic-bezier(0.12, 0.75, 0.15, 1);
-}
-
-.wheel::after {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 28px;
-  height: 28px;
-  border: 4px solid var(--red);
-  border-radius: 50%;
-  background: var(--coin);
-  content: '';
-  transform: translate(-50%, -50%);
-}
-
-.wheel-label {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 68px;
-  font-family: var(--font-display);
-  font-size: 0.68rem;
-  font-weight: 700;
-  line-height: 1.05;
-  text-align: center;
-  transform: translate(-50%, -50%);
-}
-
-.wheel-label-one {
-  transform: translate(-50%, -50%) translate(32px, -57px);
-}
-
-.wheel-label-two {
-  transform: translate(-50%, -50%) translate(68px, 0);
-}
-
-.wheel-label-three {
-  transform: translate(-50%, -50%) translate(32px, 57px);
-}
-
-.wheel-label-four {
-  transform: translate(-50%, -50%) translate(-32px, 57px);
-}
-
-.wheel-label-five {
-  transform: translate(-50%, -50%) translate(-68px, 0);
-}
-
-.wheel-label-six {
-  transform: translate(-50%, -50%) translate(-32px, -57px);
-}
-
-.wheel-panel > .btn {
+.questionnaire-question {
   margin-bottom: 0.5rem;
+  font-family: var(--font-display);
+  font-weight: 700;
 }
 
-.wheel-result,
-.wheel-note {
+.questionnaire-hint {
+  margin-bottom: 0.5rem;
+  color: var(--ink-muted);
   font-size: 0.9rem;
-  text-align: center;
+}
+
+.questionnaire-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.25rem 0.5rem 0.25rem 0;
+  font-weight: 700;
+}
+
+.questionnaire-option input {
+  margin: 0;
+}
+
+.questionnaire-category-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.questionnaire-category-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0.25rem 0.5rem;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--white);
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.questionnaire-category-option input {
+  width: 12px;
+  height: 12px;
+  margin: 0;
+}
+
+.selected-category-option {
+  background: var(--coin);
 }
 
 </style>
