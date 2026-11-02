@@ -353,7 +353,7 @@ onMounted(() => {
             </aside>
 
             <section class="questionnaire pixel-card mt-4" aria-labelledby="questionnaire-title">
-              <h2 id="questionnaire-title" class="h5 mb-3">Find The RIght Help Today</h2>
+              <h2 id="questionnaire-title" class="h5 mb-3">Find The Right Help Today</h2>
 
               <div v-if="questionnaireStep === 1">
                 <fieldset> <!-- groups related form elements together-->
