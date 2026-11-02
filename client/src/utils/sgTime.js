@@ -45,3 +45,11 @@ export function toTimeInput(value) {
 export function fromInputs(date, time) {
   return new Date(`${date}T${time}:00+08:00`).toISOString()
 }
+
+// "Today", "Tomorrow", or the date, in Singapore time
+export function relativeDay(value) {
+  const day = formatDay(value)
+  if (day === formatDay(Date.now())) return 'Today'
+  if (day === formatDay(Date.now() + 24 * 60 * 60 * 1000)) return 'Tomorrow'
+  return day
+}

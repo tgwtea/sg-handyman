@@ -1,11 +1,13 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import api, { errorMessage } from '@/api'
 import DeleteDialog from '@/components/DeleteDialog.vue'
 import { useAuthStore } from '@/stores/auth'
+import { FORUM_CATEGORIES } from '@/utils/homeProblems'
 
 const auth = useAuthStore()
+const route = useRoute()
 
 const posts = ref([])
 const title = ref('')
@@ -28,14 +30,7 @@ const searchInput = ref('')
 const searchTerm = ref('')
 const selectedCategory = ref('')
 
-const popularCategories = [
-  'Leaking tap',
-  'Aircon servicing',
-  'Power trip',
-  'Door lock',
-  'Wall mounting',
-  'Others'
-]
+const popularCategories = FORUM_CATEGORIES
 
 const filteredPosts = computed(() => {
   const lcSearchTerm = searchTerm.value.toLowerCase() // Searched text in searchbar 
@@ -74,7 +69,20 @@ async function loadPosts() {
   }
 }
 
-onMounted(loadPosts)
+// Applies a filter from a link, e.g. /forum?category=Power%20trip from the Home helper
+function applyLinkFilter() {
+  const linkCategory = route.query.category
+  if (FORUM_CATEGORIES.includes(linkCategory)) selectedCategory.value = linkCategory
+  if (typeof route.query.q === 'string') {
+    searchInput.value = route.query.q.trim()
+    searchTerm.value = searchInput.value
+  }
+}
+
+onMounted(() => {
+  applyLinkFilter()
+  loadPosts()
+})
 
 // Applies filtering by the text entered in the search bar
 function searchPosts() {

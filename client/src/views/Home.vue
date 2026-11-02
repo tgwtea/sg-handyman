@@ -2,25 +2,12 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api'
-import { formatDay, formatTime } from '@/utils/sgTime'
+import { formatDay, formatTime, relativeDay } from '@/utils/sgTime'
+import HomeHelper from '@/components/HomeHelper.vue'
 
 const router = useRouter()
 
 const query = ref('')
-const questionnaireStep = ref(1)
-const problemCategory = ref('')
-const problemSeverity = ref(0)
-const experienceLevel = ref(0)
-const questionnaireScore = ref(0)
-
-const questionnaireCategories = [
-  'Leaking tap',
-  'Aircon servicing',
-  'Power trip',
-  'Door lock',
-  'Wall mounting',
-  'Other Problems',
-]
 
 // label: what an urgent user says; q: the search word that matches the seeded services
 const urgentProblems = [
@@ -52,15 +39,7 @@ const loaded = ref(false)
 const todayOnly = ref(true)
 
 const todayLabel = formatDay(new Date())
-const tomorrowLabel = formatDay(Date.now() + 24 * 60 * 60 * 1000)
-
-// "Today", "Tomorrow", or the date, in Singapore time
-function dayName(start) {
-  const day = formatDay(start)
-  if (day === todayLabel) return 'Today'
-  if (day === tomorrowLabel) return 'Tomorrow'
-  return day
-}
+const helper = ref(null)
 
 function lowestPrice(company) {
   const prices = (company.services ?? []).flatMap((category) =>
@@ -107,7 +86,7 @@ const availablePros = computed(() => {
       return {
         id: company._id,
         name: company.name,
-        slot: `${dayName(slot.start)} ${formatTime(slot.start)}`,
+        slot: `${relativeDay(slot.start)} ${formatTime(slot.start)}`,
         distance: distanceText(slot),
         fromPrice: lowestPrice(company),
         // pubLicenceNo is planned (see README "Planned work"); the badge shows once it exists
@@ -182,52 +161,15 @@ function clearLocation() {
   savePostalCode('')
 }
 
+// scrolls to the helper and moves keyboard focus to its heading
+function openHelper() {
+  helper.value?.$el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  helper.value?.focus()
+}
+
 function searchFor(q) {
   const trimmed = q.trim()
   router.push({ path: '/companies', query: trimmed ? { q: trimmed } : {} })
-}
-
-// Saves the chosen problem and skips to the final step if category selected is for other problems
-function chooseProblemCategory(category) {
-  problemCategory.value = category
-
-  if (category === 'Other Problems') {
-    questionnaireStep.value = 4
-  } else {
-    questionnaireStep.value = 2
-  }
-}
-
-// Moves the questionnaire back to the previous question 
-function previousQuestionnaireStep() {
-  questionnaireStep.value -= 1
-}
-
-// Saves the seriousness score and moves to the experience question
-function chooseProblemSeverity(score) {
-  problemSeverity.value = score
-  questionnaireStep.value = 3
-}
-
-// Saves the experience score and shows the questionnaire result 
-function chooseExperienceLevel(score) {
-  experienceLevel.value = score
-  showQuestionnaireResult()
-}
-
-// Adds both scores and provides a link based on the total score
-function showQuestionnaireResult() {
-  questionnaireScore.value = Number(problemSeverity.value) + Number(experienceLevel.value)
-  questionnaireStep.value = 4
-}
-
-// restarts the questionnaire again 
-function resetQuestionnaire() {
-  problemCategory.value = ''
-  problemSeverity.value = 0
-  experienceLevel.value = 0
-  questionnaireScore.value = 0
-  questionnaireStep.value = 1
 }
 
 onMounted(() => {
@@ -249,12 +191,11 @@ onMounted(() => {
           <div class="col-lg-7 d-flex flex-column gap-3">
             <span class="hero-tag align-self-start">
               <span class="live-dot" aria-hidden="true"></span>
-              LIVE SLOTS, UPDATED EVERY SECOND
+              LIVE AVAILABILITY, UPDATED EVERY SECOND
             </span>
             <h1 class="hero-title">What needs fixing at home?</h1>
             <p class="hero-lead">
-              Compare handymen and plumbers by earliest free slot and starting price. Book a slot
-              here, with no WhatsApp back-and-forth.
+              Compare local professionals by their next free slot, distance, and starting price. Book an appointment through our website in just a few clicks. Small fix? Get tips in the DIY forum and the right tools from our shop.
             </p>
 
             <form class="pixel-card p-3 d-flex flex-wrap gap-3" role="search" @submit.prevent="searchFor(query)">
@@ -352,104 +293,7 @@ onMounted(() => {
               </div>
             </aside>
 
-            <section class="questionnaire pixel-card mt-4" aria-labelledby="questionnaire-title">
-              <h2 id="questionnaire-title" class="h5 mb-3">Find The Right Help Today</h2>
-
-              <div v-if="questionnaireStep === 1">
-                <fieldset> <!-- groups related form elements together-->
-                  <legend class="questionnaire-question">What problem do you have?</legend>
-                  <!-- legend gives the title for contetnt of the fieldset portion -->
-                  <div class="questionnaire-category-options">
-                    <label
-                      v-for="category in questionnaireCategories"
-                      :key="category"
-                      class="questionnaire-category-option"
-                      :class="{ 'selected-category-option': problemCategory === category }"
-                    >
-                      <input
-                        :checked="problemCategory === category"
-                        type="radio"
-                        name="problem-category"
-                        :value="category"
-                        v-on:click="chooseProblemCategory(category)"
-                      />
-                      {{ category }}
-                    </label>
-                  </div>
-                </fieldset>
-              </div>
-
-              <div v-else-if="questionnaireStep === 2">
-                <fieldset>
-                  <legend class="questionnaire-question">How serious is your problem?</legend>
-                  <p class="questionnaire-hint">1 = not serious, 5 = very serious</p>
-                  <label v-for="score in 5" :key="score" class="questionnaire-option">
-                    <input
-                      :checked="problemSeverity === score"
-                      type="radio"
-                      name="problem-severity"
-                      :value="score"
-                      v-on:click="chooseProblemSeverity(score)"
-                    />
-                    {{ score }}
-                  </label>
-                </fieldset>
-                <div class="mt-3">
-                  <button type="button" class="btn btn-light w-100" @click="previousQuestionnaireStep">
-                    Back
-                  </button>
-                </div>
-              </div>
-
-              <div v-else-if="questionnaireStep === 3">
-                <fieldset>
-                  <legend class="questionnaire-question">How much experience do you have fixing this?</legend>
-                  <p class="questionnaire-hint">1 = no experience, 5 = very experienced</p>
-                  <label v-for="score in 5" :key="score" class="questionnaire-option">
-                    <input
-                      :checked="experienceLevel === score"
-                      type="radio"
-                      name="experience-level"
-                      :value="score"
-                      v-on:click="chooseExperienceLevel(score)"
-                    />
-                    {{ score }}
-                  </label>
-                </fieldset>
-                <div class="mt-3">
-                  <button type="button" class="btn btn-light w-100" @click="previousQuestionnaireStep">
-                    Back
-                  </button>
-                </div>
-              </div>
-
-              <div v-else>
-                <p class="mb-2"><strong>Problem:</strong> {{ problemCategory }}</p>
-                <p v-if="problemCategory === 'Other Problems'" class="mb-2">
-                  Please visit the forum for help with this problem.
-                </p>
-                <p v-else class="mb-2">
-                  <strong>Your score:</strong> {{ questionnaireScore }} out of 10
-                </p>
-                <RouterLink
-                  v-if="problemCategory !== 'Other Problems' && questionnaireScore > 5"
-                  :to="{ path: '/companies', query: { q: problemCategory } }"
-                  class="btn btn-success w-100"
-                > <!--link the page to the booking section for the category-->
-                  Find a pro to book
-                </RouterLink>
-                <RouterLink v-else to="/forum" class="btn btn-success w-100">
-                  Get help in the forum
-                </RouterLink>
-                <button
-                  type="button"
-                  class="btn btn-light w-100 mt-3"
-                  @click="resetQuestionnaire"
-                >
-                  Start again
-                </button>
-              </div>
-            </section>
+            <HomeHelper ref="helper" :companies="companies" :next-free="nextFree" />
           </div>
         </div>
       </div>
@@ -775,69 +619,13 @@ onMounted(() => {
   font-weight: 700;
 }
 
-.questionnaire {
-  padding: 1rem;
-  background: var(--white);
-}
-
-.questionnaire fieldset {
-  border: 0;
-  margin: 0;
+.helper-link {
   padding: 0;
+  background: none;
+  border: 0;
+  font-weight: 800;
+  color: var(--ink);
+  text-align: left;
+  text-decoration: underline;
 }
-
-.questionnaire-question {
-  margin-bottom: 0.5rem;
-  font-family: var(--font-display);
-  font-weight: 700;
-}
-
-.questionnaire-hint {
-  margin-bottom: 0.5rem;
-  color: var(--ink-muted);
-  font-size: 0.9rem;
-}
-
-.questionnaire-option {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin: 0.25rem 0.5rem 0.25rem 0;
-  font-weight: 700;
-}
-
-.questionnaire-option input {
-  margin: 0;
-}
-
-.questionnaire-category-options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-}
-
-.questionnaire-category-option {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  margin: 0;
-  padding: 0.25rem 0.5rem;
-  border: 2px solid var(--ink);
-  border-radius: 999px;
-  background: var(--white);
-  font-size: 0.75rem;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.questionnaire-category-option input {
-  width: 12px;
-  height: 12px;
-  margin: 0;
-}
-
-.selected-category-option {
-  background: var(--coin);
-}
-
 </style>

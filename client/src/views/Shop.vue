@@ -565,6 +565,8 @@ async function getMyOrders() {
 }
 // The login check must finish before we request personal order history.
 onMounted(async () => {
+  // a link such as /shop?q=wrench from the Home helper starts with that search
+  if (route.path === '/shop' && typeof route.query.q === 'string') searchText.value = route.query.q.trim()
   await getProducts()
   if (!shopActive) return
   await auth.fetchMe()
