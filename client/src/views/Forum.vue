@@ -165,6 +165,14 @@ function selectPostImages(event) {
   selectedPostImage.value = image || null
 }
 
+// Removes the selected image from a new post.
+function removePostImage() {
+  selectedPostImage.value = null
+  if (postImageInput.value) {
+    postImageInput.value.value = ''
+  }
+}
+
 // Puts the selected post's details into the form.
 function editPost(post) {
   title.value = post.title
@@ -391,12 +399,32 @@ function formatDate(date) {
         <div v-if="!editingPostId" class="post-image-upload">
           <label for="post-images">Add images (optional)</label>
           <input
+            v-if="!selectedPostImage"
             id="post-images"
             ref="postImageInput"
             type="file"
+            class="visually-hidden"
             accept="image/jpeg,image/png"
             @change="selectPostImages"
-          />
+          /><!--visually-hidden hides the choose file button when a file is selected -->
+          <label
+            v-if="!selectedPostImage"
+            for="post-images"
+            class="btn btn-primary mb-3 choose-image-button"
+          >
+            Choose File
+          </label>
+          <div v-if="selectedPostImage" class="selected-post-image">
+            <span>{{ selectedPostImage.name }}</span>
+            <button
+              type="button"
+              class="btn btn-primary mb-3"
+              aria-label="Remove selected image"
+              @click="removePostImage"
+            >
+              Cancel
+            </button>
+          </div>
           <p class="post-image-note">
             Choose one JPG or PNG image, up to 5 MB. Images cannot be changed after posting.
           </p>
@@ -712,9 +740,24 @@ textarea {
   margin-bottom: 4px;
 }
 
+.post-image-upload .choose-image-button {
+  display: inline-flex;
+  width: auto;
+  margin: 0 6px 12px 0;
+  font-size: 1rem;
+}
+
 .post-image-note {
   color: #526159;
   font-size: 0.9rem;
+}
+
+.selected-post-image {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  margin-bottom: 8px;
 }
 
 .post-images {
