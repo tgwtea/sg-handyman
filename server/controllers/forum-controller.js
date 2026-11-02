@@ -294,6 +294,10 @@ forumController.createReply = async (req, res) => {
       return res.status(404).send({ message: 'Forum post not found' });
     }
 
+    if (post.replies.length >= 3) {
+      return res.status(400).send({ message: 'This post already has the maximum of 3 replies' });
+    }
+
     await Forum.createForumReply(post, {
       authorId: req.session.user._id,
       content: replyDetails.content

@@ -573,7 +573,7 @@ function formatDate(date) {
             </div>
           </div>
 
-          <form v-if="auth.isLoggedIn" @submit.prevent="addReply(post)">
+          <form v-if="auth.isLoggedIn && post.replies.length < 3" @submit.prevent="addReply(post)"> <!-- submit.prevent to stop browser from refreshing the page but run addReply instead -->
             <label :for="`reply-${post._id}`">Write a reply</label>
             <textarea
               :id="`reply-${post._id}`"
@@ -584,6 +584,9 @@ function formatDate(date) {
             ></textarea>
             <button class="btn btn-primary mb-3" type="submit">Add reply</button>
           </form>
+          <p v-else-if="post.replies.length >= 3">
+            This post has reached the maximum of 3 replies.
+          </p>
         </section>
       </article>
     </section>
