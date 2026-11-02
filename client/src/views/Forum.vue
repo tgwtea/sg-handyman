@@ -29,6 +29,7 @@ const deletingReply = ref(false)
 const searchInput = ref('')
 const searchTerm = ref('')
 const selectedCategory = ref('')
+const showPostForm = ref(false)
 
 const popularCategories = FORUM_CATEGORIES
 
@@ -156,6 +157,7 @@ function clearPostForm() {
     postImageInput.value.value = ''
   }
   editingPostId.value = ''
+  showPostForm.value = false
 }
 
 // Keeps one small JPG or PNG image selected for a new post.
@@ -183,6 +185,7 @@ function removePostImage() {
 
 // Puts the selected post's details into the form.
 function editPost(post) {
+  showPostForm.value = true
   title.value = post.title
   category.value = post.category
   content.value = post.content
@@ -362,11 +365,20 @@ function formatDate(date) {
     </header>
 
     <section id="post-form-section" class="forum-section">
-      <h2>{{ editingPostId ? 'Edit your post' : 'Create a post' }}</h2>
+      <button
+        v-if="auth.isLoggedIn && !showPostForm"
+        type="button"
+        class="btn btn-primary"
+        @click="showPostForm = true"
+      >
+        Add a post
+      </button>
 
       <p v-if="message" class="message" role="status">{{ message }}</p>
 
-      <form v-if="auth.isLoggedIn" class="post-form" @submit.prevent="savePost">
+      <div v-if="showPostForm">
+        <h2>{{ editingPostId ? 'Edit your post' : 'Create a post' }}</h2>
+        <form v-if="auth.isLoggedIn" class="post-form" @submit.prevent="savePost">
         <label for="post-title">Title</label>
         <input
           id="post-title"
@@ -449,10 +461,11 @@ function formatDate(date) {
           </div>
         </div>
 
-        <button type="submit" class="btn btn-primary mb-3">{{ editingPostId ? 'Save changes' : 'Create post' }}</button>
-        <button v-if="editingPostId" type="button" class="btn btn-primary mb-3" @click="clearPostForm">Cancel</button>
-      </form>
-      <p v-else>
+          <button type="submit" class="btn btn-primary mb-3">{{ editingPostId ? 'Save changes' : 'Create post' }}</button>
+          <button type="button" class="btn btn-primary mb-3" @click="clearPostForm">Cancel</button>
+        </form>
+      </div>
+      <p v-if="!auth.isLoggedIn">
         <RouterLink :to="{ path: '/login', query: { redirect: '/forum' } }">Log in</RouterLink>
         to create a post or reply.
       </p>
