@@ -30,6 +30,7 @@ const searchInput = ref('')
 const searchTerm = ref('')
 const selectedCategory = ref('')
 const showPostForm = ref(false)
+const expandedReplies = ref({})
 
 const popularCategories = FORUM_CATEGORIES
 
@@ -555,38 +556,52 @@ function formatDate(date) {
         </div>
 
         <section class="replies">
-          <h4>Replies ({{ post.replies.length }})</h4>
+          <div class="d-flex align-items-center gap-2">
+            <h4>Replies ({{ post.replies.length }})</h4>
+            <button
+              v-if="post.replies.length > 0"
+              type="button"
+              class="btn btn-primary mb-3"
+              :aria-expanded="Boolean(expandedReplies[post._id])"  
+              @click="expandedReplies[post._id] = !expandedReplies[post._id]"
+            > <!--expandedReplies stores a boolean for each post  hide or show content on the click of a button -->
+              {{ expandedReplies[post._id] ? 'Hide replies' : 'Show replies' }}
+              <!--if expandedReplies[post._id] is true , show all replies while button becomes hide replies -->
+            </button>
+          </div>
 
-          <div v-for="reply in post.replies" :key="reply._id" class="reply">
-            <p>{{ reply.content }}</p>
-            <p class="post-info">
-              By {{ authorName(reply.authorId) }}
-              on {{ formatDate(reply.createdAt) }}
-            </p>
+          <div v-if="expandedReplies[post._id]">
+            <div v-for="reply in post.replies" :key="reply._id" class="reply">
+              <p>{{ reply.content }}</p>
+              <p class="post-info">
+                By {{ authorName(reply.authorId) }}
+                on {{ formatDate(reply.createdAt) }}
+              </p>
 
-            <form
-              v-if="editingReplyId === reply._id"
-              @submit.prevent="saveReply(post, reply)"
-            >
-              <label :for="`edit-reply-${reply._id}`">Edit reply</label>
-              <textarea
-                :id="`edit-reply-${reply._id}`"
-                v-model="editingReplyContent"
-                maxlength="2000"
-                rows="3"
-                required
-              ></textarea>
-              <button class="btn btn-primary mb-3" type="submit">Save reply</button>
-              <button class="btn btn-primary mb-3" type="button" @click="cancelReplyEdit">Cancel</button>
-            </form>
+              <form
+                v-if="editingReplyId === reply._id"
+                @submit.prevent="saveReply(post, reply)"
+              >
+                <label :for="`edit-reply-${reply._id}`">Edit reply</label>
+                <textarea
+                  :id="`edit-reply-${reply._id}`"
+                  v-model="editingReplyContent"
+                  maxlength="2000"
+                  rows="3"
+                  required
+                ></textarea>
+                <button class="btn btn-primary mb-3" type="submit">Save reply</button>
+                <button class="btn btn-primary mb-3" type="button" @click="cancelReplyEdit">Cancel</button>
+              </form>
 
-            <div v-else-if="auth.isLoggedIn && canEdit(reply.authorId)">
-              <button type="button" class="btn btn-primary mb-3" @click="editReply(reply)">Edit reply</button>
-              <button type="button" class="btn btn-primary mb-3" @click="deleteReply(post, reply)">Delete reply</button>
+              <div v-else-if="auth.isLoggedIn && canEdit(reply.authorId)">
+                <button type="button" class="btn btn-primary mb-3" @click="editReply(reply)">Edit reply</button>
+                <button type="button" class="btn btn-primary mb-3" @click="deleteReply(post, reply)">Delete reply</button>
+              </div>
             </div>
           </div>
 
-          <form v-if="auth.isLoggedIn && post.replies.length < 3" @submit.prevent="addReply(post)"> <!-- submit.prevent to stop browser from refreshing the page but run addReply instead -->
+          <form v-if="auth.isLoggedIn" @submit.prevent="addReply(post)">
             <label :for="`reply-${post._id}`">Write a reply</label>
             <textarea
               :id="`reply-${post._id}`"
@@ -597,9 +612,6 @@ function formatDate(date) {
             ></textarea>
             <button class="btn btn-primary mb-3" type="submit">Add reply</button>
           </form>
-          <p v-else-if="post.replies.length >= 3">
-            This post has reached the maximum of 3 replies.
-          </p>
         </section>
       </article>
     </section>
