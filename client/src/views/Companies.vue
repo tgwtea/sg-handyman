@@ -5,9 +5,11 @@ import { ref, computed, watch, onMounted } from 'vue';
 import constantUrls from '../../constants/urls.js';
 import CompanyCard from '@/components/CompanyCard.vue';
 import PixelMascot from '@/components/PixelMascot.vue';
-import { useRoute } from 'vue-router'
+import SkeletonCard from '@/components/SkeletonCard.vue';
+import { useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
+const router = useRouter()
 
 // axios defaults timeout not examinable, FYI
 // prevent website from hanging for too long if promise takes too long to fulfill (exceeds timeout)
@@ -15,12 +17,17 @@ axios.defaults.timeout = 3000
 
 const serverUrl = constantUrls.serverUrl;
 
-let companies = ref([]);
-let filteredCompanies = ref([]);
-let searchStr = ref('');
+const SORT_OPTIONS = ['default', 'earliest-slot', 'highest-rating', 'latest-review', 'name-asc', 'name-desc'];
+const PUB_OPTIONS = ['all', 'true', 'false'];
+// the route this page lives on; watchers ignore route changes after the user leaves
+const ownPath = route.path;
+
+const companies = ref([]);
+const status = ref('loading'); // 'loading' | 'error' | 'ready' (covers GET /companies only)
+const searchStr = ref('');
 const selectedCategories = ref([]);
 const pubLicenseFilter = ref('all'); // 'all' | 'true' | 'false'
-const sortBy = ref('default'); // 'default' | 'earliest-slot' | 'highest-rating' | 'latest-review' | 'name-asc' | 'name-desc'
+const sortBy = ref('default'); // one of SORT_OPTIONS
 const reviewSummaries = ref([]);
 const nextFreeTimeslots = ref([]);
 
@@ -51,8 +58,9 @@ const nextFreeByCompany = computed(() => {
   return map;
 });
 
-function filterCompanies() {
-  const query = (typeof searchStr.value === 'string' ? searchStr.value : String(searchStr.value ?? '')).trim().toLowerCase();
+// Vue re-runs this whenever a filter ref, the companies, or the review/slot data changes
+const filteredCompanies = computed(() => {
+  const query = searchStr.value.trim().toLowerCase();
   const words = query.split(/\s+/).filter(Boolean);
   const selected = selectedCategories.value;
 
@@ -122,23 +130,66 @@ function filterCompanies() {
     result.sort((a, b) => (b.name ?? '').localeCompare(a.name ?? ''));
   }
 
-  filteredCompanies.value = result;
+  return result;
+});
+
+// --- URL sync: the refs are the source of truth, the query string mirrors them ---
+
+// the query the refs describe; a key is left out when its filter is at the default
+const filterQuery = computed(() => {
+  const query = {};
+  const q = searchStr.value.trim();
+  if (q) query.q = q;
+  if (selectedCategories.value.length > 0) query.cat = selectedCategories.value.join(',');
+  if (pubLicenseFilter.value !== 'all') query.pub = pubLicenseFilter.value;
+  if (sortBy.value !== 'default') query.sort = sortBy.value;
+  return query;
+});
+
+function sameQuery(a, b) {
+  const keysA = Object.keys(a);
+  const keysB = Object.keys(b);
+  return keysA.length === keysB.length && keysA.every((key) => String(a[key]) === String(b[key]));
 }
 
+// refs -> URL: write only when the URL does not already say the same thing
+watch(filterQuery, (query) => {
+  if (route.path !== ownPath || sameQuery(query, route.query)) return;
+  router.replace({ query });
+});
+
+// URL -> refs (first load, Home search, Back/Forward): set a ref only when its value differs
+watch(
+  () => route.query,
+  (query) => {
+    if (route.path !== ownPath) return;
+
+    const q = String(query.q ?? '').trim();
+    // compare trimmed, so a trailing space the user is typing survives
+    if (q !== searchStr.value.trim()) searchStr.value = q;
+
+    const categories = String(query.cat ?? '').split(',').filter(Boolean);
+    if (categories.join(',') !== selectedCategories.value.join(',')) selectedCategories.value = categories;
+
+    const pub = PUB_OPTIONS.includes(query.pub) ? query.pub : 'all';
+    if (pub !== pubLicenseFilter.value) pubLicenseFilter.value = pub;
+
+    const sort = SORT_OPTIONS.includes(query.sort) ? query.sort : 'default';
+    if (sort !== sortBy.value) sortBy.value = sort;
+  },
+  { immediate: true }
+);
+
 async function getCompanies() {
+  status.value = 'loading';
   try {
     const response = await axios.get(`${serverUrl}/companies`);
-    console.log(response.data);
-
     companies.value = response.data;
-    if (route.query.q) {
-      searchStr.value = String(route.query.q).trim();
-    }
-    filterCompanies();
+    status.value = 'ready';
   } catch (error) {
     console.log(error.message);
     companies.value = [];
-    filteredCompanies.value = [];
+    status.value = 'error';
   }
 }
 
@@ -147,9 +198,6 @@ async function getReviewSummaries() {
   try {
     const response = await axios.get(`${serverUrl}/reviews/summary`);
     reviewSummaries.value = response.data;
-    if (sortBy.value === 'highest-rating' || sortBy.value === 'latest-review') {
-      filterCompanies();
-    }
   } catch (error) {
     console.log(error.message);
   }
@@ -160,9 +208,6 @@ async function getNextFreeTimeslots() {
   try {
     const response = await axios.get(`${serverUrl}/timeslots/next-free`);
     nextFreeTimeslots.value = response.data;
-    if (sortBy.value === 'earliest-slot') {
-      filterCompanies();
-    }
   } catch (error) {
     console.log(error.message);
   }
@@ -174,35 +219,23 @@ onMounted(() => {
   getNextFreeTimeslots();
 })
 
-watch(
-  () => route.query.q,
-  (newQ) => {
-    searchStr.value = String(newQ ?? '').trim();
-    filterCompanies();
-  }
-);
-
 function resetListings() {
   searchStr.value = '';
   selectedCategories.value = [];
   pubLicenseFilter.value = 'all';
   sortBy.value = 'default';
-  filterCompanies();
 }
 
 function selectAllCategories() {
   selectedCategories.value = [...availableCategories.value];
-  filterCompanies();
 }
 
 function clearCategories() {
   selectedCategories.value = [];
-  filterCompanies();
 }
 
 function removeCategory(cat) {
   selectedCategories.value = selectedCategories.value.filter((c) => c !== cat);
-  filterCompanies();
 }
 
 </script>
@@ -213,7 +246,7 @@ function removeCategory(cat) {
 
   <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
     <div class="d-flex flex-wrap align-items-center gap-2">
-      <span class="fw-bold">
+      <span v-if="status === 'ready'" class="fw-bold">
         {{ filteredCompanies.length }} {{ filteredCompanies.length === 1 ? 'company' : 'companies' }} found
       </span>
       <button class="btn btn-light btn-sm" @click="resetListings">Reset listings</button>
@@ -227,7 +260,6 @@ function removeCategory(cat) {
         class="form-select form-select-sm"
         style="min-width: 210px; width: auto;"
         v-model="sortBy"
-        @change="filterCompanies"
         aria-label="Sort companies"
       >
         <option value="default">Default</option>
@@ -247,7 +279,6 @@ function removeCategory(cat) {
       <input
         id="companySearch"
         v-model="searchStr"
-        @input="filterCompanies"
         class="form-control"
         type="search"
         placeholder="Search by company or service..."
@@ -264,7 +295,6 @@ function removeCategory(cat) {
             id="pubFilterAll"
             value="all"
             v-model="pubLicenseFilter"
-            @change="filterCompanies"
             autocomplete="off"
           />
           <label class="btn btn-outline-secondary" for="pubFilterAll">All</label>
@@ -276,7 +306,6 @@ function removeCategory(cat) {
             id="pubFilterLicensed"
             value="true"
             v-model="pubLicenseFilter"
-            @change="filterCompanies"
             autocomplete="off"
           />
           <label class="btn btn-outline-danger" for="pubFilterLicensed">PUB Licensed</label>
@@ -288,7 +317,6 @@ function removeCategory(cat) {
             id="pubFilterUnlicensed"
             value="false"
             v-model="pubLicenseFilter"
-            @change="filterCompanies"
             autocomplete="off"
           />
           <label class="btn btn-outline-dark" for="pubFilterUnlicensed">Not Licensed</label>
@@ -331,7 +359,6 @@ function removeCategory(cat) {
             :id="`category-${category.toLowerCase().replace(/[^a-z0-9]/g, '-')}`"
             :value="category"
             v-model="selectedCategories"
-            @change="filterCompanies"
           />
           <label
             class="form-check-label w-100"
@@ -370,21 +397,52 @@ function removeCategory(cat) {
     </div>
   </div>
 
-  <div v-if="(searchStr || selectedCategories.length > 0 || pubLicenseFilter !== 'all') && filteredCompanies.length === 0 && companies.length > 0" class="pixel-card d-flex flex-wrap align-items-center gap-4 p-4 mb-4">
+  <div v-if="status === 'error'" class="alert alert-warning d-flex flex-wrap align-items-center gap-3" role="alert">
+    <span>Could not load companies.</span>
+    <button type="button" class="btn btn-sm btn-outline-dark" @click="getCompanies">Retry</button>
+  </div>
+
+  <div v-if="status === 'ready' && filteredCompanies.length === 0 && companies.length > 0" class="pixel-card d-flex flex-wrap align-items-center gap-4 p-4 mb-4">
     <PixelMascot :size="88" />
     <div>
       <h2 class="h4">No companies match that</h2>
-      <p class="mb-0 text-body-secondary">Try another search or clear the filters to see companies.</p>
+      <p class="mb-2 text-body-secondary">Try another search or clear the filters to see companies.</p>
+      <button type="button" class="btn btn-light btn-sm" @click="resetListings">Reset listings</button>
     </div>
   </div>
 
   <!-- App.vue already wraps the page in .container, so the row sits directly inside it -->
-  <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 g-4">
+  <div v-if="status === 'loading'" class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 g-4" aria-busy="true" aria-label="Loading companies">
+    <div v-for="n in 6" :key="n" class="col">
+      <SkeletonCard />
+    </div>
+  </div>
+
+  <TransitionGroup v-else tag="div" name="fade" class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 g-4">
     <div v-for="company in filteredCompanies" :key="company._id" class="col">
       <CompanyCard :companyId="company._id" :name="company.name" :description="company.description" :services="company.services"
         :rating="summaryByCompany.get(company._id)?.average" :reviewCount="summaryByCompany.get(company._id)?.count"
         :isPubLicensed="company.isPubLicensed" />
     </div>
-  </div>
+  </TransitionGroup>
 
 </template>
+
+<style scoped>
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 200ms ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-enter-active,
+  .fade-leave-active {
+    transition: none;
+  }
+}
+</style>
