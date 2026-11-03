@@ -9,7 +9,6 @@ import { FORUM_CATEGORIES } from '@/utils/homeProblems'
 
 const auth = useAuthStore()
 const route = useRoute()
-
 const posts = ref([])
 const title = ref('')
 const category = ref('')
@@ -22,10 +21,10 @@ const editingPostId = ref('')
 const editingReplyId = ref('')
 const editingReplyContent = ref('')
 const message = ref('')
-const loading = ref(true)
+const loading = ref(true) // Tracks whether the forum is still waiting for its posts to load
 const postToDelete = ref(null)
 const deletingPost = ref(false)
-const replyToDelete = ref(null)
+const replyToDelete = ref(null) 
 const deletingReply = ref(false)
 const searchInput = ref('')
 const searchTerm = ref('')
@@ -108,7 +107,7 @@ function showAllPosts() {
 
 // Checks whether the signed-in user can edit this post or reply
 function canEdit(author) {
-  if (!auth.user) {
+  if (!auth.user) { // if no one signed in 
     return false
   }
 
@@ -120,7 +119,7 @@ function canEdit(author) {
   return auth.user.role === 'admin' || String(authorId) === String(auth.user._id)
 }
 
-// Checks whether the signed-in user has liked this post.
+// Checks whether the signed-in user has liked this post
 function hasLiked(post) {
   if (!auth.user || !Array.isArray(post.likes)) {
     return false
@@ -129,7 +128,7 @@ function hasLiked(post) {
   return post.likes.some(userId => String(userId) === String(auth.user._id))
 }
 
-// Adds or removes the signed-in user's thumbs-up and updates the counter.
+// Adds or removes the signed-in user's thumbs-up and updates the counter
 async function likePost(post) {
   try {
     const response = await api.post(`/forum/${post._id}/likes`)
@@ -139,16 +138,15 @@ async function likePost(post) {
   }
 }
 
-// Shows the author's username or a message if the account was removed.
+// Shows the author's username or a message if the account was removed
 function authorName(author) {
   if (author && author.username) {
     return author.username
   }
-
   return 'Deleted Account'
 }
 
-// Clears the post form and stops editing.
+// Clears the post form and stops editing
 function clearPostForm() {
   title.value = ''
   category.value = ''
@@ -162,7 +160,7 @@ function clearPostForm() {
   showPostForm.value = false
 }
 
-// Keeps one small JPG or PNG image selected for a new post.
+// Keeps one small JPG or PNG image selected for a new post
 function selectPostImages(event) {
   const image = event.target.files[0]
 
@@ -177,7 +175,7 @@ function selectPostImages(event) {
   selectedPostImage.value = image || null
 }
 
-// Removes the selected image from a new post.
+// Removes the selected image from a new post
 function removePostImage() {
   selectedPostImage.value = null
   if (postImageInput.value) {
@@ -185,7 +183,7 @@ function removePostImage() {
   }
 }
 
-// Puts the selected post's details into the form.
+// Puts the selected post's details into the form
 function editPost(post) {
   showPostForm.value = true
   title.value = post.title
@@ -204,12 +202,10 @@ function editPost(post) {
 // Creates a post or saves changes, then reloads the posts
 async function savePost() {
   message.value = ''
-
   if (!category.value) {
     message.value = 'Please choose a category.'
     return
   }
-
   const post = {
     title: title.value,
     category: category.value,
@@ -233,7 +229,6 @@ async function savePost() {
       await api.post('/forum', postForm)
       message.value = 'Post created.'
     }
-
     clearPostForm()
     await loadPosts()
   } catch (error) {
@@ -241,12 +236,12 @@ async function savePost() {
   }
 }
 
-  // Opens the confirmation dialog for deleting a post.
+  // Opens the confirmation dialog for deleting a post
   function deletePost(post) {
     postToDelete.value = post
   }
 
-  // Deletes the selected post after the user confirms.
+  // Deletes the selected post after the user confirms
   async function confirmDeletePost() {
     if (!postToDelete.value) {
       return
@@ -266,13 +261,13 @@ async function savePost() {
     }
   }
 
-  // Closes the dialog without deleting the post.
+  // Closes the dialog without deleting the post
   function cancelDeletePost() {
     postToDelete.value = null
   }
 
 
-// Adds a reply and reloads the posts.
+// Adds a reply and reloads the posts
 async function addReply(post) {
   const replyContent = replyDrafts.value[post._id]
 
@@ -293,20 +288,20 @@ async function addReply(post) {
   }
 }
 
-// Puts the selected reply's details into the edit form.
+// Puts the selected reply's details into the edit form
 function editReply(reply) {
   editingReplyId.value = reply._id
   editingReplyContent.value = reply.content
   message.value = ''
 }
 
-// Stops editing the reply and clears the edit form.
+// Stops editing the reply and clears the edit form
 function cancelReplyEdit() {
   editingReplyId.value = ''
   editingReplyContent.value = ''
 }
 
-// Saves the reply changes and reloads the posts.
+// Saves the reply changes and reloads the posts
 async function saveReply(post, reply) {
   try {
     await api.put(`/forum/${post._id}/replies/${reply._id}`, {
@@ -321,17 +316,16 @@ async function saveReply(post, reply) {
   }
 }
 
-// Opens the confirmation dialog for deleting a reply.
+// Opens the confirmation dialog for deleting a reply
 function deleteReply(post, reply) {
   replyToDelete.value = { post, reply }
 }
 
-// Deletes the selected reply after the user confirms.
+// Deletes the selected reply after the user confirms
 async function confirmDeleteReply() {
   if (!replyToDelete.value) {
     return
   }
-
   deletingReply.value = true
   try {
     await api.delete(
@@ -348,12 +342,12 @@ async function confirmDeleteReply() {
   }
 }
 
-// Closes the dialog without deleting the reply.
+// Closes the dialog without deleting the reply
 function cancelDeleteReply() {
   replyToDelete.value = null
 }
 
-// Shows the date and time in the user's local format.
+// Shows the date and time in the user's local format
 function formatDate(date) {
   return new Date(date).toLocaleString()
 }
@@ -391,21 +385,17 @@ function formatDate(date) {
         />
 
         <label id="post-category-label">Category</label>
-        <div class="category-radio-options" role="radiogroup" aria-labelledby="post-category-label">
-          <label
+        <div class="popular-searches" role="group" aria-labelledby="post-category-label">
+          <button
             v-for="popularCategory in popularCategories"
             :key="popularCategory"
-            class="category-radio-option"
+            type="button"
+            class="btn btn-light"
+            :class="{ 'active-category': category === popularCategory }"
+            @click="category = popularCategory"
           >
-            <input
-              v-model="category"
-              type="radio"
-              name="post-category"
-              :value="popularCategory"
-              required
-            />
             {{ popularCategory }}
-          </label>
+          </button>
         </div>
 
         <label for="post-content">Details</label>
@@ -706,8 +696,7 @@ function formatDate(date) {
   margin: 0;
 }
 
-.popular-searches,
-.category-radio-options {
+.popular-searches {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -725,27 +714,6 @@ function formatDate(date) {
 
 .popular-searches .active-category {
   background: #fbd000;
-}
-
-.post-form .category-radio-option {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0;
-  padding: 8px 12px;
-  border: 2px solid #1a1a2e;
-  border-radius: 20px;
-  background: white;
-  font-family: var(--font-display);
-  font-size: 0.9rem;
-  cursor: pointer;
-}
-
-.category-radio-option input[type='radio'] {
-  display: inline-block;
-  width: auto;
-  margin: 0;
-  padding: 0;
 }
 
 form label {

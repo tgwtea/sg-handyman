@@ -306,7 +306,7 @@ forumController.createReply = async (req, res) => {
   }
 };
 
-// Finds a reply, checks who owns it, and saves the edited text.
+// Finds a reply, checks who owns it, and saves the edited text
 forumController.updateReply = async (req, res) => {
   try {
     if (req.files && Object.keys(req.files).length > 0) {
