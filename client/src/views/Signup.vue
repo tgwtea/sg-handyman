@@ -1,4 +1,5 @@
 <script setup>
+defineOptions({ name: 'SignupView' })
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'

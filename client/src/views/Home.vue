@@ -1,4 +1,5 @@
 <script setup>
+defineOptions({ name: 'HomeView' })
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api'
@@ -159,12 +160,6 @@ function clearLocation() {
   postalInput.value = ''
   locationError.value = ''
   savePostalCode('')
-}
-
-// scrolls to the helper and moves keyboard focus to its heading
-function openHelper() {
-  helper.value?.$el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  helper.value?.focus()
 }
 
 function searchFor(q) {

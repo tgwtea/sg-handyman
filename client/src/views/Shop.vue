@@ -1,4 +1,5 @@
 <script setup>
+defineOptions({ name: 'ShopView' })
 import api from '@/api'
 import ShopOrderManagement from '@/components/shop/ShopOrderManagement.vue'
 import ShopReviewManagement from '@/components/shop/ShopReviewManagement.vue'

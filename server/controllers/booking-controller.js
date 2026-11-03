@@ -13,6 +13,9 @@ bookingController.createBooking = async (req, res) => {
     if (!mongoose.isValidObjectId(timeslotId)) {
       return res.status(400).send({ message: 'Invalid timeslot id' });
     }
+    if (typeof service !== 'string' || service.length > 200) {
+      return res.status(400).send({ message: 'Service must be text of at most 200 characters' });
+    }
 
     const timeslot = await Timeslot.findTimeslotById(timeslotId);
     if (!timeslot) {
@@ -69,6 +72,12 @@ bookingController.cancelBooking = async (req, res) => {
     const user = req.session.user;
     if (user.role !== 'admin' && String(booking.userId) !== user._id) {
       return res.status(403).send({ message: 'You cannot cancel this booking' });
+    }
+    if (user.role !== 'admin') {
+      const timeslot = await Timeslot.findTimeslotById(booking.timeslotId);
+      if (timeslot && timeslot.start <= new Date()) {
+        return res.status(409).send({ message: 'Past bookings cannot be cancelled' });
+      }
     }
 
     // a review stays verified only while its booking exists

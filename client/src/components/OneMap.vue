@@ -4,10 +4,8 @@
 <script setup>
 import { ref } from 'vue';
 import L from 'leaflet';
-import axios from 'axios'
-import constantUrls from '../../constants/urls.js';
+import api from '@/api'
 
-const serverUrl = constantUrls.serverUrl;
 const props = defineProps(['address']);
 let currentMarker = ref()
 
@@ -55,7 +53,7 @@ async function pinPostalCode() {
   }
 
   try {
-    const response = await axios.get(`${serverUrl}/map/${postalCode}`);
+    const response = await api.get(`/map/${postalCode}`);
     // console.log(response.data);
     const data = response.data;
     // const data = await response.json();
@@ -69,7 +67,7 @@ async function pinPostalCode() {
 
       // 2. Remove previous marker if it exists to keep map clear
       if (currentMarker.value) {
-        map.value.removeLayer(currentMarker);
+        map.value.removeLayer(currentMarker.value);
       }
 
       // 3. Drop a new marker at the geocoded coordinates and bind a popup window

@@ -1,5 +1,4 @@
 <script setup>
-import router from '@/router';
 import { computed } from 'vue';
 const props = defineProps(['companyId', 'name', 'description', 'services', 'rating', 'reviewCount', 'isPubLicensed']);
 
