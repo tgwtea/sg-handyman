@@ -8,7 +8,6 @@ const reviewSchema = new mongoose.Schema({
   username: { type: String, required: true },
   rating: { type: Number, required: true, min: 1, max: 5 },
   comment: { type: String, required: true, maxlength: 1000 },
-  createdAt: { type: Date, default: Date.now },
   adminEdits: [{ adminId: mongoose.Schema.Types.ObjectId, 
     previousRating: Number, 
     previousComment: String,

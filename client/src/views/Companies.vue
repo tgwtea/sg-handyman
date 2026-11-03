@@ -1,8 +1,8 @@
 <script setup>
+defineOptions({ name: 'CompaniesView' })
 // import Carousel from '@/components/Carousel.vue';
-import axios from 'axios'
+import api from '@/api'
 import { ref, computed, watch, onMounted } from 'vue';
-import constantUrls from '../../constants/urls.js';
 import CompanyCard from '@/components/CompanyCard.vue';
 import PixelMascot from '@/components/PixelMascot.vue';
 import SkeletonCard from '@/components/SkeletonCard.vue';
@@ -11,11 +11,7 @@ import { useRoute, useRouter } from 'vue-router'
 const route = useRoute()
 const router = useRouter()
 
-// axios defaults timeout not examinable, FYI
-// prevent website from hanging for too long if promise takes too long to fulfill (exceeds timeout)
-axios.defaults.timeout = 3000
 
-const serverUrl = constantUrls.serverUrl;
 
 const SORT_OPTIONS = ['default', 'earliest-slot', 'highest-rating', 'latest-review', 'name-asc', 'name-desc'];
 const PUB_OPTIONS = ['all', 'true', 'false'];
@@ -183,7 +179,7 @@ watch(
 async function getCompanies() {
   status.value = 'loading';
   try {
-    const response = await axios.get(`${serverUrl}/companies`);
+    const response = await api.get(`/companies`);
     companies.value = response.data;
     status.value = 'ready';
   } catch (error) {
@@ -196,7 +192,7 @@ async function getCompanies() {
 // the cards still show without ratings if this fails
 async function getReviewSummaries() {
   try {
-    const response = await axios.get(`${serverUrl}/reviews/summary`);
+    const response = await api.get(`/reviews/summary`);
     reviewSummaries.value = response.data;
   } catch (error) {
     console.log(error.message);
@@ -206,7 +202,7 @@ async function getReviewSummaries() {
 // fetch each company's earliest upcoming free timeslot
 async function getNextFreeTimeslots() {
   try {
-    const response = await axios.get(`${serverUrl}/timeslots/next-free`);
+    const response = await api.get(`/timeslots/next-free`);
     nextFreeTimeslots.value = response.data;
   } catch (error) {
     console.log(error.message);

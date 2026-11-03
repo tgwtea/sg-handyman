@@ -1,4 +1,5 @@
 <script setup>
+defineOptions({ name: 'ForumView' })
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import api, { errorMessage } from '@/api'

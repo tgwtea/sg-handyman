@@ -1,10 +1,10 @@
 import { expect, it, vi } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import OneMap from '../components/OneMap.vue'
-import axios from 'axios'
+import api from '@/api'
 import L from 'leaflet'
 
-vi.mock('axios', () => ({ default: { get: vi.fn() } }))
+vi.mock('@/api', () => ({ default: { get: vi.fn() } }))
 vi.mock('leaflet', () => ({
   default: {
     latLng: vi.fn(),
@@ -25,7 +25,7 @@ vi.mock('leaflet', () => ({
 }))
 
 it('displays a marker at the coordinates from postal-code search', async () => {
-  axios.get.mockResolvedValue({ data: {
+  api.get.mockResolvedValue({ data: {
     results: [{ LATITUDE: '1.3521', LONGITUDE: '103.8198', ADDRESS: 'TEST ADDRESS', BUILDING: 'TEST' }],
   } })
   const wrapper = mount(OneMap, { props: { address: 'TEST ADDRESS 123456' } })
@@ -33,7 +33,7 @@ it('displays a marker at the coordinates from postal-code search', async () => {
     await wrapper.vm.initialiseOneMap()
     await wrapper.get('#pinPostalCodeBtn').trigger('click')
     await flushPromises()
-    expect(axios.get).toHaveBeenCalledWith(expect.stringMatching(/\/map\/123456$/))
+    expect(api.get).toHaveBeenCalledWith(expect.stringMatching(/\/map\/123456$/))
     expect(L.marker).toHaveBeenCalledWith([1.3521, 103.8198])
     const marker = L.marker.mock.results[0].value
     expect(marker.openPopup).toHaveBeenCalledOnce()

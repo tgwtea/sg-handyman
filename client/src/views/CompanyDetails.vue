@@ -1,10 +1,8 @@
 <script setup>
 // import Carousel from '@/components/Carousel.vue';
-import axios from 'axios'
+import api from '@/api'
 import { ref, reactive, computed, nextTick } from 'vue';
 import { onMounted } from 'vue'
-import constantUrls from '../../constants/urls.js';
-import CompanyCard from '@/components/CompanyCard.vue';
 import TimeslotGrid from '@/components/TimeslotGrid.vue';
 import TimeslotManager from '@/components/TimeslotManager.vue';
 import ReviewSection from '@/components/ReviewSection.vue';
@@ -31,11 +29,7 @@ const sections = [
 ];
 // console.log(route.params.companyId)
 
-// axios defaults timeout
-// prevent website from hanging for too long if promise takes too long to fulfill (exceeds timeout)
-axios.defaults.timeout = 3000
 
-const serverUrl = constantUrls.serverUrl;
 
 let company = ref({});
 
@@ -47,7 +41,7 @@ async function getCompanyById() {
   try {
     // console.log(route.params.companyId)
     let companyId = route.params.companyId;
-    const response = await axios.get(`${serverUrl}/companies/${companyId}`);
+    const response = await api.get(`/companies/${companyId}`);
     console.log(response.data);
 
     company.value = response.data;
@@ -100,7 +94,7 @@ function resetContact() {
         <header class="pixel-card p-4 mb-4">
           <h2>{{ company.name }}</h2>
           <div class="d-flex flex-wrap gap-1 mb-3">
-            <span v-for="category in company.services" class="badge rounded-pill text-bg-light border">
+            <span v-for="category in company.services" :key="category._id || category.category" class="badge rounded-pill text-bg-light border">
               {{ category.category }}
             </span>
           </div>
@@ -112,7 +106,7 @@ function resetContact() {
           <a :href="company.website">{{ company.website }}</a>
         </header>
 
-        <div v-for="category in company.services">
+        <div v-for="category in company.services" :key="category._id || category.category">
           <h3 class="text-center">{{ category.category }}</h3>
           <table class="table">
             <thead>
@@ -122,7 +116,7 @@ function resetContact() {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="service in category.details">
+              <tr v-for="service in category.details" :key="service._id || service.service">
                 <td class="col-5 text-end">{{ service.service }}</td>
                 <td class="col-5 text-start">${{ service.startingPrice }}</td>
               </tr>
