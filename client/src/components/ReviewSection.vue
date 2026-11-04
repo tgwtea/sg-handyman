@@ -6,6 +6,8 @@ import { useAuthStore } from '@/stores/auth'
 import { formatDay } from '@/utils/sgTime'
 import DeleteDialog from '@/components/DeleteDialog.vue'
 
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024 // same limit as the server
+
 const props = defineProps({
   companyId: { type: String, required: true },
 })
@@ -21,6 +23,7 @@ const submitting = ref(false)
 // one form for both a new review and an edit
 const form = ref({ bookingId: '', rating: 0, comment: '' })
 const hoverRating = ref(0) // star under the mouse, 0 when there is none
+const imageFile = ref(null) // optional photo for a new review
 const editingId = ref(null)
 const reviewToDelete = ref(null) // review waiting for the delete confirmation
 const showForm = computed(() => reviewableBookings.value.length > 0 || editingId.value !== null)
@@ -44,6 +47,18 @@ function starClass(n) {
 function selectRating(n) {
   form.value.rating = n
   hoverRating.value = 0
+}
+
+// same checks as the server, so a wrong file is caught before uploading
+function selectImage(event) {
+  const image = event.target.files[0]
+  if (image && ((image.type !== 'image/jpeg' && image.type !== 'image/png') || image.size > MAX_IMAGE_BYTES)) {
+    message.value = { type: 'danger', text: 'Choose one JPG or PNG photo, 5 MB or smaller.' }
+    event.target.value = ''
+    return
+  }
+  message.value = null
+  imageFile.value = image || null
 }
 
 function formatDate(date) {
@@ -80,6 +95,7 @@ function startEdit(review) {
 
 function resetForm() {
   editingId.value = null
+  imageFile.value = null
   form.value = { ...form.value, rating: 0, comment: '' }
 }
 
@@ -91,7 +107,13 @@ async function submitReview() {
       await api.put(`/reviews/${editingId.value}`, form.value)
       message.value = { type: 'success', text: 'Review updated.' }
     } else {
-      await api.post(`/reviews/company/${props.companyId}`, form.value)
+      // FormData, not JSON, so the photo can be sent with the review
+      const body = new FormData()
+      body.append('bookingId', form.value.bookingId)
+      body.append('rating', form.value.rating)
+      body.append('comment', form.value.comment)
+      if (imageFile.value) body.append('image', imageFile.value)
+      await api.post(`/reviews/company/${props.companyId}`, body)
       message.value = { type: 'success', text: 'Thanks for your review!' }
     }
     resetForm()
@@ -169,6 +191,19 @@ defineExpose({ loadReviews })
         <label for="review-comment" class="form-label">Comment</label>
         <textarea id="review-comment" v-model.trim="form.comment" class="form-control" rows="3" maxlength="1000"></textarea>
       </div>
+      <div v-if="!editingId" class="mb-3">
+        <label for="review-image" class="form-label d-block">Photo (optional)</label>
+        <!-- the input is hidden; its label below works as the button, like the forum's image picker -->
+        <template v-if="!imageFile">
+          <input id="review-image" type="file" class="visually-hidden" accept="image/jpeg,image/png" @change="selectImage">
+          <label for="review-image" class="btn btn-sm btn-outline-primary">Choose photo</label>
+        </template>
+        <div v-else class="d-flex align-items-center gap-2">
+          <span class="text-break">{{ imageFile.name }}</span>
+          <button type="button" class="btn btn-sm btn-outline-secondary" @click="imageFile = null">Remove</button>
+        </div>
+        <div class="form-text">One JPG or PNG, up to 5 MB. Photos can't be changed after posting.</div>
+      </div>
       <div class="d-flex gap-2">
         <button type="submit" class="btn btn-primary" :disabled="submitting || !form.rating">
           {{ editingId ? 'Save' : 'Post review' }}
@@ -199,6 +234,13 @@ defineExpose({ loadReviews })
           <small class="text-muted">{{ formatDate(review.createdAt) }}</small>
         </div>
         <p v-if="review.comment" class="mb-1 mt-2">{{ review.comment }}</p>
+        <img
+          v-if="review.hasImage"
+          :src="`${api.defaults.baseURL}/reviews/${review._id}/image`"
+          :alt="`Photo from ${review.username}'s review`"
+          class="review-image"
+          loading="lazy"
+        >
         <div v-if="review.mine || auth.user?.role === 'admin'" class="d-flex gap-2 mt-2">
           <button v-if="review.mine" type="button" class="btn btn-sm btn-outline-primary" @click="startEdit(review)">Edit</button>
           <button type="button" class="btn btn-sm btn-outline-danger" @click="reviewToDelete = review">Delete</button>
@@ -237,5 +279,14 @@ defineExpose({ loadReviews })
 .star-preview {
   color: var(--bs-warning);
   opacity: 0.45;
+}
+.review-image {
+  display: block;
+  max-width: 100%;
+  max-height: 320px;
+  margin: 0.5rem 0;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  object-fit: contain;
 }
 </style>
