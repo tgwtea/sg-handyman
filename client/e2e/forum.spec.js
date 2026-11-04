@@ -1,6 +1,21 @@
 import { test, expect } from '@playwright/test'
 import { login, uniqueTitle, USERS, API_URL } from './helpers.js'
 
+// The post form is hidden until "Add a post" is clicked
+async function createPost(page, title, details) {
+  await page.getByRole('button', { name: 'Add a post' }).click()
+  await page.getByLabel('Title').fill(title)
+  // the form's category buttons; the search bar has its own "Others" button
+  await page.getByRole('group', { name: 'Category' }).getByRole('button', { name: 'Others' }).click()
+  await page.getByLabel('Details').fill(details)
+  await page.getByRole('button', { name: 'Create post' }).click()
+}
+
+// Replies are hidden until "Show replies" is clicked, also after adding one
+async function showReplies(post) {
+  await post.getByRole('button', { name: 'Show replies' }).click()
+}
+
 test.describe('DIY Forum', () => {
   test('a visitor sees the posts and a prompt to log in', async ({ page }) => {
     await page.goto('/forum')
@@ -17,10 +32,7 @@ test.describe('DIY Forum', () => {
       await login(page, USERS.customer)
       await page.goto('/forum')
 
-      await page.getByLabel('Title').fill(title)
-      await page.getByRole('radio', { name: 'Others' }).check()
-      await page.getByLabel('Details').fill('Created by an automated Playwright test. It deletes itself.')
-      await page.getByRole('button', { name: 'Create post' }).click()
+      await createPost(page, title, 'Created by an automated Playwright test. It deletes itself.')
 
       await expect(page.getByRole('status')).toHaveText('Post created.')
       const post = page.locator('article').filter({ has: page.getByRole('heading', { name: title }) })
@@ -51,10 +63,7 @@ test.describe('DIY Forum', () => {
       await login(page, USERS.customer)
       await page.goto('/forum')
 
-      await page.getByLabel('Title').fill(title)
-      await page.getByRole('radio', { name: 'Others' }).check()
-      await page.getByLabel('Details').fill('Post for testing replies.')
-      await page.getByRole('button', { name: 'Create post' }).click()
+      await createPost(page, title, 'Post for testing replies.')
 
       const post = page.locator('article').filter({ has: page.getByRole('heading', { name: title }) })
       await expect(post).toBeVisible()
@@ -63,6 +72,7 @@ test.describe('DIY Forum', () => {
       await post.getByRole('button', { name: 'Add reply' }).click()
 
       await expect(page.getByRole('status')).toHaveText('Reply added.')
+      await showReplies(post)
       await expect(post.getByText('This is a test reply.')).toBeVisible()
     } finally {
       const response = await page.request.get(`${API_URL}/forum`)
@@ -83,15 +93,13 @@ test.describe('DIY Forum', () => {
       await login(page, USERS.customer)
       await page.goto('/forum')
 
-      await page.getByLabel('Title').fill(title)
-      await page.getByRole('radio', { name: 'Others' }).check()
-      await page.getByLabel('Details').fill('Post for testing edits.')
-      await page.getByRole('button', { name: 'Create post' }).click()
+      await createPost(page, title, 'Post for testing edits.')
 
       let post = page.locator('article').filter({ has: page.getByRole('heading', { name: title }) })
       await expect(post).toBeVisible()
       await post.getByLabel('Write a reply').fill('Reply before editing.')
       await post.getByRole('button', { name: 'Add reply' }).click()
+      await showReplies(post)
       await expect(post.getByText('Reply before editing.')).toBeVisible()
 
       await post.getByRole('button', { name: 'Edit post' }).click()
@@ -127,15 +135,13 @@ test.describe('DIY Forum', () => {
       await login(page, USERS.customer)
       await page.goto('/forum')
 
-      await page.getByLabel('Title').fill(title)
-      await page.getByRole('radio', { name: 'Others' }).check()
-      await page.getByLabel('Details').fill('Post for testing permissions.')
-      await page.getByRole('button', { name: 'Create post' }).click()
+      await createPost(page, title, 'Post for testing permissions.')
 
       let post = page.locator('article').filter({ has: page.getByRole('heading', { name: title }) })
       await expect(post).toBeVisible()
       await post.getByLabel('Write a reply').fill('Reply owned by the first user.')
       await post.getByRole('button', { name: 'Add reply' }).click()
+      await showReplies(post)
       await expect(post.getByText('Reply owned by the first user.')).toBeVisible()
 
       const listResponse = await page.request.get(`${API_URL}/forum`)
@@ -152,6 +158,9 @@ test.describe('DIY Forum', () => {
         has: attackerPage.getByRole('heading', { name: title })
       })
       await expect(post).toBeVisible()
+      // open the replies, so the missing reply buttons are really missing and not just hidden
+      await showReplies(post)
+      await expect(post.getByText('Reply owned by the first user.')).toBeVisible()
       await expect(post.getByRole('button', { name: 'Edit post' })).toHaveCount(0)
       await expect(post.getByRole('button', { name: 'Delete post' })).toHaveCount(0)
       await expect(post.getByRole('button', { name: 'Edit reply' })).toHaveCount(0)
@@ -194,10 +203,7 @@ test.describe('DIY Forum', () => {
       await login(page, USERS.customer)
       await page.goto('/forum')
 
-      await page.getByLabel('Title').fill(title)
-      await page.getByRole('radio', { name: 'Others' }).check()
-      await page.getByLabel('Details').fill('Post for testing likes.')
-      await page.getByRole('button', { name: 'Create post' }).click()
+      await createPost(page, title, 'Post for testing likes.')
 
       const post = page.locator('article').filter({ has: page.getByRole('heading', { name: title }) })
       await expect(post).toBeVisible()
