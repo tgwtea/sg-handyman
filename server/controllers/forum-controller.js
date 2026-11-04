@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import Forum from '../models/forum-model.js';
+import { getUploadedImage } from '../utils/image-upload.js';
 
 const forumController = {};
 
@@ -48,49 +49,6 @@ function getReplyContent(value) {
   return { error: '', content };
 }
 
-// Checks the uploaded image and prepares it to be saved with a post.
-function getPostMedia(files) {
-  if (!files || !files.media) {
-    return { error: '', media: [] };
-  }
-
-  if (Array.isArray(files.media)) {
-    return { error: 'You can attach only 1 image', media: [] };
-  }
-
-  const file = files.media;
-  if (!Buffer.isBuffer(file.data) || file.size > 5 * 1024 * 1024) {
-    return { error: 'Image must be 5 MB or smaller', media: [] };
-  }
-
-  const isJpeg = file.mimetype === 'image/jpeg'
-    && file.data[0] === 0xff
-    && file.data[1] === 0xd8
-    && file.data[2] === 0xff;
-  const isPng = file.mimetype === 'image/png'
-    && file.data[0] === 0x89
-    && file.data[1] === 0x50
-    && file.data[2] === 0x4e
-    && file.data[3] === 0x47
-    && file.data[4] === 0x0d
-    && file.data[5] === 0x0a
-    && file.data[6] === 0x1a
-    && file.data[7] === 0x0a;
-
-  if (!isJpeg && !isPng) {
-    return { error: 'Only JPG and PNG images are allowed', media: [] };
-  }
-
-  return {
-    error: '',
-    media: [{
-      name: file.name,
-      data: file.data,
-      mimetype: file.mimetype
-    }]
-  };
-}
-
 // Checks whether the user owns the post or reply, or is an admin.
 function userCanEdit(user, authorId) {
   if (user.role === 'admin') {
@@ -124,9 +82,10 @@ forumController.createPost = async (req, res) => {
       return res.status(400).send({ message: postDetails.error });
     }
 
-    const postMedia = getPostMedia(req.files);
-    if (postMedia.error) {
-      return res.status(400).send({ message: postMedia.error });
+    // the same image check as review photos
+    const upload = getUploadedImage(req.files, 'media');
+    if (upload.error) {
+      return res.status(400).send({ message: upload.error });
     }
 
     await Forum.createForumPost({
@@ -134,7 +93,7 @@ forumController.createPost = async (req, res) => {
       title: postDetails.title,
       content: postDetails.content,
       category: postDetails.category,
-      media: postMedia.media
+      media: upload.image ? [upload.image] : []
     });
 
     res.status(201).send({ message: 'Post created' });

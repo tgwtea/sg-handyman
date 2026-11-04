@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import Review from '../models/review-model.js';
 import Booking from '../models/booking-model.js';
+import { getUploadedImage } from '../utils/image-upload.js';
 
 const reviewController = {};
 
@@ -64,6 +65,7 @@ reviewController.getCompanyReviews = async (req, res) => {
         createdAt: review.createdAt,
         username: review.userId?.username ?? 'Deleted user',
         booking: booking ?? null,
+        hasImage: !!review.image,
         mine: !!user && authorId === user._id
       };
     });
@@ -106,6 +108,11 @@ reviewController.createReview = async (req, res) => {
       return res.status(400).send({ message: invalid });
     }
 
+    const upload = getUploadedImage(req.files, 'image');
+    if (upload.error) {
+      return res.status(400).send({ message: upload.error });
+    }
+
     const userId = req.session.user._id;
     const booking = await Booking.findBookingById(bookingId);
     if (!booking || String(booking.userId) !== userId || String(booking.companyId) !== companyId) {
@@ -115,14 +122,39 @@ reviewController.createReview = async (req, res) => {
       return res.status(409).send({ message: ALREADY_REVIEWED_MESSAGE });
     }
 
-    const review = await Review.createReview({ userId, companyId, bookingId: booking._id, rating, comment });
-    res.status(201).send(review);
+    const review = { userId, companyId, bookingId: booking._id, rating, comment };
+    if (upload.image) {
+      review.image = upload.image;
+    }
+    const created = await Review.createReview(review);
+    // not the whole review: it would send the photo straight back
+    res.status(201).send({ _id: created._id });
   } catch (error) {
     if (error.code === 11000) {
       return res.status(409).send({ message: ALREADY_REVIEWED_MESSAGE });
     }
     console.error(error);
     res.status(500).send({ message: 'Failed to create review' });
+  }
+};
+
+// Sends a review's photo to the browser.
+reviewController.getReviewImage = async (req, res) => {
+  try {
+    const { reviewId } = req.params;
+    if (!mongoose.isValidObjectId(reviewId)) {
+      return res.status(400).send({ message: 'Invalid review id' });
+    }
+
+    const review = await Review.findReviewImage(reviewId);
+    if (!review?.image) {
+      return res.status(404).send({ message: 'Review photo not found' });
+    }
+
+    res.type(review.image.mimetype).send(review.image.data);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ message: 'Failed to load review photo' });
   }
 };
 

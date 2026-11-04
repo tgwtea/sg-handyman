@@ -16,6 +16,9 @@ export const USERS = {
   business: 'test-business'
 }
 
+// The seeded admin account; override with E2E_ADMIN_PASSWORD if your database uses another password
+export const ADMIN = { username: 'admin', password: process.env.E2E_ADMIN_PASSWORD ?? 'admin123' }
+
 // The company that test-business owns
 export const BUSINESS_COMPANY = 'Tan Repair'
 
@@ -73,4 +76,20 @@ export async function createFreeSlot(companyName = BUSINESS_COMPANY) {
       await api.dispose()
     }
   }
+}
+
+// An API client logged in as `username`, for setting up and cleaning up test data.
+// Call `dispose()` when done.
+export async function apiAs(username, password = TEST_PASSWORD) {
+  const api = await request.newContext({ baseURL: API_BASE_URL })
+  const login = await api.post('auth/login', { data: { username, password } })
+  expect(login.ok()).toBeTruthy()
+  return api
+}
+
+// Books `slot` as the given customer API client and returns the booking
+export async function bookSlot(api, slot, service = 'Test service') {
+  const response = await api.post('bookings', { data: { timeslotId: slot._id, service } })
+  expect(response.status()).toBe(201)
+  return response.json()
 }
