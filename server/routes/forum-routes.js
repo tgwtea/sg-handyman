@@ -5,6 +5,7 @@ import { requireLogin } from '../middleware/auth.js';
 const router = express.Router();
 
 router.get('/', forumController.getPosts);
+router.get('/:postId/media/:mediaIndex', forumController.getPostMedia);
 router.post('/', requireLogin, forumController.createPost);
 router.put('/:postId', requireLogin, forumController.updatePost);
 router.delete('/:postId', requireLogin, forumController.deletePost);

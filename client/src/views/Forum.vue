@@ -1,35 +1,38 @@
 <script setup>
+defineOptions({ name: 'ForumView' })
 import { computed, onMounted, ref } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import api, { errorMessage } from '@/api'
+import DeleteDialog from '@/components/DeleteDialog.vue'
 import { useAuthStore } from '@/stores/auth'
+import { FORUM_CATEGORIES } from '@/utils/homeProblems'
 
 const auth = useAuthStore()
-
+const route = useRoute()
 const posts = ref([])
 const title = ref('')
 const category = ref('')
 const content = ref('')
+const selectedPostImage = ref(null)
+const editingPostMedia = ref([])
+const postImageInput = ref(null)
 const replyDrafts = ref({})
 const editingPostId = ref('')
 const editingReplyId = ref('')
 const editingReplyContent = ref('')
 const message = ref('')
-const loading = ref(true)
+const loading = ref(true) // Tracks whether the forum is still waiting for its posts to load
 const postToDelete = ref(null)
 const deletingPost = ref(false)
+const replyToDelete = ref(null) 
+const deletingReply = ref(false)
 const searchInput = ref('')
 const searchTerm = ref('')
 const selectedCategory = ref('')
+const showPostForm = ref(false)
+const expandedReplies = ref({})
 
-const popularCategories = [
-  'Leaking tap',
-  'Aircon servicing',
-  'Power trip',
-  'Door lock',
-  'Wall mounting',
-  'Others'
-]
+const popularCategories = FORUM_CATEGORIES
 
 const filteredPosts = computed(() => {
   const lcSearchTerm = searchTerm.value.toLowerCase() // Searched text in searchbar 
@@ -68,7 +71,20 @@ async function loadPosts() {
   }
 }
 
-onMounted(loadPosts)
+// Applies a filter from a link, e.g. /forum?category=Power%20trip from the Home helper
+function applyLinkFilter() {
+  const linkCategory = route.query.category
+  if (FORUM_CATEGORIES.includes(linkCategory)) selectedCategory.value = linkCategory
+  if (typeof route.query.q === 'string') {
+    searchInput.value = route.query.q.trim()
+    searchTerm.value = searchInput.value
+  }
+}
+
+onMounted(() => {
+  applyLinkFilter()
+  loadPosts()
+})
 
 // Applies filtering by the text entered in the search bar
 function searchPosts() {
@@ -89,9 +105,9 @@ function showAllPosts() {
   searchTerm.value = ''
 }
 
-// Checks whether the signed-in user can edit this post or reply.
+// Checks whether the signed-in user can edit this post or reply
 function canEdit(author) {
-  if (!auth.user) {
+  if (!auth.user) { // if no one signed in 
     return false
   }
 
@@ -103,7 +119,7 @@ function canEdit(author) {
   return auth.user.role === 'admin' || String(authorId) === String(auth.user._id)
 }
 
-// Checks whether the signed-in user has liked this post.
+// Checks whether the signed-in user has liked this post
 function hasLiked(post) {
   if (!auth.user || !Array.isArray(post.likes)) {
     return false
@@ -112,7 +128,7 @@ function hasLiked(post) {
   return post.likes.some(userId => String(userId) === String(auth.user._id))
 }
 
-// Adds or removes the signed-in user's thumbs-up and updates the counter.
+// Adds or removes the signed-in user's thumbs-up and updates the counter
 async function likePost(post) {
   try {
     const response = await api.post(`/forum/${post._id}/likes`)
@@ -122,41 +138,74 @@ async function likePost(post) {
   }
 }
 
-// Shows the author's username or a message if the account was removed.
+// Shows the author's username or a message if the account was removed
 function authorName(author) {
   if (author && author.username) {
     return author.username
   }
-
-  return 'Former member'
+  return 'Deleted Account'
 }
 
-// Clears the post form and stops editing.
+// Clears the post form and stops editing
 function clearPostForm() {
   title.value = ''
   category.value = ''
   content.value = ''
+  selectedPostImage.value = null
+  editingPostMedia.value = []
+  if (postImageInput.value) {
+    postImageInput.value.value = ''
+  }
   editingPostId.value = ''
+  showPostForm.value = false
 }
 
-// Puts the selected post's details into the form.
+// Keeps one small JPG or PNG image selected for a new post
+function selectPostImages(event) {
+  const image = event.target.files[0]
+
+  if (image && ((image.type !== 'image/jpeg' && image.type !== 'image/png')
+    || image.size > 5 * 1024 * 1024)) {
+    message.value = 'Choose one JPG or PNG image, 5 MB or smaller.'
+    selectedPostImage.value = null
+    event.target.value = ''
+    return
+  }
+
+  selectedPostImage.value = image || null
+}
+
+// Removes the selected image from a new post
+function removePostImage() {
+  selectedPostImage.value = null
+  if (postImageInput.value) {
+    postImageInput.value.value = ''
+  }
+}
+
+// Puts the selected post's details into the form
 function editPost(post) {
+  showPostForm.value = true
   title.value = post.title
   category.value = post.category
   content.value = post.content
+  selectedPostImage.value = null
+  editingPostMedia.value = post.media || []
+  if (postImageInput.value) {
+    postImageInput.value.value = ''
+  }
   editingPostId.value = post._id
   message.value = ''
+  document.getElementById('post-form-section').scrollIntoView() //  jump into edit portion 
 }
 
 // Creates a post or saves changes, then reloads the posts
 async function savePost() {
   message.value = ''
-
   if (!category.value) {
     message.value = 'Please choose a category.'
     return
   }
-
   const post = {
     title: title.value,
     category: category.value,
@@ -168,10 +217,18 @@ async function savePost() {
       await api.put(`/forum/${editingPostId.value}`, post)
       message.value = 'Post updated.'
     } else {
-      await api.post('/forum', post)
+      const postForm = new FormData()
+      postForm.append('title', title.value)
+      postForm.append('category', category.value)
+      postForm.append('content', content.value)
+
+      if (selectedPostImage.value) {
+        postForm.append('media', selectedPostImage.value)
+      }
+
+      await api.post('/forum', postForm)
       message.value = 'Post created.'
     }
-
     clearPostForm()
     await loadPosts()
   } catch (error) {
@@ -179,12 +236,12 @@ async function savePost() {
   }
 }
 
-  // Opens the confirmation dialog for deleting a post.
+  // Opens the confirmation dialog for deleting a post
   function deletePost(post) {
     postToDelete.value = post
   }
 
-  // Deletes the selected post after the user confirms.
+  // Deletes the selected post after the user confirms
   async function confirmDeletePost() {
     if (!postToDelete.value) {
       return
@@ -204,13 +261,13 @@ async function savePost() {
     }
   }
 
-  // Closes the dialog without deleting the post.
+  // Closes the dialog without deleting the post
   function cancelDeletePost() {
     postToDelete.value = null
   }
 
 
-// Adds a reply and reloads the posts.
+// Adds a reply and reloads the posts
 async function addReply(post) {
   const replyContent = replyDrafts.value[post._id]
 
@@ -231,20 +288,20 @@ async function addReply(post) {
   }
 }
 
-// Puts the selected reply's details into the edit form.
+// Puts the selected reply's details into the edit form
 function editReply(reply) {
   editingReplyId.value = reply._id
   editingReplyContent.value = reply.content
   message.value = ''
 }
 
-// Stops editing the reply and clears the edit form.
+// Stops editing the reply and clears the edit form
 function cancelReplyEdit() {
   editingReplyId.value = ''
   editingReplyContent.value = ''
 }
 
-// Saves the reply changes and reloads the posts.
+// Saves the reply changes and reloads the posts
 async function saveReply(post, reply) {
   try {
     await api.put(`/forum/${post._id}/replies/${reply._id}`, {
@@ -259,23 +316,38 @@ async function saveReply(post, reply) {
   }
 }
 
-// Asks before deleting a reply, then reloads the posts.
-async function deleteReply(post, reply) {
-  const shouldDelete = window.confirm('Delete this reply?')
-  if (!shouldDelete) {
+// Opens the confirmation dialog for deleting a reply
+function deleteReply(post, reply) {
+  replyToDelete.value = { post, reply }
+}
+
+// Deletes the selected reply after the user confirms
+async function confirmDeleteReply() {
+  if (!replyToDelete.value) {
     return
   }
-
+  deletingReply.value = true
   try {
-    await api.delete(`/forum/${post._id}/replies/${reply._id}`)
+    await api.delete(
+      `/forum/${replyToDelete.value.post._id}/replies/${replyToDelete.value.reply._id}`
+    )
     message.value = 'Reply deleted.'
+    replyToDelete.value = null
     await loadPosts()
   } catch (error) {
     message.value = errorMessage(error)
+    replyToDelete.value = null
+  } finally {
+    deletingReply.value = false
   }
 }
 
-// Shows the date and time in the user's local format.
+// Closes the dialog without deleting the reply
+function cancelDeleteReply() {
+  replyToDelete.value = null
+}
+
+// Shows the date and time in the user's local format
 function formatDate(date) {
   return new Date(date).toLocaleString()
 }
@@ -288,12 +360,21 @@ function formatDate(date) {
       <p>Ask questions and share tips about fixing things at home.</p>
     </header>
 
-    <section class="forum-section">
-      <h2>{{ editingPostId ? 'Edit your post' : 'Create a post' }}</h2>
+    <section id="post-form-section" class="forum-section">
+      <button
+        v-if="auth.isLoggedIn && !showPostForm"
+        type="button"
+        class="btn btn-primary"
+        @click="showPostForm = true"
+      >
+        Add a post
+      </button>
 
       <p v-if="message" class="message" role="status">{{ message }}</p>
 
-      <form v-if="auth.isLoggedIn" class="post-form" @submit.prevent="savePost">
+      <div v-if="showPostForm">
+        <h2>{{ editingPostId ? 'Edit your post' : 'Create a post' }}</h2>
+        <form v-if="auth.isLoggedIn" class="post-form" @submit.prevent="savePost">
         <label for="post-title">Title</label>
         <input
           id="post-title"
@@ -304,21 +385,17 @@ function formatDate(date) {
         />
 
         <label id="post-category-label">Category</label>
-        <div class="category-radio-options" role="radiogroup" aria-labelledby="post-category-label">
-          <label
+        <div class="popular-searches" role="group" aria-labelledby="post-category-label">
+          <button
             v-for="popularCategory in popularCategories"
             :key="popularCategory"
-            class="category-radio-option"
+            type="button"
+            class="btn btn-light"
+            :class="{ 'active-category': category === popularCategory }"
+            @click="category = popularCategory"
           >
-            <input
-              v-model="category"
-              type="radio"
-              name="post-category"
-              :value="popularCategory"
-              required
-            />
             {{ popularCategory }}
-          </label>
+          </button>
         </div>
 
         <label for="post-content">Details</label>
@@ -331,10 +408,56 @@ function formatDate(date) {
           required
         ></textarea>
 
-        <button type="submit" class="btn btn-primary mb-3">{{ editingPostId ? 'Save changes' : 'Create post' }}</button>
-        <button v-if="editingPostId" type="button" class="btn btn-primary mb-3" @click="clearPostForm">Cancel</button>
-      </form>
-      <p v-else>
+        <div v-if="!editingPostId" class="post-image-upload">
+          <label for="post-images">Add images (optional)</label>
+          <input
+            v-if="!selectedPostImage"
+            id="post-images"
+            ref="postImageInput"
+            type="file"
+            class="visually-hidden"
+            accept="image/jpeg,image/png"
+            @change="selectPostImages"
+          /><!--visually-hidden hides the choose file button when a file is selected -->
+          <label
+            v-if="!selectedPostImage"
+            for="post-images"
+            class="btn btn-primary mb-3 choose-image-button"
+          >
+            Choose File
+          </label>
+          <div v-if="selectedPostImage" class="selected-post-image">
+            <span>{{ selectedPostImage.name }}</span>
+            <button
+              type="button"
+              class="btn btn-primary mb-3"
+              aria-label="Remove selected image"
+              @click="removePostImage"
+            >
+              Cancel
+            </button>
+          </div>
+          <p class="post-image-note">
+            Choose one JPG or PNG image, up to 5 MB. Images cannot be changed after posting.
+          </p>
+        </div>
+        <div v-else-if="editingPostMedia.length" class="post-image-upload">
+          <p>These images are already attached and cannot be changed:</p>
+          <div class="post-images">
+            <img
+              v-for="(media, index) in editingPostMedia"
+              :key="media._id || index"
+              :src="`${api.defaults.baseURL}/forum/${editingPostId}/media/${index}`"
+              :alt="media.name || 'Forum post image'"
+            />
+          </div>
+        </div>
+
+          <button type="submit" class="btn btn-primary mb-3">{{ editingPostId ? 'Save changes' : 'Create post' }}</button>
+          <button type="button" class="btn btn-primary mb-3" @click="clearPostForm">Cancel</button>
+        </form>
+      </div>
+      <p v-if="!auth.isLoggedIn">
         <RouterLink :to="{ path: '/login', query: { redirect: '/forum' } }">Log in</RouterLink>
         to create a post or reply.
       </p>
@@ -388,6 +511,14 @@ function formatDate(date) {
         <p class="category">{{ post.category || 'General' }}</p>
         <h3>{{ post.title }}</h3>
         <p class="post-content">{{ post.content }}</p>
+        <div v-if="post.media && post.media.length" class="post-images">
+          <img
+            v-for="(media, index) in post.media"
+            :key="media._id || index"
+            :src="`${api.defaults.baseURL}/forum/${post._id}/media/${index}`"
+            :alt="media.name || 'Forum post image'"
+          />
+        </div>
         <p class="post-info">
           Posted by {{ authorName(post.authorId) }}
           on {{ formatDate(post.createdAt) }}
@@ -416,34 +547,48 @@ function formatDate(date) {
         </div>
 
         <section class="replies">
-          <h4>Replies ({{ post.replies.length }})</h4>
+          <div class="d-flex align-items-center gap-2">
+            <h4>Replies ({{ post.replies.length }})</h4>
+            <button
+              v-if="post.replies.length > 0"
+              type="button"
+              class="btn btn-primary mb-3"
+              :aria-expanded="Boolean(expandedReplies[post._id])"  
+              @click="expandedReplies[post._id] = !expandedReplies[post._id]"
+            > <!--expandedReplies stores a boolean for each post  hide or show content on the click of a button -->
+              {{ expandedReplies[post._id] ? 'Hide replies' : 'Show replies' }}
+              <!--if expandedReplies[post._id] is true , show all replies while button becomes hide replies -->
+            </button>
+          </div>
 
-          <div v-for="reply in post.replies" :key="reply._id" class="reply">
-            <p>{{ reply.content }}</p>
-            <p class="post-info">
-              By {{ authorName(reply.authorId) }}
-              on {{ formatDate(reply.createdAt) }}
-            </p>
+          <div v-if="expandedReplies[post._id]">
+            <div v-for="reply in post.replies" :key="reply._id" class="reply">
+              <p>{{ reply.content }}</p>
+              <p class="post-info">
+                By {{ authorName(reply.authorId) }}
+                on {{ formatDate(reply.createdAt) }}
+              </p>
 
-            <form
-              v-if="editingReplyId === reply._id"
-              @submit.prevent="saveReply(post, reply)"
-            >
-              <label :for="`edit-reply-${reply._id}`">Edit reply</label>
-              <textarea
-                :id="`edit-reply-${reply._id}`"
-                v-model="editingReplyContent"
-                maxlength="2000"
-                rows="3"
-                required
-              ></textarea>
-              <button class="btn btn-primary mb-3" type="submit">Save reply</button>
-              <button class="btn btn-primary mb-3" type="button" @click="cancelReplyEdit">Cancel</button>
-            </form>
+              <form
+                v-if="editingReplyId === reply._id"
+                @submit.prevent="saveReply(post, reply)"
+              >
+                <label :for="`edit-reply-${reply._id}`">Edit reply</label>
+                <textarea
+                  :id="`edit-reply-${reply._id}`"
+                  v-model="editingReplyContent"
+                  maxlength="2000"
+                  rows="3"
+                  required
+                ></textarea>
+                <button class="btn btn-primary mb-3" type="submit">Save reply</button>
+                <button class="btn btn-primary mb-3" type="button" @click="cancelReplyEdit">Cancel</button>
+              </form>
 
-            <div v-else-if="auth.isLoggedIn && canEdit(reply.authorId)">
-              <button type="button" class="btn btn-primary mb-3" @click="editReply(reply)">Edit reply</button>
-              <button type="button" class="btn btn-primary mb-3" @click="deleteReply(post, reply)">Delete reply</button>
+              <div v-else-if="auth.isLoggedIn && canEdit(reply.authorId)">
+                <button type="button" class="btn btn-primary mb-3" @click="editReply(reply)">Edit reply</button>
+                <button type="button" class="btn btn-primary mb-3" @click="deleteReply(post, reply)">Delete reply</button>
+              </div>
             </div>
           </div>
 
@@ -462,61 +607,24 @@ function formatDate(date) {
       </article>
     </section>
 
-    <div
+    <DeleteDialog
       v-if="postToDelete"
-      class="delete-dialog-backdrop"
-      @click.self="cancelDeletePost"
-    >
-      <section
-        class="delete-dialog"
-        role="alertdialog"
-        aria-modal="true"
-        aria-labelledby="delete-dialog-title"
-        aria-describedby="delete-dialog-message"
-      >
-        <header class="delete-dialog-header">
-          <span aria-hidden="true">🗑</span>
-          <h2 id="delete-dialog-title">Confirm Deletion</h2>
-          <button
-            type="button"
-            class="close-button"
-            :disabled="deletingPost"
-            aria-label="Close confirmation"
-            @click="cancelDeletePost"
-          >
-            ×
-          </button>
-        </header>
-        <div class="delete-dialog-body">
-          <p id="delete-dialog-message" class="delete-warning">
-            <span class="warning-icon" aria-hidden="true">!</span>
-            <span>Are you sure you want to delete this DIY post? This action cannot be undone.</span>
-          </p>
-          <p class="delete-dialog-note">
-            Note: Deleting will permanently erase this topic and all associated replies.
-          </p>
-        </div>
-        <footer class="delete-dialog-actions">
-          <button
-            type="button"
-            class="btn btn-secondary"
-            :disabled="deletingPost"
-            autofocus
-            @click="cancelDeletePost"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            class="btn btn-success"
-            :disabled="deletingPost"
-            @click="confirmDeletePost"
-          >
-            {{ deletingPost ? 'Deleting...' : '✓ Yes, Delete Post' }}
-          </button>
-        </footer>
-      </section>
-    </div>
+      message="Are you sure you want to delete this DIY post? This action cannot be undone."
+      note="Note: Deleting will permanently erase this post and all associated replies."
+      confirmLabel="✓ Yes, Delete Post"
+      :busy="deletingPost"
+      @cancel="cancelDeletePost"
+      @confirm="confirmDeletePost"
+    />
+    <DeleteDialog
+      v-if="replyToDelete"
+      message="Are you sure you want to delete this reply? This action cannot be undone."
+      note="Note: Deleting will permanently erase this reply."
+      confirmLabel="✓ Yes, Delete Reply"
+      :busy="deletingReply"
+      @cancel="cancelDeleteReply"
+      @confirm="confirmDeleteReply"
+    />
   </main>
 </template>
 
@@ -537,94 +645,6 @@ function formatDate(date) {
 
 .forum-header h1 {
   margin-top: 0;
-}
-
-.delete-dialog-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 1050;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  background: rgba(0, 0, 0, 0.5);
-}
-
-.delete-dialog {
-  width: 100%;
-  max-width: 440px;
-  overflow: hidden;
-  border: 3px solid #c8201c;
-  border-radius: 8px;
-  background: #fff1f0;
-}
-
-.delete-dialog-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px;
-  background: #c8201c;
-  color: white;
-}
-
-.delete-dialog-header h2 {
-  flex: 1;
-  margin: 0;
-  font-size: 18px;
-}
-
-.close-button {
-  margin: 0;
-  padding: 0 4px;
-  border: 0;
-  background: transparent;
-  color: white;
-  font-size: 24px;
-}
-
-.delete-dialog-body {
-  padding: 16px;
-  background: #fff1f0;
-}
-
-.delete-warning {
-  display: flex;
-  gap: 10px;
-  margin: 0;
-  padding: 12px;
-  border: 1px solid #f0a8a5;
-  border-radius: 6px;
-  background: #fff1f0;
-  color: #244b38;
-  font-size: 14px;
-}
-
-.warning-icon {
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  background: #a31916;
-  color: white;
-  text-align: center;
-  font-weight: bold;
-}
-
-.delete-dialog-note {
-  margin: 12px 0 0;
-  color: #68758a;
-  font-size: 12px;
-  font-style: italic;
-}
-
-.delete-dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  padding: 12px 16px;
-  border-top: 1px solid #f0a8a5;
-  background: #fee2e2;
 }
 
 .forum-section,
@@ -676,8 +696,7 @@ function formatDate(date) {
   margin: 0;
 }
 
-.popular-searches,
-.category-radio-options {
+.popular-searches {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -695,27 +714,6 @@ function formatDate(date) {
 
 .popular-searches .active-category {
   background: #fbd000;
-}
-
-.post-form .category-radio-option {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0;
-  padding: 8px 12px;
-  border: 2px solid #1a1a2e;
-  border-radius: 20px;
-  background: white;
-  font-family: var(--font-display);
-  font-size: 0.9rem;
-  cursor: pointer;
-}
-
-.category-radio-option input[type='radio'] {
-  display: inline-block;
-  width: auto;
-  margin: 0;
-  padding: 0;
 }
 
 form label {
@@ -737,6 +735,49 @@ textarea {
   margin-bottom: 12px;
   padding: 10px;
   width: 100%;
+}
+
+.post-image-upload {
+  margin-bottom: 12px;
+}
+
+.post-image-upload input[type='file'] {
+  margin-bottom: 4px;
+}
+
+.post-image-upload .choose-image-button {
+  display: inline-flex;
+  width: auto;
+  margin: 0 6px 12px 0;
+  font-size: 1rem;
+}
+
+.post-image-note {
+  color: #526159;
+  font-size: 0.9rem;
+}
+
+.selected-post-image {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.post-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.post-images img {
+  max-width: 100%;
+  max-height: 320px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  object-fit: contain;
 }
 
 textarea {

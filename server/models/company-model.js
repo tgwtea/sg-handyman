@@ -1,15 +1,8 @@
-// const mongoose = require('mongoose');
-import { Int32 } from 'mongodb';
 import mongoose from 'mongoose';
 
 const companyModel = {};
 
 const companySchema = new mongoose.Schema({
-  // userId: {
-  //   type: mongoose.Schema.Types.ObjectId,
-  //   ref: 'User',
-  //   required: [true, 'Must have userId']
-  // },
   name: {
     type: String,
     default: ''
@@ -51,6 +44,11 @@ const companySchema = new mongoose.Schema({
   isPubLicensed: {
     type: Boolean,
     default: null
+  },
+  // coordinates of the address; the seed geocodes them one time with OneMap
+  location: {
+    lat: { type: Number },
+    lng: { type: Number }
   }
 });
 

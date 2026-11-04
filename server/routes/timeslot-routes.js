@@ -6,6 +6,8 @@ import { requireRole } from '../middleware/auth.js';
 
 // public: each company's earliest free slot
 router.get('/next-free', timeslotController.getNextFreeTimeslots);
+// public: the same, nearest company first; POST keeps the location out of the URL
+router.post('/next-free/near', timeslotController.getNearbyFreeTimeslots);
 
 // the controller also checks that the user manages the timeslot's company
 router.post('/', requireRole('business', 'admin'), timeslotController.createTimeslot);

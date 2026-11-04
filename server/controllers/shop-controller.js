@@ -1,3 +1,4 @@
+import { validateItems, validateProduct } from '../utils/shop-validation.js';
 import { canManageCompany } from '../middleware/auth.js';
 import Shop from '../models/shop-model.js';
 import User from '../models/user-model.js';
@@ -7,7 +8,7 @@ import Product from '../models/product-model.js';
 const shopController = {};
 
 
-// Return our sample tools. We will read from MongoDB in a later step.
+// Return the active catalogue.
 shopController.getProducts = async (req, res) => {
   try{
     const tools = await Product.findProducts();
@@ -22,17 +23,6 @@ shopController.getProducts = async (req, res) => {
   }
 };
 
-function validateProductDetails(body) {
-  if (body.description !== undefined && (typeof body.description !== 'string' || body.description.trim().length > 1000)) return 'Keep the description within 1000 characters.';
-  if (body.specifications !== undefined && (typeof body.specifications !== 'string' || body.specifications.trim().length > 500)) return 'Keep the specifications within 500 characters.';
-  if (body.imageUrl !== undefined) {
-    if (typeof body.imageUrl !== 'string' || body.imageUrl.trim().length > 500) return 'Enter an image link of at most 500 characters.';
-    const url = body.imageUrl.trim();
-    if (url && !url.startsWith('https://') && !url.startsWith('http://')) return 'Use an http:// or https:// image link.';
-  }
-  return '';
-}
-
 shopController.createProduct = async (req, res) => {
   let companyId = req.session.user.companyId;
     if (req.session.user.role === 'admin') {
@@ -44,15 +34,9 @@ shopController.createProduct = async (req, res) => {
   if (!companyId) {
     return res.status(403).json({ message: 'Your account must be linked to a company.' });
   }
-  if (!req.body || typeof req.body.name !== 'string' || !req.body.name.trim() || req.body.name.trim().length > 100) {
-    return res.status(400).json({ message: 'Enter a product name of at most 100 characters.' });
-  }
-  const price = req.body.price;
-  if (typeof price !== 'number' || !(price >= 0 && price <= 1000000) || Math.round(price * 100) / 100 !== price) {
-    return res.status(400).json({ message: 'Enter a price from $0 to $1,000,000 with at most two decimal places.' });
-  }
-  const detailError = validateProductDetails(req.body);
+  const detailError = validateProduct(req.body);
   if (detailError) return res.status(400).json({ message: detailError });
+  const price = req.body.price;
   try {
     const company = await Company.findCompanyById(companyId);
     if (!company) return res.status(404).json({ message: 'Your company could not be found.' });
@@ -87,19 +71,13 @@ shopController.createProduct = async (req, res) => {
   }
 };
 
-// Update only name and price; company ownership and product ID cannot be changed.
+// Edit product details without changes to ownership or product ID.
 shopController.updateProduct = async (req, res) => {
   const id = Number(req.params.id);
   if (!(id >= 1) || id % 1 !== 0) return res.status(400).json({ message: 'Invalid product ID.' });
-  if (!req.body || typeof req.body.name !== 'string' || !req.body.name.trim() || req.body.name.trim().length > 100) {
-    return res.status(400).json({ message: 'Enter a product name of at most 100 characters.' });
-  }
-  const price = req.body.price;
-  if (typeof price !== 'number' || !(price >= 0 && price <= 1000000) || Math.round(price * 100) / 100 !== price) {
-    return res.status(400).json({ message: 'Enter a price from $0 to $1,000,000 with at most two decimal places.' });
-  }
-  const detailError = validateProductDetails(req.body);
+  const detailError = validateProduct(req.body);
   if (detailError) return res.status(400).json({ message: detailError });
+  const price = req.body.price;
   try {
     const product = await Product.findProductById(id);
     if (!product || product.removed) return res.status(404).json({ message: 'This product is no longer available.' });
@@ -166,10 +144,8 @@ shopController.createOrder = async (req, res) => {
     }
     deliveryNote = req.body.deliveryNote.trim();
   }
-  //check cart got thing or not
-  if (!Array.isArray(req.body.items) || req.body.items.length === 0) {
-    return res.status(400).json({ message: 'Your cart is empty.' });
-  }
+  const itemError = validateItems(req.body.items);
+  if (itemError) return res.status(400).json({ message: itemError });
 
 
   try{
@@ -178,11 +154,6 @@ shopController.createOrder = async (req, res) => {
   const purchasedItems = []
   const packages = []
   for (const item of req.body.items) {
-    //check whether number of item is valid
-    if (!item || typeof item.quantity !== 'number' || item.quantity < 1 || item.quantity % 1 !== 0) {
-      return res.status(400).json({ message: 'Each quantity must be a positive whole number.' });
-    }
-    
     //make selectedtool undefined first
     let selectedTool;
     for (const tool of tools) {
@@ -203,10 +174,6 @@ shopController.createOrder = async (req, res) => {
       if (!existingPackage) {
         const company = companyId ? await Company.findCompanyById(companyId) : null;
         packages.push({ companyId: companyId, companyName: company ? company.name : 'Unassigned seller', extraSeconds: 0 });
-      }
-      // Reject duplicate rows so one product can be managed without ambiguity.
-      for (const savedItem of purchasedItems) {
-        if (savedItem.id === item.id) return res.status(400).json({ message: 'Each tool should appear once.' });
       }
     // Use the server price, rather than a price sent by the browser.
     total += selectedTool.price * item.quantity;
@@ -282,24 +249,17 @@ shopController.getCart = async (req, res) => {
 
 // An empty array is valid, save shop cart, still checking 
 shopController.saveCart = async (req, res) => {
-  if (!req.body || !Array.isArray(req.body.items)) {
-    return res.status(400).json({ message: 'Send a valid list of cart items.' });
-  }
+  const invalid = validateItems(req.body?.items, true);
+  if (invalid) return res.status(400).json({ message: invalid });
   try{
   const tools = await Product.findProducts();
   const items = [];
   for (const item of req.body.items) {
-    if (!item || typeof item.quantity !== 'number' || item.quantity < 1 || item.quantity % 1 !== 0 || item.quantity > 10000) {
-      return res.status(400).json({ message: 'Each quantity must be a positive whole number.' });
-    }
     let selectedTool;
     for (const tool of tools) {
       if (tool.id === item.id) selectedTool = tool;
     }
     if (!selectedTool || selectedTool.removed) return res.status(400).json({ message: 'A tool is unavailable.' });
-    for (const savedItem of items) {
-      if (savedItem.id === item.id) return res.status(400).json({ message: 'Each tool should appear once.' });
-    }
     items.push({ id: selectedTool.id, name: selectedTool.name, price: selectedTool.price, quantity: item.quantity });
   }
   
