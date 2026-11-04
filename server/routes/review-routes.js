@@ -6,6 +6,7 @@ import { requireLogin, requireRole } from '../middleware/auth.js';
 
 router.get('/summary', reviewController.getReviewSummaries);
 router.get('/company/:companyId', reviewController.getCompanyReviews);
+router.get('/:reviewId/image', reviewController.getReviewImage);
 router.post('/company/:companyId', requireRole('customer'), reviewController.createReview);
 router.put('/:reviewId', requireRole('customer'), reviewController.updateReview);
 router.delete('/:reviewId', requireLogin, reviewController.deleteReview);

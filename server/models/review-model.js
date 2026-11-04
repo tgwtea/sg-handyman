@@ -2,6 +2,22 @@ import mongoose from 'mongoose';
 
 const reviewModel = {};
 
+// one optional photo, stored in the review like the images on forum posts
+const imageSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true
+  },
+  data: {
+    type: Buffer,
+    required: true
+  },
+  mimetype: {
+    type: String,
+    required: true
+  }
+});
+
 const reviewSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -28,6 +44,7 @@ const reviewSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  image: imageSchema,
   createdAt: {
     type: Date,
     default: Date.now
@@ -47,8 +64,10 @@ reviewModel.deleteAllReviews = function() {
   return Review.deleteMany({});
 };
 
+// leaves out the photo data, which GET /reviews/:reviewId/image sends separately
 reviewModel.findReviewsByCompanyId = function(companyId) {
   return Review.find({ companyId })
+    .select('-image.data')
     .populate('userId', 'username')
     .sort({ createdAt: -1 });
 };
@@ -78,6 +97,10 @@ reviewModel.findReviewSummaries = function() {
 
 reviewModel.findReviewById = function(reviewId) {
   return Review.findById(reviewId);
+};
+
+reviewModel.findReviewImage = function(reviewId) {
+  return Review.findById(reviewId).select('image');
 };
 
 reviewModel.findReviewByBookingId = function(bookingId) {
