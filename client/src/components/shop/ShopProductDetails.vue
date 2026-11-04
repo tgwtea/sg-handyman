@@ -1,9 +1,9 @@
 <script setup>
 // Purpose: product details dialog, quantity selection and purchaser review controls.
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
-import api from '@/api'
-import ShopConfirmDialog from './ShopConfirmDialog.vue'
+import api, { errorMessage } from '@/api'
+import DeleteDialog from '@/components/DeleteDialog.vue'
 import ShopRatingSummary from './ShopRatingSummary.vue'
 import { useAuthStore } from '@/stores/auth'
 
@@ -28,7 +28,6 @@ const rating = ref(0)
 const comment = ref('')
 const editingReview = ref(false)
 const confirmDelete = ref(false)
-let active = true
 
 const averageRating = computed(() => {
   if (reviews.value.length === 0) return 0
@@ -75,14 +74,13 @@ async function loadReviews() {
   loadError.value = ''
   try {
     const response = await api.get('/shop/products/' + props.tool.id + '/reviews')
-    if (!active) return
     reviews.value = response.data.reviews
     purchased.value = response.data.purchased
     canReview.value = response.data.canReview
   } catch {
-    if (active) loadError.value = 'Could not load reviews. Please retry.'
+    loadError.value = 'Could not load reviews. Please retry.'
   } finally {
-    if (active) loading.value = false
+    loading.value = false
   }
 }
 
@@ -123,15 +121,14 @@ async function saveReview() {
     const details = { rating: rating.value, comment: comment.value }
     if (wasEditing) await api.put('/shop/products/' + props.tool.id + '/reviews', details)
     else await api.post('/shop/products/' + props.tool.id + '/reviews', details)
-    if (!active) return
     resetReviewForm()
     await loadReviews()
     reviewMessage.value = wasEditing ? 'Review updated.' : 'Review added.'
     emit('reviews-changed')
   } catch (error) {
-    if (active) reviewMessage.value = error.response ? error.response.data.message : 'Could not save your review. Please retry.'
+    reviewMessage.value = errorMessage(error)
   } finally {
-    if (active) reviewBusy.value = false
+    reviewBusy.value = false
   }
 }
 
@@ -141,32 +138,38 @@ async function deleteReview() {
   reviewMessage.value = ''
   try {
     await api.delete('/shop/products/' + props.tool.id + '/reviews')
-    if (!active) return
     confirmDelete.value = false
     resetReviewForm()
     await loadReviews()
     reviewMessage.value = 'Review deleted.'
     emit('reviews-changed')
   } catch {
-    if (active) reviewMessage.value = 'Could not delete your review. Please retry.'
+    confirmDelete.value = false
+    reviewMessage.value = 'Could not delete your review. Please retry.'
   } finally {
-    if (active) reviewBusy.value = false
+    reviewBusy.value = false
   }
 }
 
 // Let a review write finish before closing; Escape works normally otherwise.
 
+// DeleteDialog is regular markup inside this native product dialog.
+// Escape cancels the confirmation first; it does not close the whole product view.
+function cancelProductDialog(event) {
+  if (confirmDelete.value || reviewBusy.value) {
+    event.preventDefault()
+    if (!reviewBusy.value) confirmDelete.value = false
+  }
+}
+
 onMounted(() => {
   productDialog.value.showModal()
   loadReviews()
 })
-onUnmounted(() => {
-  active = false
-})
 </script>
 
 <template>
-  <dialog ref="productDialog" class="product-details" aria-labelledby="product-details-title" @close="emit('close')">
+  <dialog ref="productDialog" class="product-details" aria-labelledby="product-details-title" @close="emit('close')" @cancel="cancelProductDialog">
     <header class="details-header d-flex justify-content-between align-items-center gap-3 p-3 p-md-4">
       <div><p class="details-eyebrow small mb-1">DIY TOOL DETAILS</p><h2 id="product-details-title" class="h4 mb-0">{{ tool.name }}</h2></div>
       <button type="button" class="btn btn-outline-secondary btn-sm" :disabled="reviewBusy" @click="productDialog.close()" aria-label="Close product details">Close</button>
@@ -179,7 +182,7 @@ onUnmounted(() => {
     <div v-show="!imageExpanded" class="p-3 p-md-4">
       <div class="row g-4 mb-4">
         <div class="col-md-5">
-          <button v-if="tool.imageUrl" type="button" class="photo-button" :aria-label="'Enlarge photo of ' + tool.name" @click="imageExpanded = true"><img :src="tool.imageUrl" :alt="tool.name" class="product-photo" /></button>
+          <button v-if="tool.imageUrl" type="button" class="photo-button d-block w-100 p-3 border rounded bg-white shadow-none" :aria-label="'Enlarge photo of ' + tool.name" @click="imageExpanded = true"><img :src="tool.imageUrl" :alt="tool.name" class="product-photo" /></button>
           <div v-else class="product-photo border rounded d-flex align-items-center justify-content-center text-muted">No product photo yet</div>
           <p v-if="tool.imageUrl" class="small text-muted text-center mt-2 mb-0">Click photo to enlarge</p>
         </div>
@@ -187,7 +190,7 @@ onUnmounted(() => {
           <p class="small text-muted mb-1">PRICE (SGD)</p><p class="h3 mb-2">S${{ tool.price.toFixed(2) }}</p>
           <p class="small mb-3"><strong>Sold by:</strong> {{ companyName }}</p>
           <p class="product-description">{{ tool.description || 'No description added yet.' }}</p>
-          <div class="specifications-box border rounded p-3 mb-3"><h3 class="h6">Specifications</h3><p class="product-specifications small mb-0">{{ tool.specifications || 'No specifications added yet.' }}</p></div>
+          <div class="specifications-box bg-white border rounded p-3 mb-3"><h3 class="h6">Specifications</h3><p class="product-specifications small mb-0">{{ tool.specifications || 'No specifications added yet.' }}</p></div>
           <form class="border-top pt-3" @submit.prevent="addSelectedQuantity">
             <label for="details-quantity" class="form-label">Quantity</label>
             <div class="row g-2 align-items-end"><div class="col-4"><input id="details-quantity" v-model.number="quantity" type="number" min="1" max="10000" step="1" class="form-control" required /></div><div class="col-8"><button type="submit" class="btn btn-primary w-100" :disabled="cartDisabled">Add to cart</button></div></div>
@@ -205,12 +208,12 @@ onUnmounted(() => {
             <div class="col-sm-6"><label for="review-sort" class="form-label small">Sort reviews</label><select id="review-sort" v-model="reviewSort" class="form-select"><option value="newest">Newest first</option><option value="highest">Highest rating</option><option value="lowest">Lowest rating</option></select></div>
           </div>
           <p v-if="visibleReviews.length === 0">No reviews match this selection.</p>
-          <article v-for="review in visibleReviews" :key="review._id" class="review-card border rounded p-3 mb-3" :class="{ 'own-review': review.mine }">
+          <article v-for="review in visibleReviews" :key="review._id" class="review-card bg-white border rounded p-3 mb-3" :class="{ 'own-review': review.mine }">
             <div class="d-flex flex-wrap justify-content-between gap-2 mb-2"><strong>{{ review.username }}</strong><span class="small"><span class="text-warning">{{ ratingStars(review.rating) }}</span> <strong>{{ review.rating.toFixed(2) }}</strong></span></div>
             <span class="badge bg-success mb-2">Verified purchase</span><span v-if="review.mine" class="badge bg-primary ms-2 mb-2">Your review</span>
         <form v-if="review.mine && editingReview" class="border rounded p-3" @submit.prevent="saveReview">
           <fieldset :disabled="reviewBusy">
-            <legend class="h5">{{ editingReview ? 'Edit your review' : 'Write a review' }}</legend>
+            <legend class="h5">Edit your review</legend>
             <p id="star-rating-label" class="mb-1">Your rating</p>
             <div class="d-flex flex-wrap gap-1 mb-2" role="group" aria-labelledby="star-rating-label">
               <button v-for="star in 5" :key="star" type="button" class="btn btn-sm" :class="star <= rating ? 'btn-warning' : 'btn-outline-secondary'" :aria-label="'Rate ' + star + ' stars'" :aria-pressed="rating === star" @click="rating = star">★</button>
@@ -220,8 +223,8 @@ onUnmounted(() => {
             <textarea id="product-review-comment" v-model="comment" class="form-control" rows="3" maxlength="1000" required></textarea>
             <p class="small">{{ comment.length }} / 1000 characters</p>
             <div class="d-flex flex-wrap gap-2">
-              <button type="submit" class="btn btn-primary">{{ reviewBusy ? 'Saving review...' : editingReview ? 'Save review changes' : 'Submit review' }}</button>
-              <button v-if="editingReview" type="button" class="btn btn-outline-secondary" @click="resetReviewForm">Cancel review edit</button>
+              <button type="submit" class="btn btn-primary">{{ reviewBusy ? 'Saving review...' : 'Save review changes' }}</button>
+              <button type="button" class="btn btn-outline-secondary" @click="resetReviewForm">Cancel review edit</button>
             </div>
           </fieldset>
         </form>
@@ -235,7 +238,7 @@ onUnmounted(() => {
           <p v-else-if="!purchased" class="small">Purchase this product before writing a review.</p>
         <form v-if="canReview && !editingReview && auth.isLoggedIn" class="border rounded p-3" @submit.prevent="saveReview">
           <fieldset :disabled="reviewBusy">
-            <legend class="h5">{{ editingReview ? 'Edit your review' : 'Write a review' }}</legend>
+            <legend class="h5">Write a review</legend>
             <p id="star-rating-label" class="mb-1">Your rating</p>
             <div class="d-flex flex-wrap gap-1 mb-2" role="group" aria-labelledby="star-rating-label">
               <button v-for="star in 5" :key="star" type="button" class="btn btn-sm" :class="star <= rating ? 'btn-warning' : 'btn-outline-secondary'" :aria-label="'Rate ' + star + ' stars'" :aria-pressed="rating === star" @click="rating = star">★</button>
@@ -245,8 +248,7 @@ onUnmounted(() => {
             <textarea id="product-review-comment" v-model="comment" class="form-control" rows="3" maxlength="1000" required></textarea>
             <p class="small">{{ comment.length }} / 1000 characters</p>
             <div class="d-flex flex-wrap gap-2">
-              <button type="submit" class="btn btn-primary">{{ reviewBusy ? 'Saving review...' : editingReview ? 'Save review changes' : 'Submit review' }}</button>
-              <button v-if="editingReview" type="button" class="btn btn-outline-secondary" @click="resetReviewForm">Cancel review edit</button>
+              <button type="submit" class="btn btn-primary">{{ reviewBusy ? 'Saving review...' : 'Submit review' }}</button>
             </div>
           </fieldset>
         </form>
@@ -255,21 +257,19 @@ onUnmounted(() => {
         <p v-if="reviewMessage" class="mt-2 small" role="status">{{ reviewMessage }}</p>
       </section>
     </div>
-    <ShopConfirmDialog v-if="confirmDelete" title="Confirm deletion" message="Are you sure you want to delete your product review?" note="Your rating and comment will be permanently deleted. This cannot be undone." confirm-label="✓ Yes, Delete Review" :busy="reviewBusy" @cancel="confirmDelete = false" @confirm="deleteReview" />
+    <DeleteDialog v-if="confirmDelete" message="Are you sure you want to delete your product review?" note="Your rating and comment will be permanently deleted. This cannot be undone." confirm-label="✓ Yes, Delete Review" :busy="reviewBusy" @cancel="!reviewBusy && (confirmDelete = false)" @confirm="deleteReview" />
   </dialog>
 </template>
 
 <style scoped>
 .product-details { padding: 0; width: min(960px, calc(100vw - 2rem)); max-height: 90vh; border: var(--line); border-radius: var(--radius); background: var(--cream); color: var(--ink); }
 .product-details::backdrop { background: rgba(0, 0, 0, 0.55); }
-.details-header { background: var(--ink); color: white; border-bottom: 5px solid #ffd600; }
-.details-header .btn { background: white; }
-.details-eyebrow { color: #ffd600; letter-spacing: 0.08em; }
-.photo-button { display: block; width: 100%; padding: 12px; border: 1px solid #d6cba9; border-radius: 8px; box-shadow: none; background: white; cursor: zoom-in; }
+.details-header { background: var(--ink); color: var(--white); border-bottom: 5px solid var(--coin); }
+.details-eyebrow { color: var(--coin); letter-spacing: 0.08em; }
+.photo-button { cursor: zoom-in; }
 .product-photo { width: 100%; height: 260px; object-fit: contain; }
-.enlarged-photo { display: block; width: 100%; height: 65vh; object-fit: contain; background: white; }
-.specifications-box, .review-card { background: #fffdf5; }
-.own-review { border-left: 5px solid #d6a600 !important; }
+.enlarged-photo { display: block; width: 100%; height: 65vh; object-fit: contain; background: var(--white); }
+.own-review { border-left: 5px solid var(--coin) !important; }
 .product-description { line-height: 1.7; }
 .product-specifications, .review-comment { white-space: pre-wrap; overflow-wrap: anywhere; }
 </style>

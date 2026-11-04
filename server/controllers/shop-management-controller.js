@@ -1,17 +1,22 @@
-// Purpose: company package delays/item rejections and admin order inspection/rejection.
+// Purpose: whole-order cancellation and personal order removal.
 import Shop from '../models/shop-model.js';
 const management = {};
 
 
-function hasArrived(order, parcel) {
-  const seconds = order.deliveryDurationSeconds + parcel.extraSeconds;
-  return Date.now() >= new Date(order.createdAt).getTime() + seconds * 1000;
-}
-function hasRemainingItems(order, companyId) {
+// The earliest remaining package arrival is the cancellation deadline for the whole order.
+function cancellationDeadline(order) {
+  if (!order.packages.length || !order.deliveryDurationSeconds) return 0;
+  let deadline = 0;
   for (const item of order.items) {
-    if (item.companyId === companyId && !item.rejected) return true;
+    if (item.rejected) continue;
+    let extraSeconds = 0;
+    for (const parcel of order.packages) {
+      if (parcel.companyId === item.companyId) extraSeconds = parcel.extraSeconds;
+    }
+    const finish = new Date(order.createdAt).getTime() + (order.deliveryDurationSeconds + extraSeconds) * 1000;
+    if (deadline === 0 || finish < deadline) deadline = finish;
   }
-  return false;
+  return deadline;
 }
 function validReason(body) {
   return body && typeof body.reason === 'string' && body.reason.trim().length > 0 && body.reason.trim().length <= 300;
@@ -38,6 +43,7 @@ management.getOrders = async (req, res) => {
     const result = [];
     
     for (const order of orders) {
+      if (order.hiddenFor.includes(String(user._id))) continue;
       const items = [];
       const packages = [];
       const updates = [];
@@ -49,95 +55,57 @@ management.getOrders = async (req, res) => {
         }
       }
       for (const parcel of order.packages) if (parcel.companyId === String(user.companyId)) packages.push(parcel);
-      for (const update of order.updates) if (update.companyId === String(user.companyId)) updates.push(update);
+      for (const update of order.updates) if (update.companyId === String(user.companyId) || update.companyId === '') updates.push(update);
       result.push({ _id: order._id, recipientName: order.recipientName, deliveryAddress: order.deliveryAddress,
         deliveryNote: order.deliveryNote, createdAt: order.createdAt, deliveryDurationSeconds: order.deliveryDurationSeconds,
-        items: items, packages: packages, updates: updates, total: total });
+        items: items, packages: packages, updates: updates, total: total, cancelUntil: cancellationDeadline(order) });
     }
     res.json(result);
   } catch (error) { sendError(error, res); }
 };
 
-management.delayPackage = async (req, res) => {
-  if (!validReason(req.body)) return res.status(400).json({ message: 'Give a reason of 1–300 characters.' });
-  const minutes = req.body.minutes;
-  if (typeof minutes !== 'number' || !(minutes >= 1 && minutes <= 60) || minutes % 1 !== 0) {
-    return res.status(400).json({ message: 'Add 1–60 whole minutes.' });
-  }
-  try {
-    const order = await Shop.findOrderById(req.params.id);
-    if (!order) return res.status(404).json({ message: 'Order not found.' });
-    let parcel;
-    for (const item of order.packages) if (item.companyId === String(req.session.user.companyId)) parcel = item;
-    if (!parcel) return res.status(403).json({ message: 'This is not your company package.' });
-    if (!hasRemainingItems(order, parcel.companyId) || hasArrived(order, parcel)) {
-      return res.status(409).json({ message: 'This package is already delivered or fully rejected.' });
-    }
-    parcel.extraSeconds += minutes * 60;
-    order.updates.push({ companyId: parcel.companyId, message: parcel.companyName + ' delayed its package by ' + minutes + ' minutes: ' + req.body.reason.trim() });
-    const result = await Shop.saveManagement(order);
-    if (result.matchedCount === 0) return res.status(404).json({ message: 'Order not found.' });
-    res.json({ message: 'Package delayed. All its remaining items share the new arrival time.' });
-  } catch (error) { 
-    sendError(error, res);
-  }
-};
-
-management.rejectItem = async (req, res) => {
+// All cancellations now apply to the WHOLE order, regardless of which company starts it.
+management.cancelOrder = async (req, res) => {
   if (!validReason(req.body)) return res.status(400).json({ message: 'Give a reason of 1–300 characters.' });
   try {
     const order = await Shop.findOrderById(req.params.id);
     if (!order) return res.status(404).json({ message: 'Order not found.' });
-    let selected;
-    for (const item of order.items) if (item.id === Number(req.params.productId)) selected = item;
-    if (!selected || selected.companyId !== String(req.session.user.companyId)) {
-      return res.status(403).json({ message: 'You may reject only your own company items.' });
-    }
-    let parcel;
-    for (const item of order.packages) if (item.companyId === selected.companyId) parcel = item;
-    if (!parcel || selected.rejected || hasArrived(order, parcel)) {
-      return res.status(409).json({ message: 'This item is already delivered or rejected.' });
-    }
-    selected.rejected = true;
-    selected.rejectionReason = req.body.reason.trim();
-    order.updates.push({ companyId: parcel.companyId, message: parcel.companyName + ' rejected ' + selected.name + ' (all ' + selected.quantity + '): ' + selected.rejectionReason });
-    const result = await Shop.saveManagement(order);
-    if (result.matchedCount === 0) return res.status(404).json({ message: 'Order not found.' });
-    res.json({ message: 'Item rejected. Other items keep their delivery time.' });
-  } catch (error) { sendError(error, res); }
-};
-
-management.rejectOrder = async (req, res) => {
-  if (!validReason(req.body)) return res.status(400).json({ message: 'Give a reason of 1–300 characters.' });
-  try {
-    const order = await Shop.findOrderById(req.params.id);
-    if (!order) return res.status(404).json({ message: 'Order not found.' });
-    if (!order.packages.length) return res.status(409).json({ message: 'This older order has no package records and is read-only.' });
-    let remaining = false;
-    for (const parcel of order.packages) {
-      if (hasRemainingItems(order, parcel.companyId)) {
-        remaining = true;
-        if (hasArrived(order, parcel)) return res.status(409).json({ message: 'An active package is already delivered; the whole order cannot be rejected.' });
+    const user = req.session.user;
+    let allowed = user.role === 'admin' || String(order.userId) === String(user._id);
+    if (user.role === 'business' && user.companyId) {
+      for (const parcel of order.packages) {
+        if (parcel.companyId === String(user.companyId)) allowed = true;
       }
     }
-    if (!remaining) return res.status(409).json({ message: 'The order is already fully rejected.' });
-    for (const parcel of order.packages) {
-      if (hasRemainingItems(order, parcel.companyId)) {
-        order.updates.push({ companyId: parcel.companyId, message: 'Admin rejected the remaining items in ' + parcel.companyName + "'s package: " + req.body.reason.trim() });
-      }
+    if (!allowed) return res.status(403).json({ message: 'You may cancel only your own order or an order involving your company.' });
+    if (!order.packages.length || !order.deliveryDurationSeconds) {
+      return res.status(409).json({ message: 'This older order has no complete delivery timing and cannot be cancelled.' });
     }
+    const deadline = cancellationDeadline(order);
+    if (!deadline) return res.status(409).json({ message: 'This order is already cancelled.' });
+    if (Date.now() >= deadline) return res.status(409).json({ message: 'A package has already arrived. This order can no longer be cancelled.' });
+    let actor = 'Customer';
+    if (user.role === 'admin') actor = 'Admin';
+    else if (user.role === 'business') actor = 'Company';
+    const reason = req.body.reason.trim();
     for (const item of order.items) {
-      if (!item.rejected) { item.rejected = true; item.rejectionReason = req.body.reason.trim(); }
+      if (!item.rejected) {
+        item.rejected = true;
+        item.rejectionReason = 'Cancelled by ' + actor.toLowerCase() + '. Reason: ' + reason;
+      }
     }
+    // Empty companyId marks an order-wide update, visible to every participating company.
+    order.updates.push({ companyId: '', message: actor + ' cancelled the whole order: ' + reason });
     const result = await Shop.saveManagement(order);
     if (result.matchedCount === 0) return res.status(404).json({ message: 'Order not found.' });
-    res.json({ message: 'Order rejected. Its history is retained.' });
+    res.json({ message: 'Order cancelled. All companies’ remaining deliveries have stopped.' });
   } catch (error) { sendError(error, res); }
 };
 // A completed order has no travelling, non-rejected items.
 // No timing information means we cannot confirm completion for that older order.
-function orderFinished(order) {
+function orderFinished(order, companyId = '') {
   for (const item of order.items) {
+    if (companyId && item.companyId !== companyId) continue;
     if (item.rejected) continue;
     if (!order.deliveryDurationSeconds) return false;
     let extraSeconds = 0;
@@ -150,16 +118,22 @@ function orderFinished(order) {
   return true;
 }
 
-// The route allows customers/admins; the controller also checks ownership and completion.
+// Removal hides a completed record only for this account; company ownership is checked too.
 management.hideOrder = async (req, res) => {
   try {
     const order = await Shop.findOrderById(req.params.id);
     if (!order) return res.status(404).json({ message: 'Order not found.' });
     const user = req.session.user;
-    if (user.role !== 'admin' && String(order.userId) !== String(user._id)) {
-      return res.status(403).json({ message: 'You may remove only your own orders.' });
+    let allowed = user.role === 'admin' || (user.role === 'customer' && String(order.userId) === String(user._id));
+    let companyId = '';
+    if (user.role === 'business' && user.companyId) {
+      companyId = String(user.companyId);
+      for (const parcel of order.packages) {
+        if (parcel.companyId === companyId) allowed = true;
+      }
     }
-    if (!orderFinished(order)) return res.status(409).json({ message: 'Only delivered or fully cancelled orders can be removed.' });
+    if (!allowed) return res.status(403).json({ message: 'You may remove only your own order or an order involving your company.' });
+    if (!orderFinished(order, companyId)) return res.status(409).json({ message: 'Only delivered or fully cancelled orders can be removed.' });
     const userId = String(user._id);
     if (!order.hiddenFor.includes(userId)) order.hiddenFor.push(userId);
     const result = await Shop.hideOrder(order._id, order.hiddenFor);

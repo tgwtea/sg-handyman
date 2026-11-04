@@ -33,3 +33,33 @@ export function orderLabel(category) {
 export function orderDate(order) {
   return new Date(order.createdAt).toLocaleString('en-SG', { timeZone: 'Asia/Singapore' })
 }
+
+// Whole-order cancellation is allowed only before ANY non-cancelled package arrives.
+// A company's response includes the full-order deadline, even though its items are filtered.
+export function canCancelOrder(order, currentTime) {
+  if (order.cancelUntil !== undefined) return currentTime < order.cancelUntil
+  if (!order.packages || !order.packages.length || !order.deliveryDurationSeconds) return false
+  let remaining = false
+  for (const item of order.items) {
+    if (item.rejected) continue
+    remaining = true
+    for (const parcel of order.packages) {
+      if (parcel.companyId !== item.companyId) continue
+      const finish = new Date(order.createdAt).getTime() + (order.deliveryDurationSeconds + parcel.extraSeconds) * 1000
+      if (currentTime >= finish) return false
+    }
+  }
+  return remaining
+}
+
+// Existing cancellation records already identify the actor at the start of their update.
+export function cancellationText(order) {
+  let message = 'Order cancelled.'
+  for (const update of order.updates || []) {
+    if (update.message.includes('cancelled the whole order')) message = update.message
+  }
+  // Earlier company cancellations could contain the customer's fixed form reason.
+  if (message === 'Company cancelled the whole order: Cancelled by customer.') return 'Company cancelled the whole order.'
+  if (message === 'Admin cancelled the whole order: Cancelled by customer.') return 'Admin cancelled the whole order.'
+  return message
+}

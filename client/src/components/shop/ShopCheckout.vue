@@ -126,7 +126,7 @@ function submitCheckout() {
           <input id="security-code" v-model="securityCode" class="form-control" type="password" inputmode="numeric" maxlength="4" autocomplete="off" required />
         </div>
       </div>
-      <p class="fw-bold">Total: ${{ total }}</p>
+      <p class="fw-bold">Total: ${{ total.toFixed(2) }}</p>
       <p v-if="paymentMessage" class="text-danger" role="alert">{{ paymentMessage }}</p>
       <button type="submit" class="btn btn-success">{{ placingOrder ? 'Submitting order...' : 'Place order' }}</button>
     </fieldset>

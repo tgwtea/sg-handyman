@@ -12,9 +12,7 @@ router.get('/products', shopController.getProducts);
 
 // Managing orders / deliveries and managing review for admin
 router.get('/manage/orders', requireRole('business','admin'), management.getOrders);
-router.put('/manage/orders/:id/delay', requireRole('business'), management.delayPackage);
-router.put('/manage/orders/:id/items/:productId/reject', requireRole('business'), management.rejectItem);
-router.put('/manage/orders/:id/reject', requireRole('admin'), management.rejectOrder);
+router.put('/manage/orders/:id/cancel', requireRole('business','admin'), management.cancelOrder);
 router.get('/manage/reviews', requireRole('admin'), productReviewController.getAdminReviews);
 router.delete('/manage/reviews/:reviewId', requireRole('admin'), productReviewController.deleteAdminReview);
 
@@ -27,9 +25,11 @@ router.put('/products/:id', requireRole('business','admin'), shopController.upda
 router.delete('/products/:id', requireRole('business','admin'), shopController.removeProduct);
 
 // personal order.
-router.get('/orders', requireLogin, shopController.getMyOrders);
+router.get('/orders', requireRole('customer','admin'), shopController.getMyOrders);
+// Customer cancels their own order; the controller also checks ownership and arrival time.
+router.put('/orders/:id/cancel', requireRole('customer','admin'), management.cancelOrder);
 // Hide only a finished record from the signed-in customer's/admin's list.
-router.put('/orders/:id/hide', requireRole('customer','admin'), management.hideOrder);
+router.put('/orders/:id/hide', requireRole('customer','business','admin'), management.hideOrder);
 
 // Account carts use the same login session as orders.
 router.get('/cart', requireLogin, shopController.getCart);

@@ -1,14 +1,14 @@
 <script setup>
-defineOptions({ name: 'ShopView' })
-import api from '@/api'
+import api, { errorMessage } from '@/api'
 import ShopOrderManagement from '@/components/shop/ShopOrderManagement.vue'
 import ShopReviewManagement from '@/components/shop/ShopReviewManagement.vue'
 import ShopCheckout from '@/components/shop/ShopCheckout.vue'
 import ShopOrders from '@/components/shop/ShopOrders.vue'
 import ShopProductDetails from '@/components/shop/ShopProductDetails.vue'
-import ShopConfirmDialog from '@/components/shop/ShopConfirmDialog.vue'
+import DeleteDialog from '@/components/DeleteDialog.vue'
 import ShopRatingSummary from '@/components/shop/ShopRatingSummary.vue'
 import { useAuthStore } from '@/stores/auth'
+import { cancellationText } from '@/utils/shop-orders'
 import { RouterLink, useRoute,useRouter } from 'vue-router'
 import { ref, computed, onMounted, onUnmounted, watch  } from 'vue'
 
@@ -30,12 +30,12 @@ const loadingOrders = ref(false)
 const ordersMessage = ref('')
 const cartMessage = ref('')
 const deliveryNotification = ref('')
+const notificationType = ref('success')
 const cartLoading = ref(true)
 const cartSaving = ref(false)
 const cartReady = ref(false)
 const cartUnsaved = ref(false)
 const cartBusy = computed(() => placingOrder.value || cartLoading.value || cartSaving.value)
-const cartSaved = ref(false)
 
 //creates sliders
 const priceLimit = computed(() => {
@@ -96,6 +96,7 @@ function currentUserId() {
 //update the deliverNotifcation
 function showDeliveryNotification(message) {
   deliveryNotification.value = message
+  notificationType.value = message.toLowerCase().includes('cancelled') ? 'danger' : 'success'
 }
 // Save only cart items for this tab session not browser. JSON.stringify turns the array into text.
 async function saveCart() {
@@ -103,52 +104,47 @@ async function saveCart() {
   const owner = currentUserId()
   cartSaving.value = true
   cartUnsaved.value = true
-  cartSaved.value= false
+
   cartMessage.value = ''
   try {
     if (owner) {
       const response = await api.put('/shop/cart', { items: cart.value })
 
       //display product name and price confirmed by the server
-      if (currentUserId() === owner) cart.value = response.data
+      cart.value = response.data
       
       // Guest items have now been included in the account cart.
       sessionStorage.removeItem('shopCart')
     } else {
       sessionStorage.setItem('shopCart', JSON.stringify(cart.value))
     }
-    cartUnsaved.value=false
-    cartSaved.value=true
-    if (currentUserId() === owner) cartUnsaved.value = false
+    cartUnsaved.value = false
   } catch {
-    if (currentUserId() === owner) {
-      cartMessage.value = 'Your cart changes were not saved. Retry before leaving this page.'
-    }
+    cartMessage.value = 'Your cart changes were not saved. Use Retry saving cart below.'
   } finally {
-    if (currentUserId() === owner) cartSaving.value = false
+    cartSaving.value = false
   }
 }
 
 // Return the guest cart without copying account data into browser storage.
 function readGuestCart() {
-  const savedCart = sessionStorage.getItem('shopCart')
-  if (!savedCart) return []
-
-  let items
-  try{
-  items = JSON.parse(savedCart)
-  } catch {
-    return null
-  }
-  if (!Array.isArray(items)) return null
-  for (const item of items) {
-    if (!item || typeof item.id !== 'number' || typeof item.name !== 'string' ||
-        typeof item.price !== 'number' || item.price < 0 ||
-        typeof item.quantity !== 'number' || item.quantity < 1 || item.quantity % 1 !== 0) {
-      return null
+  try {
+    const savedCart = sessionStorage.getItem('shopCart')
+    if (!savedCart) return []
+    const items = JSON.parse(savedCart)
+    if (Array.isArray(items)) {
+      let valid = true
+      for (const item of items) {
+        if (!item || typeof item.id !== 'number' || typeof item.quantity !== 'number' ||
+            typeof item.name !== 'string' || typeof item.price !== 'number') valid = false
+      }
+      if (valid) return items
     }
+  } catch {
+    // Invalid JSON is discarded so the user can start a fresh guest cart.
   }
-  return items
+  sessionStorage.removeItem('shopCart')
+  return []
 }
 
 // Login loads the account cart; logout starts with the guest cart, never the old account's items.
@@ -158,19 +154,15 @@ async function loadCart() {
   cartReady.value = false
   cartSaving.value = false
   cartUnsaved.value = false
-  cartSaved.value = false
+
   cart.value = []
   cartMessage.value = ''
   try {
     const guestItems = readGuestCart()
-    if (guestItems === null) {
-    cartMessage.value = 'Your saved guest cart is invalid. Please clear it and add your items again.'
-    return
-    }
     let items = guestItems
     if (owner) {
       const response = await api.get('/shop/cart')
-      if (currentUserId() !== owner) return
+
       items = response.data
       // Keep the larger quantity for matching tools, so retrying the merge cannot double them.
       for (const guestItem of guestItems) {
@@ -185,7 +177,7 @@ async function loadCart() {
         }
       }
     }
-    if (currentUserId() !== owner) return
+
 
     //also a update on session cart on latest price even if not log in
     if (!owner) {
@@ -199,16 +191,16 @@ async function loadCart() {
     cartReady.value = true
     if (owner && guestItems.length > 0) await saveCart()
   } catch {
-    if (currentUserId() === owner) cartMessage.value = 'Could not load the cart. Retry loading before adding items.'
+    cartMessage.value = 'Could not load the cart. Retry loading before adding items.'
   } finally {
-    if (currentUserId() === owner) cartLoading.value = false
+    cartLoading.value = false
   }
 }
 
 
 watch(currentUserId, () => {
   if (!loginChecked) return
-  orderPage.value = 'active'
+  orderPage.value = auth.user && auth.user.role !== 'customer' ? 'manage-active' : 'active'
   loadingOrders.value = false
   ordersMessage.value=''
   receipt.value = null
@@ -293,21 +285,20 @@ async function getProducts() {
     tools.value = response.data
     maximumPrice.value = priceLimit.value
   } catch (error) {
-    message.value = 'Could not load tools: ' + error.message
+    message.value = 'Could not load tools: ' + errorMessage(error)
   } finally { productsLoading.value = false }
 }
 
 async function getCompanies() {
-  const owner = currentUserId()
   companiesLoading.value =true
   companiesMessage.value = ''
   try{
     const response = await api.get('/companies')
-    if(currentUserId() === owner) companies.value = response.data
+    companies.value = response.data
   } catch{
-    if ( currentUserId() === owner) companiesMessage.value = 'Could not load companies. Please retry'
+    companiesMessage.value = 'Could not load companies. Please retry'
   } finally{
-    if (currentUserId() === owner) companiesLoading.value = false
+    companiesLoading.value = false
   }
 }
 
@@ -342,15 +333,12 @@ const filteredTools = computed(() => {
   for (const tool of tools.value) {
     if (search && !tool.name.toLowerCase().includes(search)) continue
     if (companyFilter.value && (tool.companyId || 'unassigned') !== companyFilter.value) continue
-    if (minimumPrice.value !== '' && tool.price < Number(minimumPrice.value)) continue
-    if (maximumPrice.value !== '' && tool.price > Number(maximumPrice.value)) continue
+    if (tool.price < minimumPrice.value) continue
+    if (tool.price > maximumPrice.value) continue
     if (minimumRating.value && productRating(tool.id).average < Number(minimumRating.value)) continue
     result.push(tool)
   }
 
-  // const A = [20, 5, 12, 8]
-// A.sort((a, b) => a - b)
-// console.log(A) // [5, 8, 12, 20]
   result.sort((a, b) => {
     if (catalogueSort.value === 'price-low') return a.price - b.price
     if (catalogueSort.value === 'price-high') return b.price - a.price
@@ -413,8 +401,8 @@ function startEditingProduct(tool) {
 async function saveProduct() {
   if (productBusy.value) return
   if (!canManageProducts.value) return
-  const owner = currentUserId()
   const id = editingProductId.value
+  const showingAllPrices = Number(maximumPrice.value) === priceLimit.value
   productBusy.value = true
   productMessage.value = ''
   try {
@@ -443,27 +431,19 @@ async function saveProduct() {
         }
       }
     }
-    if (currentUserId() === owner) {
-      resetProductForm()
-      productMessage.value = id === 0 ? 'Product added.' : 'Product updated.'
-    }
+    if (showingAllPrices) maximumPrice.value = priceLimit.value
+    resetProductForm()
+    productMessage.value = id === 0 ? 'Product added.' : 'Product updated.'
   } catch (error) {
-    if (currentUserId() === owner) {
-      if (error.response && error.response.data.message) {
-        productMessage.value = error.response.data.message
-      } else {
-        productMessage.value = 'Could not save the product. Please try again.'
-      }
-    }
+    productMessage.value = errorMessage(error)
   } finally {
     productBusy.value = false
   }
 }
 
-// This is called only after the user clicks the inline Confirm remove button.
+// The shared DeleteDialog calls this only after confirmation.
 async function removeProduct(tool) {
   if (productBusy.value || !canManageProduct(tool)) return
-  const owner = currentUserId()
   productBusy.value = true
   productMessage.value = ''
   try {
@@ -473,19 +453,12 @@ async function removeProduct(tool) {
       if (item.id !== tool.id) remainingTools.push(item)
     }
     tools.value = remainingTools
-    if (currentUserId() === owner) {
-      if (editingProductId.value === tool.id) resetProductForm()
-      pendingRemovalId.value = 0
-      productMessage.value = 'Product removed.'
-    }
+    if (editingProductId.value === tool.id) resetProductForm()
+    pendingRemovalId.value = 0
+    productMessage.value = 'Product removed.'
   } catch (error) {
-    if (currentUserId() === owner) {
-      if (error.response && error.response.data.message) {
-        productMessage.value = error.response.data.message
-      } else {
-        productMessage.value = 'Could not remove the product. Please try again.'
-      }
-    }
+    pendingRemovalId.value = 0
+    productMessage.value = errorMessage(error)
   } finally {
     productBusy.value = false
   }
@@ -512,6 +485,15 @@ function orderRemoved(orderId) {
   getMyOrders()
 }
 
+function orderCancelled(orderId) {
+  orderRemoved(orderId)
+  orderPage.value = 'cancelled'
+}
+function managementOrderCancelled() {
+  orderPage.value = 'manage-cancelled'
+  getMyOrders()
+}
+
 // POST sends our form data to the server. Clear the cart only after success.
 async function placeOrder(deliveryDetails) {
    if (cartBusy.value || !cartReady.value || cartUnsaved.value || cartHasUnavailableProducts.value || cart.value.length === 0) return
@@ -520,7 +502,6 @@ async function placeOrder(deliveryDetails) {
     return
   }
 
-  const owner = currentUserId()
   placingOrder.value = true
   message.value = ''
   receipt.value = null
@@ -532,19 +513,15 @@ async function placeOrder(deliveryDetails) {
       deliveryNote: deliveryDetails.deliveryNote,
       items: cart.value
     })
-    if (currentUserId() !== owner) return
+
     receipt.value = response.data
     cart.value = []
     
     await saveCart()
     await getMyOrders()
-    if (currentUserId() === owner) await router.push('/shop/orders')
+    await router.push('/shop/orders')
   } catch (error) {
-    if (error.response && error.response.data.message) {
-      message.value = error.response.data.message
-    } else {
-      message.value = 'Could not submit order: ' + error.message
-    }
+    message.value = errorMessage(error)
   } finally {
     placingOrder.value = false
   }
@@ -552,14 +529,13 @@ async function placeOrder(deliveryDetails) {
 
 // Read the signed-in account's saved orders. History failures do not undo a successful purchase.
 async function getMyOrders() {
-  if (!auth.isLoggedIn) { orders.value = []; return }
+  if (!auth.isLoggedIn || auth.user.role !== 'customer') { orders.value = []; return }
   if (loadingOrders.value) return
-  const owner = currentUserId()
   loadingOrders.value = true
   ordersMessage.value = ''
   try {
     const response = await api.get('/shop/orders')
-    if (currentUserId() !== owner) return
+
     const notices = []
     for (const order of response.data) {
       let previous
@@ -568,16 +544,16 @@ async function getMyOrders() {
         for (const update of order.updates || []) {
           let seen = false
           for (const old of previous.updates || []) if (old._id === update._id) seen = true
-          if (!seen) notices.push(update.message)
+          if (!seen) notices.push(update.message.includes('cancelled the whole order') ? cancellationText(order) : update.message)
         }
       }
     }
     orders.value = response.data
-    if (notices.length && route.path === '/shop/orders') deliveryNotification.value = notices.join(' ')
+    if (notices.length && route.path === '/shop/orders') showDeliveryNotification(notices.join(' '))
   } catch (error) {
-    if (currentUserId() === owner) ordersMessage.value = 'Could not load order history: ' + error.message
+    ordersMessage.value = 'Could not load order history: ' + errorMessage(error)
   } finally {
-    if (currentUserId() === owner) loadingOrders.value = false
+    loadingOrders.value = false
   }
 }
 // The login check must finish before we request personal order history.
@@ -589,6 +565,7 @@ onMounted(async () => {
   await auth.fetchMe()
   if (!shopActive) return
   loginChecked= true
+  if (auth.user && auth.user.role !== 'customer') orderPage.value = 'manage-active'
   getCompanies()
   getReviewSummaries()
   ordersTimer = setInterval(() => {
@@ -623,12 +600,9 @@ onUnmounted(() => {
     </div></div>
     <RouterLink v-if="route.path === '/shop/cart' || route.path === '/shop/orders'" to="/shop">Continue shopping</RouterLink>
     <p v-if="cartMessage" class="text-danger">{{ cartMessage }}</p>
-    <div class="cart-save-status small mb-3" role="status">
-    <span v-if="cartLoading">Loading cart...</span>
-    <span v-else-if="cartSaving">Saving cart...</span>
-    <span v-else-if="cartSaved && !cartUnsaved">Saved</span>
-    </div>
     <button v-if="!cartReady && !cartBusy" class="btn btn-outline-primary mb-3" @click="loadCart">Retry loading cart</button>
+
+    <button v-if="cartUnsaved && !cartBusy" class="btn btn-outline-primary mb-3" @click="saveCart">Retry saving cart</button>
 
     <p v-if="message" class="text-danger">{{ message }}</p>
 
@@ -669,12 +643,12 @@ onUnmounted(() => {
       </form>
       <p v-else-if="auth.user && auth.user.role === 'business'" class="text-muted">Your account must be linked to a company before you can add products.</p>
 
-      <div class="border rounded p-3 mb-4">
+      <div id="shop-search" class="border rounded p-3 mb-4">
         <div class="row g-3">
           <div class="col-md-6 col-xl-4">
+            <label for="tool-search" class="form-label">Search tools</label>
             <div class="position-relative">
-              <label for="tool-search" class="form-label">Search tools</label>
-              <input id="tool-search" v-model="searchText" type="search" class="form-control" placeholder="Search by product name" />
+              <input id="tool-search" v-model="searchText" type="text" class="form-control shop-search-input" placeholder="Search by product name" />
               <button v-if="searchText" type="button" class="shop-search-clear position-absolute top-0 end-0 h-100" aria-label="Clear search" @click="searchText = ''">×</button>
             </div>
           </div>  
@@ -695,7 +669,8 @@ onUnmounted(() => {
           <div class="col-md-8">
             <div v-if="!productsLoading && tools.length">
             <p class="form-label mb-1">Price range: <strong>S${{ Number(minimumPrice).toFixed(2) }} – S${{ Number(maximumPrice).toFixed(2) }}</strong></p>
-            <div class="shop-price-range position-relative">
+            <!-- Recreate the slider inputs only when the catalogue limit changes. -->
+            <div :key="priceLimit" class="shop-price-range position-relative">
               <div class="shop-price-track" :style="{ background: priceTrack }"></div>
               <label for="tool-min-price" class="visually-hidden">Minimum price ($)</label>
               <input id="tool-min-price" v-model.number="minimumPrice" type="range" min="0" :max="priceLimit" step="0.1" class="shop-range-input" @input="minimumPrice = Math.min(minimumPrice, Number(maximumPrice))" />
@@ -707,7 +682,7 @@ onUnmounted(() => {
           </div>
           <div class="col-md-4">
             <label for="tool-min-rating" class="form-label">Minimum rating</label>
-            <select id="tool-min-rating" v-model="minimumRating" class="form-select"><option value="">Any rating</option><option value="4">4 stars and above</option><option value="3">3 stars and above</option></select>
+            <select id="tool-min-rating" v-model="minimumRating" class="form-select"><option value="">Any rating</option><option value="4">4 stars and above</option><option value="3">3 stars and above</option><option value="2">2 stars and above</option></select>
           </div>
         </div>
         <div class="d-flex flex-wrap align-items-center gap-3 mt-3">
@@ -722,7 +697,7 @@ onUnmounted(() => {
 
 
     <p v-if="!productsLoading && tools.length === 0 && !message">No tools are available yet.</p>
-    <p v-else-if="filteredTools.length === 0">No products match your filters. Try Clear filters.</p>
+    <p v-else-if="!productsLoading && tools.length > 0 && filteredTools.length === 0">No products match your filters. Try Clear filters.</p>
 
       <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-3">
         <div v-for="tool in filteredTools" :key="tool.id" class="col">
@@ -741,7 +716,7 @@ onUnmounted(() => {
                 <div v-if="canManageProduct(tool)" class="d-flex flex-wrap gap-2 mt-3">
           <button type="button" class="btn btn-outline-primary btn-sm" :disabled="productBusy" @click="startEditingProduct(tool)">Edit</button>
           <button type="button" class="btn btn-outline-danger btn-sm" :disabled="productBusy" @click="pendingRemovalId = tool.id">Remove product</button>
-          <ShopConfirmDialog v-if="pendingRemovalId === tool.id" title="Confirm removal" :message="'Remove ' + tool.name + ' from the shop?'" note="The product will no longer be available to buy. Existing orders and reviews stay saved." confirm-label="✓ Yes, Remove Product" :busy="productBusy" @cancel="pendingRemovalId = 0" @confirm="removeProduct(tool)" />
+          <DeleteDialog v-if="pendingRemovalId === tool.id" title="Confirm Removal" busy-label="Removing..." :message="'Remove ' + tool.name + ' from the shop?'" note="The product will no longer be available to buy. Existing orders and reviews stay saved." confirm-label="✓ Yes, Remove Product" :busy="productBusy" @cancel="!productBusy && (pendingRemovalId = 0)" @confirm="removeProduct(tool)" />
         </div>
       </div></div></div></div>
       
@@ -757,7 +732,7 @@ onUnmounted(() => {
       <div v-for="item in cart" :key="item.id" class="border-bottom py-3">
         <h3 class="h5">{{ item.name }}</h3>
                 <p v-if="!isProductAvailable(item.id)" class="text-danger">This tool is unavailable. Remove it from your cart to continue.</p>
-        <p>${{ item.price }} each | Subtotal: ${{ item.price * item.quantity }}</p>
+        <p>${{ item.price.toFixed(2) }} each | Subtotal: ${{ (item.price * item.quantity).toFixed(2) }}</p>
         <div class="d-flex gap-2 align-items-center">
           <button
             class="btn btn-outline-secondary"
@@ -776,7 +751,7 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <p class="fw-bold mt-3">Total: ${{ cartTotal }}</p>
+      <p class="fw-bold mt-3">Total: ${{ cartTotal.toFixed(2) }}</p>
       <p v-if="cart.length > 0 && !auth.isLoggedIn">
         <RouterLink to="/login?redirect=/shop/cart">Log in to place an order</RouterLink>.
         Your guest cart will be combined with your saved account cart when you log in.
@@ -798,26 +773,10 @@ onUnmounted(() => {
       </section>
 
 
-      <!-- <form v-if="cart.length > 0 && auth.isLoggedIn" @submit.prevent="placeOrder">
-        <label for="recipient-name" class="form-label">Recipient name</label>
-        <input
-          id="recipient-name"
-          v-model.trim="recipientName"
-          class="form-control mb-3"
-          :disabled="placingOrder"
-          maxlength="80"
-          required
-        />
-        <button class="btn btn-success" type="submit" :disabled="placingOrder">
-          Place order
-        </button>
-        <p v-if="placingOrder" class="mt-2">Submitting order...</p>
-      </form>
-    </section> -->
-    <section v-if="route.path === '/shop/orders' && receipt && auth.isLoggedIn" class="alert alert-success">
+    <section v-if="route.path === '/shop/orders' && receipt && auth.isLoggedIn && auth.user.role === 'customer'" class="alert alert-success">
       <h2 class="h4">Order saved</h2>
       <p>Recipient: {{ receipt.recipientName }}</p>
-      <p>Total: ${{ receipt.total }}</p>
+      <p>Total: ${{ receipt.total.toFixed(2) }}</p>
       <p class="mb-0">Your order is saved. No payment has been taken.</p>
     </section>
 
@@ -828,12 +787,14 @@ onUnmounted(() => {
     <section v-if="auth.isLoggedIn" v-show="route.path === '/shop/orders'" class="row g-4 my-3">
       <aside class="col-12 col-lg-3">
         <nav class="border rounded p-3" aria-label="Order sections">
+          <template v-if="auth.user.role === 'customer'">
           <h2 class="h6 mb-3">My purchases</h2>
           <div class="d-grid gap-2">
             <button type="button" class="btn text-start" :class="orderPage === 'active' ? 'btn-primary' : 'btn-outline-secondary'" @click="orderPage = 'active'">Active orders</button>
             <button type="button" class="btn text-start" :class="orderPage === 'history' ? 'btn-primary' : 'btn-outline-secondary'" @click="orderPage = 'history'">Order history</button>
             <button type="button" class="btn text-start" :class="orderPage === 'cancelled' ? 'btn-primary' : 'btn-outline-secondary'" @click="orderPage = 'cancelled'">Cancelled orders</button>
           </div>
+          </template>
           <template v-if="canManageProducts">
             <h2 class="h6 mt-4 mb-3">{{ auth.user.role === 'admin' ? 'Administration' : 'Company orders' }}</h2>
             <div class="d-grid gap-2">
@@ -846,13 +807,14 @@ onUnmounted(() => {
         </nav>
       </aside>
       <div class="col-12 col-lg-9">
-        <ShopOrders v-show="!viewingManagement && orderPage !== 'reviews'" :key="currentUserId()" :orders="orders" :loading="loadingOrders" :message="ordersMessage" :section="orderPage" @refresh="getMyOrders" @removed="orderRemoved" @delivery-update="showDeliveryNotification" />
-        <ShopOrderManagement v-if="viewingManagement && canManageProducts" :key="currentUserId()" :section="managementSection" @removed="orderRemoved" />
+        <ShopOrders v-if="auth.user.role === 'customer'" v-show="!viewingManagement && orderPage !== 'reviews'" :key="currentUserId()" :orders="orders" :loading="loadingOrders" :message="ordersMessage" :section="orderPage" @refresh="getMyOrders" @removed="orderRemoved" @cancelled="orderCancelled" @delivery-update="showDeliveryNotification" />
+        <ShopOrderManagement v-if="viewingManagement && canManageProducts" :key="currentUserId()" :section="managementSection" @removed="orderRemoved" @cancelled="managementOrderCancelled" @order-notification="showDeliveryNotification" />
         <ShopReviewManagement v-if="orderPage === 'reviews' && auth.user.role === 'admin'" :key="currentUserId()" @reviews-changed="getReviewSummaries" />
       </div>
     </section>
+    <a v-if="route.path === '/shop'" href="#shop-search" class="btn btn-outline-primary shop-back-search">↑ Back to search</a>
     <ShopProductDetails v-if="selectedProduct" :key="selectedProduct.id" :tool="selectedProduct" :company-name="companyName(selectedProduct.companyId)" :cart-disabled="cartBusy || !cartReady" @close="selectedProduct = null" @add-to-cart="addToCart" @reviews-changed="getReviewSummaries" />
-    <div v-if="deliveryNotification && auth.isLoggedIn" class="delivery-notification alert alert-success shadow" role="status">
+    <div v-if="deliveryNotification && auth.isLoggedIn" class="delivery-notification alert shadow" :class="notificationType === 'danger' ? 'alert-danger' : 'alert-success'" role="status">
       <p>{{ deliveryNotification }}</p>
       <button type="button" class="btn btn-outline-secondary btn-sm" @click="deliveryNotification = ''">Dismiss</button>
     </div>
@@ -879,9 +841,9 @@ onUnmounted(() => {
 .shop-search-clear { width: 44px; min-height: 44px; border: 0; background: transparent; color: var(--ink); font-size: 1.5rem; box-shadow: none; border-radius: 0; }
 .shop-search-clear:focus-visible { outline: 2px solid currentColor; outline-offset: -4px; }
 
-.cart-save-status {
-  min-height: 1.5rem;
-}
+/* Ordinary anchor returns to the search panel without reloading the website. */
+.shop-back-search { position: fixed; right: 1rem; bottom: 1rem; z-index: 100; }
+
 .delivery-notification {
   position: fixed;
   right: 1rem;

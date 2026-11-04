@@ -6,6 +6,8 @@ defineProps({
   note: { type: String, default: '' },
   confirmLabel: { type: String, required: true },
   busy: { type: Boolean, default: false },
+  title: { type: String, default: 'Confirm Deletion' },
+  busyLabel: { type: String, default: 'Deleting...' },
 })
 defineEmits(['cancel', 'confirm'])
 
@@ -25,7 +27,7 @@ const id = useId()
     >
       <header class="delete-dialog-header">
         <span aria-hidden="true">🗑</span>
-        <h2 :id="`${id}-title`">Confirm Deletion</h2>
+        <h2 :id="`${id}-title`">{{ title }}</h2>
         <button
           type="button"
           class="close-button"
@@ -59,7 +61,7 @@ const id = useId()
           :disabled="busy"
           @click="$emit('confirm')"
         >
-          {{ busy ? 'Deleting...' : confirmLabel }}
+          {{ busy ? busyLabel : confirmLabel }}
         </button>
       </footer>
     </section>

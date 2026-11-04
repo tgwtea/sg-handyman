@@ -68,11 +68,8 @@ onUnmounted(() => {
     <div class="progress" role="progressbar" aria-label="Delivery progress" :aria-valuenow="progress" aria-valuemin="0" aria-valuemax="100">
       <div class="progress-bar bg-success" :style="{ width: progress + '%' }">{{ progress }}%</div>
     </div>
-    <div class="d-flex justify-content-end mt-2">
-      <button type="button" class="btn btn-outline-secondary btn-sm" @click="updateDelivery">Boost button</button>
-    </div>
     <p v-if="remainingSeconds > 0" class="mt-2 mb-1">Time remaining: {{ remainingTime }}</p>
     <p v-else class="mt-2 mb-1">Delivery complete.</p>
-    <p class="small mb-0">Preparing → Out for delivery → At doorstep → Delivered. This is a timed delivery demonstration.</p>
+    <p class="small mb-0">Preparing → Out for delivery → At doorstep → Delivered.</p>
   </div>
 </template>
