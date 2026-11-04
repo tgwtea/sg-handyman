@@ -33,11 +33,13 @@ reviewController.getSummaries = async (req, res) => {
         if (item.productId === review.productId) summary = item;
       }
       if (!summary) {
-        summary = { productId: review.productId, total: 0, count: 0, average: 0 };
+        summary = { productId: review.productId, total: 0, count: 0, average: 0, ratings: [0, 0, 0, 0, 0] };
         summaries.push(summary);
       }
       summary.total += review.rating;
       summary.count += 1;
+      // Index 0 counts one-star reviews; index 4 counts five-star reviews.
+      summary.ratings[review.rating - 1] += 1;
       summary.average = summary.total / summary.count;
     }
     res.json(summaries);
@@ -136,25 +138,14 @@ reviewController.getAdminReviews = async (req, res) => {
     res.json(result);
   } catch (error) { res.status(500).json({ message: 'Could not load reviews.' }); }
 };
-reviewController.editAdminReview = async (req, res) => {
-  const invalid = validateReview(req.body);
-  if (invalid) return res.status(400).json({ message: invalid });
-  if (typeof req.body.reason !== 'string' || !req.body.reason.trim() || req.body.reason.trim().length > 300) {
-    return res.status(400).json({ message: 'Explain the edit in 1–300 characters.' });
-  }
+reviewController.deleteAdminReview = async (req, res) => {
   try {
-    const review = await Review.findById(req.params.reviewId);
-    if (!review) return res.status(404).json({ message: 'Review not found.' });
-    review.adminEdits.push({ adminId: req.session.user._id, previousRating: review.rating, previousComment: review.comment,
-      rating: req.body.rating, comment: req.body.comment.trim(), reason: req.body.reason.trim() });
-    review.rating = req.body.rating;
-    review.comment = req.body.comment.trim();
-    const result = await Review.saveAdminEdit(review);
-    if (result.matchedCount === 0) return res.status(404).json({ message: 'Review not found.' });
-    res.json({ message: 'Review updated and marked as edited by admin.' });
+    const result = await Review.deleteById(req.params.reviewId);
+    if (result.deletedCount === 0) return res.status(404).json({ message: 'Review not found.' });
+    res.json({ message: 'Review deleted by admin.' });
   } catch (error) {
     if (error.name === 'CastError') return res.status(400).json({ message: 'Invalid review reference.' });
-    res.status(500).json({ message: 'Could not edit this review.' });
+    res.status(500).json({ message: 'Could not delete this review.' });
   }
 };
 export default reviewController;

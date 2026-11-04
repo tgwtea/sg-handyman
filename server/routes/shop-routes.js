@@ -16,8 +16,7 @@ router.put('/manage/orders/:id/delay', requireRole('business'), management.delay
 router.put('/manage/orders/:id/items/:productId/reject', requireRole('business'), management.rejectItem);
 router.put('/manage/orders/:id/reject', requireRole('admin'), management.rejectOrder);
 router.get('/manage/reviews', requireRole('admin'), productReviewController.getAdminReviews);
-router.put('/manage/reviews/:reviewId', requireRole('admin'), productReviewController.editAdminReview);
-
+router.delete('/manage/reviews/:reviewId', requireRole('admin'), productReviewController.deleteAdminReview);
 
 // POST createorder
 router.post('/orders', requireLogin, shopController.createOrder);
@@ -29,6 +28,8 @@ router.delete('/products/:id', requireRole('business','admin'), shopController.r
 
 // personal order.
 router.get('/orders', requireLogin, shopController.getMyOrders);
+// Hide only a finished record from the signed-in customer's/admin's list.
+router.put('/orders/:id/hide', requireRole('customer','admin'), management.hideOrder);
 
 // Account carts use the same login session as orders.
 router.get('/cart', requireLogin, shopController.getCart);

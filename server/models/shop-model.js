@@ -27,6 +27,8 @@ const orderSchema = new mongoose.Schema({
     extraSeconds: { type: Number, default: 0 }
   }],
   updates: [{ companyId: String, message: String, createdAt: { type: Date, default: Date.now } }],
+  // Hiding is personal: the purchase record remains available to other accounts.
+  hiddenFor: { type: [String], default: [] },
   total: { type: Number, required: true },
   // Duration is chosen once by the server, not restarted by the browser.
   deliveryDurationSeconds: { type: Number, min: 60, max: 600 },
@@ -65,4 +67,8 @@ shopModel.saveManagement = function(order){
     items: order.items, packages: order.packages, updates: order.updates
   }, { runValidators: true });
 }
+// Update only visibility; do not delete items, reviews or the order itself.
+shopModel.hideOrder = function(id, hiddenFor) {
+  return Order.updateOne({ _id: id }, { hiddenFor: hiddenFor }, { runValidators: true });
+};
 export default shopModel;

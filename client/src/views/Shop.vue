@@ -3,8 +3,10 @@ import api from '@/api'
 import ShopOrderManagement from '@/components/shop/ShopOrderManagement.vue'
 import ShopReviewManagement from '@/components/shop/ShopReviewManagement.vue'
 import ShopCheckout from '@/components/shop/ShopCheckout.vue'
-import ShopDeliveryTracker from '@/components/shop/ShopDeliveryTracker.vue'
+import ShopOrders from '@/components/shop/ShopOrders.vue'
 import ShopProductDetails from '@/components/shop/ShopProductDetails.vue'
+import ShopConfirmDialog from '@/components/shop/ShopConfirmDialog.vue'
+import ShopRatingSummary from '@/components/shop/ShopRatingSummary.vue'
 import { useAuthStore } from '@/stores/auth'
 import { RouterLink, useRoute,useRouter } from 'vue-router'
 import { ref, computed, onMounted, onUnmounted, watch  } from 'vue'
@@ -16,6 +18,8 @@ const route = useRoute()
 const router = useRouter()
 
 const tools = ref([])
+// Do not mount the sliders until their final limits and starting values are ready.
+const productsLoading = ref(true)
 const message = ref('')
 const cart = ref([])
 const placingOrder = ref(false)
@@ -32,6 +36,18 @@ const cartUnsaved = ref(false)
 const cartBusy = computed(() => placingOrder.value || cartLoading.value || cartSaving.value)
 const cartSaved = ref(false)
 
+//creates sliders
+const priceLimit = computed(() => {
+  let highest = 1
+  for (const tool of tools.value) if (tool.price > highest) highest = tool.price
+  return Math.ceil(highest)
+})
+const priceTrack = computed(() => {
+  const low = minimumPrice.value / priceLimit.value * 100
+  const high = Number(maximumPrice.value) / priceLimit.value * 100
+  return 'linear-gradient(to right, #b8bdc2 ' + low + '%, #1477bd ' + low + '%, #1477bd ' + high + '%, #b8bdc2 ' + high + '%)'
+})
+
 const productName = ref('')
 const productPrice = ref('')
 const productDescription = ref('')
@@ -40,8 +56,8 @@ const productImageUrl = ref('')
 const selectedProduct = ref(null)
 const searchText = ref('')
 const companyFilter = ref('')
-const minimumPrice = ref('')
-const maximumPrice = ref('')
+const minimumPrice = ref(0)
+const maximumPrice = ref(0)
 const minimumRating = ref('')
 const catalogueSort = ref('name')
 const reviewSummaries = ref([])
@@ -61,7 +77,14 @@ const canManageProducts = computed(() => {
 let loginChecked = false
 let shopActive = true
 let ordersTimer
-const managementTab = ref('orders')
+// A button selects the order list shown beside the left navigation.
+const orderPage = ref('active')
+const managementSection = computed(() => {
+  if (orderPage.value === 'manage-history') return 'history'
+  if (orderPage.value === 'manage-cancelled') return 'cancelled'
+  return 'active'
+})
+const viewingManagement = computed(() => orderPage.value === 'manage-active' || orderPage.value === 'manage-history' || orderPage.value === 'manage-cancelled')
 
 //get the current user _id
 function currentUserId() {
@@ -184,7 +207,7 @@ async function loadCart() {
 
 watch(currentUserId, () => {
   if (!loginChecked) return
-  managementTab.value= 'orders'
+  orderPage.value = 'active'
   loadingOrders.value = false
   ordersMessage.value=''
   receipt.value = null
@@ -199,6 +222,7 @@ watch(currentUserId, () => {
   loadCart()
   getMyOrders()
 })
+
 
 // Add a new cart row, or increase the quantity of an existing row.
 function addToCart(tool, quantity=1) {
@@ -262,12 +286,14 @@ const cartTotal = computed(() => {
 
 // Ask the server for tools, then store its reply for the template.
 async function getProducts() {
+  productsLoading.value = true
   try {
     const response = await api.get('/shop/products')
     tools.value = response.data
+    maximumPrice.value = priceLimit.value
   } catch (error) {
     message.value = 'Could not load tools: ' + error.message
-  }
+  } finally { productsLoading.value = false }
 }
 
 async function getCompanies() {
@@ -340,8 +366,8 @@ const filteredTools = computed(() => {
 function clearFilters() {
   searchText.value = ''
   companyFilter.value = ''
-  minimumPrice.value = ''
-  maximumPrice.value = ''
+  minimumPrice.value = 0
+  maximumPrice.value = priceLimit.value
   minimumRating.value = ''
   catalogueSort.value = 'name'
 }
@@ -479,21 +505,11 @@ const cartHasUnavailableProducts = computed(() => {
   return false
 })
 
-function packageItems(order, parcel) {
-  const items = []
-  for (const item of order.items) if (item.companyId === parcel.companyId) items.push(item)
-  return items
+// Refresh the parent list after a child hides an order; clear its temporary receipt too.
+function orderRemoved(orderId) {
+  if (receipt.value && receipt.value._id === orderId) receipt.value = null
+  getMyOrders()
 }
-function packageHasItems(order, parcel) {
-  for (const item of packageItems(order, parcel)) if (!item.rejected) return true
-  return false
-}
-function remainingOrderTotal(order) {
-  let total = 0
-  for (const item of order.items) if (!item.rejected) total += item.price * item.quantity
-  return total
-}
-
 
 // POST sends our form data to the server. Clear the cart only after success.
 async function placeOrder(deliveryDetails) {
@@ -591,7 +607,7 @@ onUnmounted(() => {
 <template>
   <div class="container mt-4">
     <!-- Both URLs use this component, keeping the cart available while switching views. -->
-    <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
       <h1 v-if="route.path === '/shop/cart'">Your cart</h1>
       <h1 v-else-if="route.path === '/shop/checkout'">Checkout</h1>
       <h1 v-else-if="route.path === '/shop/orders'">Orders and delivery</h1>
@@ -653,8 +669,11 @@ onUnmounted(() => {
       <div class="border rounded p-3 mb-4">
         <div class="row g-3">
           <div class="col-md-6 col-xl-4">
-            <label for="tool-search" class="form-label">Search tools</label>
-            <input id="tool-search" v-model="searchText" type="search" class="form-control" placeholder="Search by product name" />
+            <div class="position-relative">
+              <label for="tool-search" class="form-label">Search tools</label>
+              <input id="tool-search" v-model="searchText" type="search" class="form-control" placeholder="Search by product name" />
+              <button v-if="searchText" type="button" class="shop-search-clear position-absolute top-0 end-0 h-100" aria-label="Clear search" @click="searchText = ''">×</button>
+            </div>
           </div>  
           <div class="col-md-6 col-xl-4">
             <label for="tool-company" class="form-label">Seller</label>
@@ -670,13 +689,18 @@ onUnmounted(() => {
               <option value="name">Name A–Z</option><option value="price-low">Price: low to high</option><option value="price-high">Price: high to low</option><option value="rating">Highest rated</option>
             </select>
           </div>
-          <div class="col-6 col-md-4">
-            <label for="tool-min-price" class="form-label">Minimum price ($)</label>
-            <input id="tool-min-price" v-model.number="minimumPrice" type="number" min="0" step="0.01" class="form-control" />
-          </div>
-          <div class="col-6 col-md-4">
-            <label for="tool-max-price" class="form-label">Maximum price ($)</label>
-            <input id="tool-max-price" v-model.number="maximumPrice" type="number" min="0" step="0.01" class="form-control" />
+          <div class="col-md-8">
+            <div v-if="!productsLoading && tools.length">
+            <p class="form-label mb-1">Price range: <strong>S${{ Number(minimumPrice).toFixed(2) }} – S${{ Number(maximumPrice).toFixed(2) }}</strong></p>
+            <div class="shop-price-range position-relative">
+              <div class="shop-price-track" :style="{ background: priceTrack }"></div>
+              <label for="tool-min-price" class="visually-hidden">Minimum price ($)</label>
+              <input id="tool-min-price" v-model.number="minimumPrice" type="range" min="0" :max="priceLimit" step="0.1" class="shop-range-input" @input="minimumPrice = Math.min(minimumPrice, Number(maximumPrice))" />
+              <label for="tool-max-price" class="visually-hidden">Maximum price ($)</label>
+              <input id="tool-max-price" v-model.number="maximumPrice" type="range" min="0" :max="priceLimit" step="0.1" class="shop-range-input" @input="maximumPrice = Math.max(maximumPrice, minimumPrice)" />
+            </div>
+            </div>
+            <p v-else class="small mb-0 py-3">{{ productsLoading ? 'Loading price range...' : 'No price range available.' }}</p>
           </div>
           <div class="col-md-4">
             <label for="tool-min-rating" class="form-label">Minimum rating</label>
@@ -694,18 +718,18 @@ onUnmounted(() => {
       </div>
 
 
-    <p v-if="tools.length === 0 && !message">No tools are available yet.</p>
+    <p v-if="!productsLoading && tools.length === 0 && !message">No tools are available yet.</p>
     <p v-else-if="filteredTools.length === 0">No products match your filters. Try Clear filters.</p>
 
-      <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-5 g-3">
+      <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-3">
         <div v-for="tool in filteredTools" :key="tool.id" class="col">
           <div class="card h-100">
+            <img v-if="tool.imageUrl" :src="tool.imageUrl" :alt="tool.name" class="card-img-top shop-product-image" />
+            <div v-else class="shop-product-image d-flex align-items-center justify-content-center text-muted small">No product photo yet</div>
             <div class="card-body d-flex flex-column p-2 p-sm-3">
-
         <h2 class="h5 card-title">{{ tool.name }}</h2>
         <p class="small mb-1">{{ companyName(tool.companyId) }}</p>
-        <p v-if="productRating(tool.id).count" class="small">★ {{ productRating(tool.id).average.toFixed(1) }} / 5 · {{ productRating(tool.id).count }} reviews</p>
-        <p v-else class="small text-muted">No reviews yet</p>
+              <div class="mb-3"><ShopRatingSummary v-if="productRating(tool.id).count" :average="productRating(tool.id).average" :count="productRating(tool.id).count" :ratings="productRating(tool.id).ratings" /><p v-else class="small text-muted mb-0">No reviews yet</p></div>
         <p class="card-text">Price: ${{ tool.price.toFixed(2) }}</p>
         <button type="button" class="btn btn-outline-primary w-100 mb-2" @click="selectedProduct = tool">View details</button>
         <button class="btn btn-primary w-100 mt-auto" :disabled="cartBusy || !cartReady" @click="addToCart(tool)">
@@ -714,11 +738,7 @@ onUnmounted(() => {
                 <div v-if="canManageProduct(tool)" class="d-flex flex-wrap gap-2 mt-3">
           <button type="button" class="btn btn-outline-primary btn-sm" :disabled="productBusy" @click="startEditingProduct(tool)">Edit</button>
           <button type="button" class="btn btn-outline-danger btn-sm" :disabled="productBusy" @click="pendingRemovalId = tool.id">Remove product</button>
-          <div v-if="pendingRemovalId === tool.id" class="mt-2">
-            <p>Remove {{ tool.name }} from the shop?</p>
-            <button type="button" class="btn btn-danger btn-sm" :disabled="productBusy" @click="removeProduct(tool)">Confirm remove</button>
-            <button type="button" class="btn btn-outline-secondary btn-sm" :disabled="productBusy" @click="pendingRemovalId = 0">Cancel removal</button>
-          </div>
+          <ShopConfirmDialog v-if="pendingRemovalId === tool.id" title="Confirm removal" :message="'Remove ' + tool.name + ' from the shop?'" note="The product will no longer be available to buy. Existing orders and reviews stay saved." confirm-label="✓ Yes, Remove Product" :busy="productBusy" @cancel="pendingRemovalId = 0" @confirm="removeProduct(tool)" />
         </div>
       </div></div></div></div>
       
@@ -801,54 +821,32 @@ onUnmounted(() => {
     <p v-if="route.path === '/shop/orders' && !auth.isLoggedIn && !cartLoading">
       <RouterLink to="/login?redirect=/shop/orders">Log in to view your orders</RouterLink>.
     </p>
-    <!-- v-show hides history on other shop pages while delivery timers keep running. -->
-
-    <section v-if="auth.isLoggedIn" v-show="route.path === '/shop/orders'" class="border rounded p-3 my-4">
-      <h2>My orders</h2>
-      <button class="btn btn-outline-secondary mb-3" :disabled="loadingOrders || placingOrder" @click="getMyOrders">
-        Refresh orders
-      </button>
-      <p v-if="ordersMessage" class="text-danger">{{ ordersMessage }}</p>
-      <p v-if="loadingOrders">Loading order history...</p>
-      <p v-else-if="orders.length === 0 && !ordersMessage">No orders yet.</p>
-      <div v-for="order in orders" :key="order._id" class="border-top py-3">
-        <p>Order reference: {{ order._id }}</p>
-        <p>Recipient: {{ order.recipientName }}</p>
-        <p v-if="order.deliveryAddress">Delivery address: {{ order.deliveryAddress }}</p>
-        <p v-if="order.deliveryNote">Delivery note: {{ order.deliveryNote }}</p>
-        <div v-if="order.packages && order.packages.length">
-          <div v-for="parcel in order.packages" :key="parcel.companyId" class="border rounded p-3 mb-3">
-            <h3 class="h5">{{ parcel.companyName }} package</h3>
-            <ul>
-              <li v-for="item in packageItems(order, parcel)" :key="item.id">
-                {{ item.name }} × {{ item.quantity }} — ${{ (item.price * item.quantity).toFixed(2) }}
-                <span v-if="item.rejected" class="text-danger"> — Rejected: {{ item.rejectionReason }}</span>
-              </li>
-            </ul>
-            <ShopDeliveryTracker v-if="packageHasItems(order, parcel)" :order="order" :parcel="parcel" @delivery-update="showDeliveryNotification" />
-            <p v-else class="text-danger">All items in this package were rejected. No delivery is expected.</p>
+    <!-- The left navigation changes a ref, not the URL. v-show preserves delivery trackers. -->
+    <section v-if="auth.isLoggedIn" v-show="route.path === '/shop/orders'" class="row g-4 my-3">
+      <aside class="col-12 col-lg-3">
+        <nav class="border rounded p-3" aria-label="Order sections">
+          <h2 class="h6 mb-3">My purchases</h2>
+          <div class="d-grid gap-2">
+            <button type="button" class="btn text-start" :class="orderPage === 'active' ? 'btn-primary' : 'btn-outline-secondary'" @click="orderPage = 'active'">Active orders</button>
+            <button type="button" class="btn text-start" :class="orderPage === 'history' ? 'btn-primary' : 'btn-outline-secondary'" @click="orderPage = 'history'">Order history</button>
+            <button type="button" class="btn text-start" :class="orderPage === 'cancelled' ? 'btn-primary' : 'btn-outline-secondary'" @click="orderPage = 'cancelled'">Cancelled orders</button>
           </div>
-        </div>
-        <!-- for a fall back for orders that is made before the addition of the new stuff, so that it will show in old format and wont bug out -->
-        <template v-else>
-          <ul><li v-for="item in order.items" :key="item.id">{{ item.name }} × {{ item.quantity }} — ${{ item.price * item.quantity }}</li></ul>
-          <ShopDeliveryTracker v-if="order.deliveryDurationSeconds" :order="order" @delivery-update="showDeliveryNotification" />
-          <p v-else class="text-muted">Delivery tracking is unavailable for this older order.</p>
-        </template>
-        <p>Original total: ${{ order.total.toFixed(2) }} · Remaining items: ${{ remainingOrderTotal(order).toFixed(2) }}</p>
-        <div v-if="order.updates && order.updates.length" class="alert alert-info">
-          <strong>Order updates</strong>
-          <p v-for="update in order.updates" :key="update._id" class="mb-1">{{ update.message }}</p>
-        </div>
+          <template v-if="canManageProducts">
+            <h2 class="h6 mt-4 mb-3">{{ auth.user.role === 'admin' ? 'Administration' : 'Company orders' }}</h2>
+            <div class="d-grid gap-2">
+              <button type="button" class="btn text-start" :class="orderPage === 'manage-active' ? 'btn-primary' : 'btn-outline-secondary'" @click="orderPage = 'manage-active'">Manage active orders</button>
+              <button type="button" class="btn text-start" :class="orderPage === 'manage-history' ? 'btn-primary' : 'btn-outline-secondary'" @click="orderPage = 'manage-history'">Manage order history</button>
+              <button type="button" class="btn text-start" :class="orderPage === 'manage-cancelled' ? 'btn-primary' : 'btn-outline-secondary'" @click="orderPage = 'manage-cancelled'">Manage cancelled orders</button>
+              <button v-if="auth.user.role === 'admin'" type="button" class="btn text-start" :class="orderPage === 'reviews' ? 'btn-primary' : 'btn-outline-secondary'" @click="orderPage = 'reviews'">Manage reviews</button>
+            </div>
+          </template>
+        </nav>
+      </aside>
+      <div class="col-12 col-lg-9">
+        <ShopOrders v-show="!viewingManagement && orderPage !== 'reviews'" :key="currentUserId()" :orders="orders" :loading="loadingOrders" :message="ordersMessage" :section="orderPage" @refresh="getMyOrders" @removed="orderRemoved" @delivery-update="showDeliveryNotification" />
+        <ShopOrderManagement v-if="viewingManagement && canManageProducts" :key="currentUserId()" :section="managementSection" @removed="orderRemoved" />
+        <ShopReviewManagement v-if="orderPage === 'reviews' && auth.user.role === 'admin'" :key="currentUserId()" @reviews-changed="getReviewSummaries" />
       </div>
-    </section>
-        <section v-if="route.path === '/shop/orders' && canManageProducts">
-      <div class="d-flex flex-wrap gap-2">
-        <button class="btn btn-outline-primary" @click="managementTab = 'orders'">Manage orders</button>
-        <button v-if="auth.user.role === 'admin'" class="btn btn-outline-primary" @click="managementTab = 'reviews'">Manage reviews</button>
-      </div>
-      <ShopOrderManagement v-if="managementTab === 'orders'" :key="currentUserId()" />
-      <ShopReviewManagement v-if="managementTab === 'reviews' && auth.user.role === 'admin'" :key="currentUserId()" @reviews-changed="getReviewSummaries" />
     </section>
     <ShopProductDetails v-if="selectedProduct" :key="selectedProduct.id" :tool="selectedProduct" :company-name="companyName(selectedProduct.companyId)" :cart-disabled="cartBusy || !cartReady" @close="selectedProduct = null" @add-to-cart="addToCart" @reviews-changed="getReviewSummaries" />
     <div v-if="deliveryNotification && auth.isLoggedIn" class="delivery-notification alert alert-success shadow" role="status">
@@ -860,6 +858,23 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+/* Approved extra: overlapping native range inputs share a coloured track.
+   Ignore pointer events on each input except its thumb, so both handles can be dragged. */
+.shop-price-range { height: 44px; }
+.shop-price-track { position: absolute; left: 0; right: 0; top: 19px; height: 6px; border-radius: 3px; }
+.shop-range-input { appearance: none; -webkit-appearance: none; pointer-events: none; position: absolute; left: 0; top: 0; width: 100%; height: 44px; margin: 0; background: transparent; }
+.shop-range-input::-webkit-slider-runnable-track { height: 6px; background: transparent; }
+.shop-range-input::-moz-range-track { height: 6px; background: transparent; }
+.shop-range-input::-webkit-slider-thumb { appearance: none; -webkit-appearance: none; pointer-events: auto; width: 26px; height: 26px; margin-top: -10px; border: 5px solid #1477bd; border-radius: 50%; background: white; cursor: pointer; }
+.shop-range-input::-moz-range-thumb { pointer-events: auto; width: 16px; height: 16px; border: 5px solid #1477bd; border-radius: 50%; background: white; cursor: pointer; }
+.shop-range-input:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+/* Equal image heights align cards; contain keeps the whole tool visible. */
+.shop-product-image { width: 100%; height: 170px; object-fit: contain; padding: 0.75rem; }
+/* One clear control with a 44px-wide target replaces the tiny native search x. */
+.shop-search-input { padding-right: 3.5rem; }
+.shop-search-clear { width: 44px; min-height: 44px; border: 0; background: transparent; color: var(--ink); font-size: 1.5rem; box-shadow: none; border-radius: 0; }
+.shop-search-clear:focus-visible { outline: 2px solid currentColor; outline-offset: -4px; }
 
 .cart-save-status {
   min-height: 1.5rem;

@@ -245,7 +245,11 @@ shopController.createOrder = async (req, res) => {
 shopController.getMyOrders = async (req, res) => {
   try {
     const orders = await Shop.findOrdersByUserId(req.session.user._id);
-    res.json(orders);
+    const visible = [];
+    for (const order of orders) {
+      if (!order.hiddenFor.includes(String(req.session.user._id))) visible.push(order);
+    }
+    res.json(visible);
   } catch (error) {
     console.error(error.message);
     res.status(500).json({ message: 'Order history could not be loaded. Please try again.' });

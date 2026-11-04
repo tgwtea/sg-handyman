@@ -25,7 +25,14 @@ function sendError(error, res) {
 management.getOrders = async (req, res) => {
   try {
     const user = req.session.user;
-    if (user.role === 'admin') return res.json(await Shop.findAllOrders());
+    if (user.role === 'admin') {
+      const orders = await Shop.findAllOrders();
+      const visible = [];
+      for (const order of orders) {
+        if (!order.hiddenFor.includes(String(user._id))) visible.push(order);
+      }
+      return res.json(visible);
+    }
     if (!user.companyId) return res.status(403).json({ message: 'Your account needs a linked company.' });
     const orders = await Shop.findCompanyOrders(String(user.companyId));
     const result = [];
@@ -125,6 +132,39 @@ management.rejectOrder = async (req, res) => {
     const result = await Shop.saveManagement(order);
     if (result.matchedCount === 0) return res.status(404).json({ message: 'Order not found.' });
     res.json({ message: 'Order rejected. Its history is retained.' });
+  } catch (error) { sendError(error, res); }
+};
+// A completed order has no travelling, non-rejected items.
+// No timing information means we cannot confirm completion for that older order.
+function orderFinished(order) {
+  for (const item of order.items) {
+    if (item.rejected) continue;
+    if (!order.deliveryDurationSeconds) return false;
+    let extraSeconds = 0;
+    for (const parcel of order.packages) {
+      if (parcel.companyId === item.companyId) extraSeconds = parcel.extraSeconds;
+    }
+    const finish = new Date(order.createdAt).getTime() + (order.deliveryDurationSeconds + extraSeconds) * 1000;
+    if (Date.now() < finish) return false;
+  }
+  return true;
+}
+
+// The route allows customers/admins; the controller also checks ownership and completion.
+management.hideOrder = async (req, res) => {
+  try {
+    const order = await Shop.findOrderById(req.params.id);
+    if (!order) return res.status(404).json({ message: 'Order not found.' });
+    const user = req.session.user;
+    if (user.role !== 'admin' && String(order.userId) !== String(user._id)) {
+      return res.status(403).json({ message: 'You may remove only your own orders.' });
+    }
+    if (!orderFinished(order)) return res.status(409).json({ message: 'Only delivered or fully cancelled orders can be removed.' });
+    const userId = String(user._id);
+    if (!order.hiddenFor.includes(userId)) order.hiddenFor.push(userId);
+    const result = await Shop.hideOrder(order._id, order.hiddenFor);
+    if (result.matchedCount === 0) return res.status(404).json({ message: 'Order not found.' });
+    res.json({ message: 'Order removed from your list. Other accounts keep their records.' });
   } catch (error) { sendError(error, res); }
 };
 export default management;
