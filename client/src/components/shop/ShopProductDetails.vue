@@ -228,7 +228,6 @@ onUnmounted(() => {
 
             <template v-else>
               <p class="review-comment mb-2">{{ review.comment }}</p>
-              <p v-if="review.editedByAdmin" class="small text-muted">Edited by admin</p>
               <div v-if="review.mine" class="d-flex flex-wrap gap-2"><button type="button" class="btn btn-outline-primary btn-sm" :disabled="reviewBusy" @click="startEditingReview(review)">Edit review</button><button type="button" class="btn btn-outline-danger btn-sm" :disabled="reviewBusy" @click="confirmDelete = true">Delete review</button></div>
             </template>
           </article>

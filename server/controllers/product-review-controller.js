@@ -62,7 +62,7 @@ reviewController.getReviews = async (req, res) => {
     for (const review of reviews) {
       const mine = !!user && String(review.userId) === user._id;
       if (mine) alreadyReviewed = true;
-      result.push({ _id: review._id, rating: review.rating, comment: review.comment, username: review.username, createdAt: review.createdAt, mine: mine,editedByAdmin: review.adminEdits.length > 0  });
+      result.push({ _id: review._id, rating: review.rating, comment: review.comment, username: review.username, createdAt: review.createdAt, mine: mine });
     }
     let purchased = false;
     if (user) purchased = await hasPurchased(user._id, id);
@@ -133,7 +133,7 @@ reviewController.getAdminReviews = async (req, res) => {
       let name = 'Product unavailable';
       for (const product of products) if (product.id === review.productId) name = product.name;
       result.push({ _id: review._id, productName: name, username: review.username, rating: review.rating,
-        comment: review.comment, adminEdits: review.adminEdits });
+        comment: review.comment });
     }
     res.json(result);
   } catch (error) { res.status(500).json({ message: 'Could not load reviews.' }); }
