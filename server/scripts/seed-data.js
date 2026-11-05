@@ -214,6 +214,8 @@ export const COMPANIES = [
     description: 'Interior and exterior painting for HDB flats, condos and landed homes. Low-VOC paints available.',
     website: 'https://www.freshcoatpainters.example',
     address: '42 Mactaggart Road, #02-14, Singapore 368086',
+    // mock coordinates, used only when OneMap has no match for the postal code
+    location: { lat: 1.33484, lng: 103.88471 },
     services: [
       { category: 'Interior Painting', details: [
         { service: 'Bedroom Painting (Per Room)', startingPrice: 280 },
@@ -387,6 +389,8 @@ export const COMPANIES = [
     description: 'HDB and BTO painting specialists. Free colour consultation with every whole-house job.',
     website: 'https://www.colourmehome.example',
     address: '1 Ang Mo Kio Industrial Park 2A, #01-25, Singapore 568049',
+    // mock coordinates, used only when OneMap has no match for the postal code
+    location: { lat: 1.37795, lng: 103.86786 },
     services: [
       { category: 'Interior Painting', details: [
         { service: 'Bedroom Painting (Per Room)', startingPrice: 240 },
@@ -592,4 +596,102 @@ export const REVIEWS = [
   ['Sparkle Glass & Windows', 'farahrahman', 5, 'Replaced a cracked window panel within a day of my call.', '2026-04-29'],
   ['Sparkle Glass & Windows', 'alicetan', 4, 'Mosquito nets fit well and are easy to remove for cleaning.', '2026-07-17'],
   ['Sparkle Glass & Windows', 'gokulraj', 4, 'Window hinge repair fixed the rattling in strong wind.', '2026-09-27']
+];
+
+// demo DIY forum posts. author, likes and reply authors are usernames from above.
+// category is one of FORUM_CATEGORIES in client/src/utils/homeProblems.js
+export const FORUM_POSTS = [
+  {
+    author: 'benlim',
+    category: 'Leaking tap',
+    title: 'Kitchen tap still drips after I closed it tight',
+    content: 'Our kitchen mixer tap drips about once every few seconds, even when I turn the handle fully off. The flat is a 5-year-old BTO. Is this a washer problem, or do I need to change the whole tap?',
+    date: '2026-10-12T09:20:00+08:00',
+    likes: ['alicetan', 'chloeng', 'hannahlee'],
+    replies: [
+      ['tanrepair', 'Most mixer taps in BTO flats use a ceramic cartridge, not a washer. Close the angle valve under the sink first. Then take the cartridge to a hardware shop to match the size. A new one usually costs $15 to $30.', '2026-10-12T11:05:00+08:00'],
+      ['benlim', 'Changed the cartridge this weekend and the drip stopped. Thanks!', '2026-10-18T16:40:00+08:00']
+    ]
+  },
+  {
+    author: 'chloeng',
+    category: 'Aircon servicing',
+    title: 'How often should I service my aircon?',
+    content: 'We have 3 wall units and use them every night. The bedroom unit now drips water onto the floor. How often should a normal flat get general servicing, and can I clean the filters myself in between?',
+    date: '2026-10-05T21:10:00+08:00',
+    likes: ['danielwong', 'gokulraj'],
+    replies: [
+      ['coolbreeze', 'For nightly use, book general servicing every 3 to 4 months. Dripping usually means the drain pipe is choked, which a chemical wash or pipe flush clears. You can wash the filters yourself every 2 weeks with plain water. Let them dry fully before you put them back.', '2026-10-06T10:15:00+08:00'],
+      ['danielwong', 'Same problem here. Washing the filters every 2 weeks made a big difference to the cooling.', '2026-10-07T08:30:00+08:00']
+    ]
+  },
+  {
+    author: 'farahrahman',
+    category: 'Power trip',
+    title: 'Power trips every time I use the oven and kettle together',
+    content: 'The whole kitchen goes dark when the oven and the kettle run at the same time. I can switch the breaker back on and everything works again. Is it safe to keep resetting it?',
+    date: '2026-09-28T19:45:00+08:00',
+    likes: ['alicetan', 'emilyhoo', 'jasminekoh', 'benlim'],
+    replies: [
+      ['brightspark', 'If it trips only when both heavy appliances run, the circuit is likely overloaded. Use them one at a time for now. If the breaker trips with nothing heavy running, or it feels warm, stop resetting it and call a licensed electrician to check the wiring.', '2026-09-29T09:00:00+08:00']
+    ]
+  },
+  {
+    author: 'hannahlee',
+    category: 'Door lock',
+    title: 'Digital lock battery died while I was outside',
+    content: 'My digital lock ran out of battery and I could not get in. It has a USB port at the bottom, so a power bank saved me this time. How do I avoid this again?',
+    date: '2026-10-20T22:05:00+08:00',
+    likes: ['gokulraj', 'chloeng'],
+    replies: [
+      ['keymaster', 'Change all 4 AA batteries as soon as the lock beeps for low battery, usually every 8 to 12 months. Use good alkaline batteries, not rechargeables. Also keep the backup key somewhere outside the flat, such as with family.', '2026-10-21T09:40:00+08:00']
+    ]
+  },
+  {
+    author: 'gokulraj',
+    category: 'Wall mounting',
+    title: 'Mounting a 55-inch TV on an HDB wall',
+    content: 'I want to mount a 55-inch TV in the living room. How do I know if the wall is concrete or a lightweight partition, and which anchors should I use?',
+    date: '2026-10-02T14:30:00+08:00',
+    likes: ['benlim', 'farahrahman'],
+    replies: [
+      ['handyandy', 'Knock on the wall. A hollow sound usually means a partition board, which cannot hold a heavy TV without special anchors. Most HDB living room walls are concrete. For concrete, use the plugs and screws that come with a proper TV bracket, and check for hidden pipes and cables with a detector before you drill.', '2026-10-02T17:20:00+08:00'],
+      ['gokulraj', 'It was concrete. The TV is up and level. Thanks for the detector tip.', '2026-10-10T20:00:00+08:00']
+    ]
+  },
+  {
+    author: 'emilyhoo',
+    category: 'Leaking tap',
+    title: 'Toilet keeps running after every flush',
+    content: 'Our toilet cistern keeps refilling for minutes after each flush, and we can hear water running at night. Is this something I can fix myself?',
+    date: '2026-10-25T08:15:00+08:00',
+    likes: ['hannahlee'],
+    replies: [
+      ['alicetan', 'Ours was a worn flapper seal at the bottom of the tank. A new one cost about $10, and it took 15 minutes to change.', '2026-10-25T12:30:00+08:00'],
+      ['24hrsplumber', 'Check that the float is not set too high first. If water flows into the overflow pipe, lower the float a little. If the seal is the problem, a new flush valve kit is a simple DIY job.', '2026-10-26T09:10:00+08:00']
+    ]
+  },
+  {
+    author: 'danielwong',
+    category: 'Others',
+    title: 'Mould in the bathroom ceiling corner',
+    content: 'There are black spots of mould in one corner of our bathroom ceiling. We wipe them off but they come back after a few weeks. What works for good?',
+    date: '2026-09-15T18:00:00+08:00',
+    likes: ['chloeng', 'emilyhoo', 'farahrahman'],
+    replies: [
+      ['freshcoat', 'Mould comes back when the room stays damp. Run the exhaust fan or open the window for 20 minutes after each shower. To repaint, clean the area with a mould remover, let it dry, then use an anti-fungal bathroom paint.', '2026-09-16T10:45:00+08:00']
+    ]
+  },
+  {
+    author: 'jasminekoh',
+    category: 'Others',
+    title: 'Just collected our BTO keys: which jobs to book first?',
+    content: 'We get our keys next month. Which jobs should we book first so we can move in quickly? We need aircon, lights, curtains and a TV mount.',
+    date: '2026-10-30T20:20:00+08:00',
+    likes: ['alicetan', 'benlim', 'chloeng', 'gokulraj', 'hannahlee'],
+    replies: [
+      ['alicetan', 'Book the aircon installation early. It involves trunking and piping through the walls, so it is best done before anything else is mounted. Lights and power points next, then curtains and the TV mount last.', '2026-10-31T09:00:00+08:00'],
+      ['chloeng', 'Slots fill up fast when the whole block collects keys together, so book a few weeks ahead.', '2026-10-31T13:25:00+08:00']
+    ]
+  }
 ];

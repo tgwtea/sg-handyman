@@ -38,4 +38,13 @@ productModel.removeProduct = function(id, companyId) {
   return Product.updateOne({ id: id, companyId: companyId }, { removed: true }, { runValidators: true });
 };
 
+// Points products at new company ids. idPairs: [[oldCompanyId, newCompanyId]].
+// The seed uses this, because a reseed gives every company a new id but keeps the shop catalogue.
+productModel.relinkCompanies = function(idPairs) {
+  if (!idPairs.length) return Promise.resolve({ modifiedCount: 0 });
+  return Product.bulkWrite(idPairs.map(([oldId, newId]) => ({
+    updateMany: { filter: { companyId: oldId }, update: { $set: { companyId: newId } } }
+  })));
+};
+
 export default productModel;

@@ -1,6 +1,6 @@
 // Rebuilds the whole database from seed-data.js: users, companies, reviews,
-// timeslots and bookings. It deletes all existing data first, including forum
-// posts and shop orders, because they point to user ids that change on every run.
+// timeslots, bookings and demo forum posts. It deletes all existing data first, including
+// forum posts and shop orders, because they point to user ids that change on every run.
 // Usage: pnpm seed
 import bcrypt from 'bcryptjs';
 import mongoose from 'mongoose';
@@ -14,6 +14,7 @@ import Timeslot from '../models/timeslot-model.js';
 import Booking from '../models/booking-model.js';
 import ForumPost from '../models/forum-model.js';
 import Shop from '../models/shop-model.js';
+import Product from '../models/product-model.js';
 import onemap from '../services/onemap-service.js';
 import {
   TEST_PASSWORD,
@@ -21,12 +22,14 @@ import {
   CUSTOMER_USERNAMES,
   TEST_USERS,
   COMPANIES,
-  REVIEWS
+  REVIEWS,
+  FORUM_POSTS
 } from './seed-data.js';
 
 dotenv.config({ path: fileURLToPath(new URL('../.env', import.meta.url)), quiet: true });
 
-const DAYS_AHEAD = 14;
+// long enough to cover grading after a seed near the submission date
+const DAYS_AHEAD = 35;
 const OPEN_HOURS = [8, 9, 10];       // Singapore time
 const CLOSE_HOURS = [17, 18, 19];    // before 20:00, where E2E tests make their own slots
 const LUNCH_HOURS = [12, 13];
@@ -159,6 +162,23 @@ function buildSlotTimes(company) {
   return slots;
 }
 
+// finished bookings with no review yet, so a demo can show the review form at once.
+// The seed writes them straight to the database; the API still refuses past slots.
+const FINISHED_BOOKING_USER = 'test-customer-1';
+const FINISHED_BOOKING_COMPANY = 'Tan Repair';
+const FINISHED_BOOKINGS = [
+  { daysAgo: 1, startHour: 10, hours: 1 },
+  { daysAgo: 6, startHour: 14, hours: 2 }
+];
+
+function buildFinishedSlotTimes() {
+  const nowInSgt = new Date(Date.now() + SGT_OFFSET_HOURS * 60 * 60 * 1000);
+  const toDate = (daysAgo, hour) => new Date(Date.UTC(nowInSgt.getUTCFullYear(), nowInSgt.getUTCMonth(),
+    nowInSgt.getUTCDate() - daysAgo, hour - SGT_OFFSET_HOURS));
+  return FINISHED_BOOKINGS.map(({ daysAgo, startHour, hours }) =>
+    ({ start: toDate(daysAgo, startHour), end: toDate(daysAgo, startHour + hours) }));
+}
+
 function serviceNames(company) {
   return company.services.flatMap((category) => category.details.map((detail) => detail.service));
 }
@@ -184,13 +204,15 @@ async function deleteEverything() {
 }
 
 // { lat, lng } for each company, from the postal code at the end of its address.
+// A company with mock coordinates in seed-data.js uses them when OneMap has no match.
 // Runs before anything is deleted, so a OneMap failure leaves the database as it was.
 async function geocodeCompanies() {
   const locations = [];
   for (const company of COMPANIES) {
     const postalCode = company.address.trim().split(' ').at(-1);
-    const location = await onemap.geocodePostalCode(postalCode);
+    const location = await onemap.geocodePostalCode(postalCode) ?? company.location;
     if (!location) throw new Error(`OneMap has no location for ${company.name} (${postalCode})`);
+    if (location === company.location) console.log(`Using mock location for ${company.name}`);
     locations.push(location);
   }
   return locations;
@@ -203,6 +225,9 @@ async function seed() {
   const locations = await geocodeCompanies();
   console.log(`Geocoded ${locations.length} company addresses`);
 
+  // the shop catalogue is kept, so remember which company each old id belonged to
+  const oldCompanyIdByName = new Map((await Company.findAllCompanies()).map((company) => [company.name, company._id]));
+
   await deleteEverything();
   await Booking.Booking.syncIndexes();
   await Timeslot.Timeslot.syncIndexes();
@@ -211,6 +236,10 @@ async function seed() {
     COMPANIES.map(({ owner, ...company }, index) => ({ ...company, location: locations[index] }))
   );
   const companyIdByName = new Map(companies.map((company) => [company.name, company._id]));
+  const relinked = await Product.relinkCompanies([...oldCompanyIdByName]
+    .filter(([name]) => companyIdByName.has(name))
+    .map(([name, oldId]) => [oldId, companyIdByName.get(name)]));
+  console.log(`Linked shop products to the new company ids (${relinked.modifiedCount} updated)`);
 
   const users = await User.insertManyUsers(await Promise.all([
     buildUser(ADMIN_USERNAME, 'admin'),
@@ -246,8 +275,41 @@ async function seed() {
     }));
   await Booking.insertManyBookings(bookings);
 
+  const finishedCompany = companies.find((company) => company.name === FINISHED_BOOKING_COMPANY);
+  const finishedSlots = await Timeslot.insertManyTimeslots(
+    buildFinishedSlotTimes().map((time) => ({ companyId: finishedCompany._id, ...time }))
+  );
+  await Booking.insertManyBookings(finishedSlots.map((slot, index) => ({
+    timeslotId: slot._id,
+    companyId: finishedCompany._id,
+    userId: userIdByName.get(FINISHED_BOOKING_USER),
+    service: serviceNames(finishedCompany)[index % serviceNames(finishedCompany).length]
+  })));
+  console.log(`Seeded ${finishedSlots.length} finished bookings for ${FINISHED_BOOKING_USER} at ${FINISHED_BOOKING_COMPANY}`);
+
+  // a post's updatedAt is its latest activity, the order the forum lists posts in
+  const forumPosts = await ForumPost.insertManyForumPosts(FORUM_POSTS.map((post) => {
+    const replies = post.replies.map(([author, content, date]) => ({
+      authorId: userIdByName.get(author),
+      content,
+      createdAt: new Date(date),
+      updatedAt: new Date(date)
+    }));
+    const lastActivity = replies.at(-1)?.createdAt ?? new Date(post.date);
+    return {
+      authorId: userIdByName.get(post.author),
+      title: post.title,
+      content: post.content,
+      category: post.category,
+      likes: post.likes.map((username) => userIdByName.get(username)),
+      replies,
+      createdAt: new Date(post.date),
+      updatedAt: lastActivity
+    };
+  }));
+
   console.log(`Seeded ${users.length} users, ${companies.length} companies, ${reviews.length} reviews, `
-    + `${timeslots.length} timeslots and ${bookings.length} bookings`);
+    + `${timeslots.length} timeslots, ${bookings.length} bookings and ${forumPosts.length} forum posts`);
 }
 
 seed()

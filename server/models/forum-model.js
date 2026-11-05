@@ -131,6 +131,11 @@ forumModel.deleteForumPostById = function(postId) {
   return ForumPost.findByIdAndDelete(postId);
 };
 
+// Inserts many forum posts at once (used by the seed script)
+forumModel.insertManyForumPosts = function(posts) {
+  return ForumPost.insertMany(posts);
+};
+
 // Deletes every forum post
 forumModel.deleteAllForumPosts = function() {
   return ForumPost.deleteMany({});
