@@ -1,372 +1,325 @@
 import { test, expect } from '@playwright/test'
+import {
+  USERS, BUSINESS_COMPANY, SHOP_SELLER, SHOP_SELLER_LOGIN,
+  login, apiAs, uniqueTitle, clearCart, placeOrderByApi, removeOrder
+} from './helpers.js'
 
-// Check that a visitor can open the shop screen.
-test('shop displays its heading', async ({ page }) => {
-  // Open the shop using the base URL in playwright.config.js.
-  await page.goto('/shop')
+// reads the catalogue from the API (no login needed)
+async function getProducts() {
+  const api = await apiAs(USERS.customer)
+  const response = await api.get('shop/products')
+  expect(response.ok()).toBeTruthy()
+  const products = (await response.json()).filter((product) => !product.removed)
+  await api.dispose()
+  return products
+}
 
-  // Find the heading and check that it is visible.
-  await expect(
-    page.getByRole('heading', { name: 'DIY tools shop', exact: true })
-  ).toBeVisible()
-})
+// a product whose name appears once, so the test can find its card by name
+function productWithUniqueName(products) {
+  const product = products.find((item) => products.filter((other) => other.name === item.name).length === 1)
+  expect(product, 'The catalogue needs at least one product with a unique name.').toBeTruthy()
+  return product
+}
 
-//check search bar
-test('testsearchbar', async ({ page }) => {
-  await page.goto('/shop');
-  await page.getByRole('textbox', { name: 'Search tools' }).click();
-  await page.getByRole('textbox', { name: 'Search tools' }).fill('hammer');
-  await page.getByRole('button', { name: 'View details' }).first().click();
-  await expect(
-  page.getByRole('dialog', { name: 'Claw hammer', exact: true })
-  ).toBeVisible();
-  await page.getByRole('dialog').getByRole('button', { name: 'Add to cart' }).click();
-  await page.getByRole('dialog').getByRole('button', { name: 'Add to cart' }).press('Escape');
-});
+function productCard(page, name) {
+  return page.locator('.card').filter({ has: page.getByRole('heading', { name, exact: true }) })
+}
 
-//check seller filter
-test('testsearchfilter', async ({ page }) => {
-  await page.goto('/shop');
-  await page.getByLabel('Seller').selectOption('6ae5d20eb16741a0c6a6d1dd');
-  await expect(page.getByText('No products match your')).toBeVisible();
-  await page.getByLabel('Seller').selectOption('6ae5d20eb16741a0c6a6d1e6');
-  await expect(page.getByText('Tan Repair').nth(1)).toBeVisible();
-});
+function priceOf(text) {
+  return Number(text.replace('Price: $', ''))
+}
 
-//check sorting
-test('products can be sorted by price', async ({ page }) => {
-  await page.goto('/shop');
+test.describe('Shop: browsing as a guest', () => {
+  test('shop displays its heading', async ({ page }) => {
+    await page.goto('/shop')
+    await expect(page.getByRole('heading', { name: 'DIY tools shop', exact: true })).toBeVisible()
+  })
 
-  // Wait until products have loaded.
-  const priceLabels = page.locator('.card .card-text');
-  await expect(priceLabels.first()).toBeVisible();
+  test('search finds a product and opens its details', async ({ page }) => {
+    await page.goto('/shop')
+    await page.getByRole('textbox', { name: 'Search tools' }).fill('hammer')
+    await productCard(page, 'Claw hammer').first().getByRole('button', { name: 'View details' }).click()
 
-  // Lowest to highest.
-  await page.getByLabel('Sort products').selectOption('price-low');
+    const dialog = page.getByRole('dialog', { name: 'Claw hammer', exact: true })
+    await expect(dialog).toBeVisible()
+    await dialog.getByRole('button', { name: 'Close product details' }).click()
+    await expect(dialog).toBeHidden()
+  })
 
-  let prices = await priceLabels.allTextContents();
+  test("seller filter shows only that seller's products", async ({ page }) => {
+    const products = await getProducts()
+    const api = await apiAs(USERS.customer)
+    const companies = await (await api.get('companies')).json()
+    await api.dispose()
+    const seller = companies.find((company) => company.name === BUSINESS_COMPANY)
+    const sellerProductCount = products.filter((product) => product.companyId === seller._id).length
+    expect(sellerProductCount).toBeGreaterThan(0)
 
-  for (let i = 1; i < prices.length; i++) {
-    const previous = Number(prices[i - 1].replace('Price: $', ''));
-    const current = Number(prices[i].replace('Price: $', ''));
+    await page.goto('/shop')
+    const cards = page.locator('.card')
+    await expect(cards.first()).toBeVisible()
 
-    expect(current).toBeGreaterThanOrEqual(previous);
-  }
-
-  // Highest to lowest.
-  await page.getByLabel('Sort products').selectOption('price-high');
-
-  prices = await priceLabels.allTextContents();
-
-  for (let i = 1; i < prices.length; i++) {
-    const previous = Number(prices[i - 1].replace('Price: $', ''));
-    const current = Number(prices[i].replace('Price: $', ''));
-
-    expect(current).toBeLessThanOrEqual(previous);
-  }
-});
-
-//rating filter
-test('minimum rating filter shows only qualifying products', async ({ page }) => {
-  await page.goto('/shop')
-  const cards = page.locator('.card')
-  const ratingLabels = cards.locator('.rating-trigger strong')
-  // At least one rated product is needed for a meaningful rating test.
-  await expect(ratingLabels.first()).toBeVisible()
-  const originalCount = await cards.count()
-  const originalRatings = await ratingLabels.allTextContents()
-
-  // Check every available threshold: 4, 3 and 2 stars and above.
-  for (const minimumRating of [4, 3, 2]) {
-    await page.getByLabel('Minimum rating', { exact: true }).selectOption(String(minimumRating))
-
-    let expectedCount = 0
-    for (const text of originalRatings) {
-      if (Number(text) >= minimumRating) expectedCount++
+    await page.getByLabel('Seller').selectOption({ label: BUSINESS_COMPANY })
+    await expect(cards).toHaveCount(sellerProductCount)
+    for (const sellerLine of await cards.locator('.card-body > p.small').allTextContents()) {
+      expect(sellerLine.trim()).toBe(BUSINESS_COMPANY)
     }
-    await expect(cards).toHaveCount(expectedCount)
-    // Unrated products must not appear when a minimum rating is selected.
-    await expect(ratingLabels).toHaveCount(expectedCount)
 
-    const visibleRatings = await ratingLabels.allTextContents()
-    for (const text of visibleRatings) {
-      expect(Number(text)).toBeGreaterThanOrEqual(minimumRating)
-    }
-    if (expectedCount === 0) {
+    // a seller with no products shows the empty message
+    const emptySeller = companies.find((company) => !products.some((product) => product.companyId === company._id))
+    if (emptySeller) {
+      await page.getByLabel('Seller').selectOption({ label: emptySeller.name })
       await expect(page.getByText('No products match your filters. Try Clear filters.', { exact: true })).toBeVisible()
     }
-  }
+  })
 
-  // Any rating restores rated and unrated products.
-  await page.getByLabel('Minimum rating', { exact: true }).selectOption('')
-  await expect(cards).toHaveCount(originalCount)
+  test('products can be sorted by price', async ({ page }) => {
+    await page.goto('/shop')
+    const priceLabels = page.locator('.card .card-text')
+    await expect(priceLabels.first()).toBeVisible()
+
+    await page.getByLabel('Sort products').selectOption('price-low')
+    let prices = (await priceLabels.allTextContents()).map(priceOf)
+    for (let i = 1; i < prices.length; i++) {
+      expect(prices[i]).toBeGreaterThanOrEqual(prices[i - 1])
+    }
+
+    await page.getByLabel('Sort products').selectOption('price-high')
+    prices = (await priceLabels.allTextContents()).map(priceOf)
+    for (let i = 1; i < prices.length; i++) {
+      expect(prices[i]).toBeLessThanOrEqual(prices[i - 1])
+    }
+  })
+
+  test('minimum rating filter shows only qualifying products', async ({ page }) => {
+    await page.goto('/shop')
+    const cards = page.locator('.card')
+    const ratingLabels = cards.locator('.rating-trigger strong')
+    await expect(ratingLabels.first()).toBeVisible()
+    const originalCount = await cards.count()
+    const originalRatings = await ratingLabels.allTextContents()
+
+    for (const minimumRating of [4, 3, 2]) {
+      await page.getByLabel('Minimum rating', { exact: true }).selectOption(String(minimumRating))
+
+      const expectedCount = originalRatings.filter((text) => Number(text) >= minimumRating).length
+      await expect(cards).toHaveCount(expectedCount)
+      await expect(ratingLabels).toHaveCount(expectedCount)
+
+      for (const text of await ratingLabels.allTextContents()) {
+        expect(Number(text)).toBeGreaterThanOrEqual(minimumRating)
+      }
+      if (expectedCount === 0) {
+        await expect(page.getByText('No products match your filters. Try Clear filters.', { exact: true })).toBeVisible()
+      }
+    }
+
+    await page.getByLabel('Minimum rating', { exact: true }).selectOption('')
+    await expect(cards).toHaveCount(originalCount)
+  })
+
+  test('price range bar filters products within its limits', async ({ page }) => {
+    await page.goto('/shop')
+    const minimumSlider = page.getByLabel('Minimum price ($)', { exact: true })
+    const maximumSlider = page.getByLabel('Maximum price ($)', { exact: true })
+    const cards = page.locator('.card')
+    await expect(maximumSlider).toBeVisible()
+    expect(await cards.count()).toBeGreaterThanOrEqual(2)
+
+    const originalPrices = (await cards.locator('.card-text').allTextContents()).map(priceOf)
+    const lowest = Math.min(...originalPrices)
+    const highest = Math.max(...originalPrices)
+    expect(highest).toBeGreaterThan(lowest)
+    const middle = (lowest + highest) / 2
+    const lowerLimit = Math.floor(middle * 10) / 10
+    const upperLimit = Math.ceil(middle * 10) / 10
+    const originalMaximum = Number(await maximumSlider.inputValue())
+
+    async function checkDisplayedPrices(minimum, maximum) {
+      const expectedCount = originalPrices.filter((price) => price >= minimum && price <= maximum).length
+      await expect(cards).toHaveCount(expectedCount)
+      for (const price of (await cards.locator('.card-text').allTextContents()).map(priceOf)) {
+        expect(price).toBeGreaterThanOrEqual(minimum)
+        expect(price).toBeLessThanOrEqual(maximum)
+      }
+    }
+
+    await minimumSlider.fill(String(lowerLimit))
+    await expect(minimumSlider).toHaveValue(String(lowerLimit))
+    await checkDisplayedPrices(lowerLimit, originalMaximum)
+
+    await minimumSlider.fill('0')
+    await maximumSlider.fill(String(upperLimit))
+    await expect(maximumSlider).toHaveValue(String(upperLimit))
+    await checkDisplayedPrices(0, upperLimit)
+
+    await page.getByRole('button', { name: 'Clear filters', exact: true }).click()
+    await expect(cards).toHaveCount(originalPrices.length)
+    await expect(minimumSlider).toHaveValue('0')
+    await expect(maximumSlider).toHaveValue(String(originalMaximum))
+  })
 })
 
-//pricerange test
-test('price range bar filters products within its limits', async ({ page }) => {
-  await page.goto('/shop')
-  const minimumSlider = page.getByLabel('Minimum price ($)', { exact: true })
-  const maximumSlider = page.getByLabel('Maximum price ($)', { exact: true })
-  const cards = page.locator('.card')
-  await expect(maximumSlider).toBeVisible()
-  expect(await cards.count()).toBeGreaterThanOrEqual(2)
+test.describe('Shop: buying as a customer', () => {
+  let customerApi
 
-  const priceTexts = await cards.locator('.card-text').allTextContents()
-  const originalPrices = []
-  for (const text of priceTexts) originalPrices.push(Number(text.replace('Price: $', '')))
+  test.beforeEach(async () => {
+    // every test starts with an empty saved cart
+    customerApi = await apiAs(USERS.customer)
+    await clearCart(customerApi)
+  })
 
-  let lowest = originalPrices[0]
-  let highest = originalPrices[0]
-  for (const price of originalPrices) {
-    if (price < lowest) lowest = price
-    if (price > highest) highest = price
-  }
-  // Different prices are needed to prove that filtering excludes products.
-  expect(highest).toBeGreaterThan(lowest)
-  const middle = (lowest + highest) / 2
-  const lowerLimit = Math.floor(middle * 10) / 10
-  const upperLimit = Math.ceil(middle * 10) / 10
-  const originalMaximum = Number(await maximumSlider.inputValue())
+  test.afterEach(async () => {
+    await clearCart(customerApi)
+    await customerApi.dispose()
+  })
 
-  // Our helper checks both the number of results and every displayed price.
-  async function checkDisplayedPrices(minimum, maximum) {
-    let expectedCount = 0
-    for (const price of originalPrices) {
-      if (price >= minimum && price <= maximum) expectedCount++
+  test('customer changes cart quantities and empties the cart', async ({ page }) => {
+    const product = productWithUniqueName(await getProducts())
+    await login(page, USERS.customer)
+    await page.goto('/shop')
+
+    await productCard(page, product.name).getByRole('button', { name: 'View details' }).click()
+    const dialog = page.getByRole('dialog', { name: product.name, exact: true })
+    await dialog.getByRole('spinbutton', { name: 'Quantity' }).fill('100')
+    await dialog.getByRole('button', { name: 'Add to cart', exact: true }).click()
+    await dialog.getByRole('button', { name: 'Close product details' }).click()
+
+    const cartLink = page.getByRole('link', { name: /Cart \(/ })
+    await expect(cartLink).toHaveText(/Cart \(100\)/)
+    await cartLink.click()
+    await page.getByRole('button', { name: '+' }).click()
+    await expect(cartLink).toHaveText(/Cart \(101\)/)
+    await page.getByRole('button', { name: '-' }).click()
+    await expect(cartLink).toHaveText(/Cart \(100\)/)
+    await page.getByRole('button', { name: 'Remove', exact: true }).click()
+    await expect(page.getByText('Your cart is empty.', { exact: true })).toBeVisible()
+  })
+
+  test('customer checks out and sees the saved order', async ({ page }) => {
+    const product = productWithUniqueName(await getProducts())
+    const recipientName = uniqueTitle('Checkout test')
+    let orderId = null
+
+    try {
+      await login(page, USERS.customer)
+      await page.goto('/shop')
+      await productCard(page, product.name).getByRole('button', { name: 'Add to cart', exact: true }).click()
+      await page.getByRole('link', { name: 'Cart (1)' }).click()
+      await page.getByRole('link', { name: 'Continue to checkout' }).click()
+      await expect(page.getByRole('heading', { name: 'Checkout' })).toBeVisible()
+
+      await page.getByRole('textbox', { name: 'Recipient name' }).fill(recipientName)
+      await page.getByRole('textbox', { name: 'Delivery address' }).fill('1 Test Street, Singapore 000001')
+      await page.getByRole('textbox', { name: 'Delivery note (optional)' }).fill('Leave at the door')
+      await page.getByRole('textbox', { name: 'Cardholder name' }).fill('Test Customer')
+
+      // the card brand logo follows the first digits
+      const cardNumber = page.getByRole('textbox', { name: 'Card number' })
+      await cardNumber.fill('4242')
+      await expect(page.getByRole('img', { name: 'Visa' })).toBeVisible()
+      await cardNumber.fill('55')
+      await expect(page.getByRole('img', { name: 'Mastercard' })).toBeVisible()
+      await cardNumber.fill('37')
+      await expect(page.getByRole('img', { name: 'American Express' })).toBeVisible()
+      await cardNumber.fill('4242 4242 4242 4242')
+
+      await page.getByRole('textbox', { name: 'Expiry month' }).fill('12')
+      await page.getByRole('textbox', { name: 'Expiry year' }).fill('2222')
+      await page.getByRole('textbox', { name: 'Security code' }).fill('123')
+
+      const orderResponse = page.waitForResponse((response) =>
+        response.url().endsWith('/shop/orders') && response.request().method() === 'POST')
+      await page.getByRole('button', { name: 'Place order' }).click()
+      const response = await orderResponse
+      expect(response.status()).toBe(201)
+      orderId = (await response.json())._id
+
+      await expect(page.getByRole('heading', { name: 'Order saved' })).toBeVisible()
+      await expect(page.locator('article').filter({ hasText: recipientName })).toBeVisible()
+    } finally {
+      // the database is shared, so cancel and hide the test order
+      if (orderId) await removeOrder(customerApi, orderId)
     }
-    await expect(cards).toHaveCount(expectedCount)
-    const visiblePrices = await cards.locator('.card-text').allTextContents()
-    for (const text of visiblePrices) {
-      const price = Number(text.replace('Price: $', ''))
-      expect(price).toBeGreaterThanOrEqual(minimum)
-      expect(price).toBeLessThanOrEqual(maximum)
+  })
+
+  test('company cancels the order just placed', async ({ page }) => {
+    const recipientName = uniqueTitle('Cancellation test')
+    let orderId = null
+
+    try {
+      await login(page, USERS.customer)
+      await page.goto('/shop')
+      await page.getByLabel('Seller', { exact: true }).selectOption({ label: SHOP_SELLER })
+      await page.getByRole('button', { name: 'Add to cart', exact: true }).first().click()
+      await page.getByRole('link', { name: 'Cart (1)' }).click()
+      await page.getByRole('link', { name: 'Continue to checkout' }).click()
+
+      await page.getByRole('textbox', { name: 'Recipient name' }).fill(recipientName)
+      await page.getByRole('textbox', { name: 'Delivery address' }).fill('1 Test Street, Singapore 000001')
+      await page.getByRole('textbox', { name: 'Cardholder name' }).fill('Test Customer')
+      await page.getByRole('textbox', { name: 'Card number' }).fill('4242 4242 4242 4242')
+      await page.getByRole('textbox', { name: 'Expiry month' }).fill('12')
+      await page.getByRole('textbox', { name: 'Expiry year' }).fill('2222')
+      await page.getByRole('textbox', { name: 'Security code' }).fill('123')
+
+      const orderResponse = page.waitForResponse((response) =>
+        response.url().endsWith('/shop/orders') && response.request().method() === 'POST')
+      await page.getByRole('button', { name: 'Place order' }).click()
+      orderId = (await (await orderResponse).json())._id
+      await expect(page.getByRole('heading', { name: 'Order saved' })).toBeVisible()
+
+      const customerOrder = page.locator('article').filter({ hasText: recipientName })
+      await expect(customerOrder).toBeVisible()
+      const orderReference = (await customerOrder.getByRole('heading', { level: 3 }).textContent()).trim()
+
+      // the seller logs in and cancels the whole order
+      await page.getByRole('button', { name: 'Log out' }).click()
+      await expect(page).toHaveURL(/\/companies$/)
+      await login(page, SHOP_SELLER_LOGIN.username, SHOP_SELLER_LOGIN.password)
+      await page.goto('/shop')
+      await page.getByRole('link', { name: 'Orders' }).click()
+
+      const companyOrder = page.locator('article').filter({ hasText: orderReference })
+      await expect(companyOrder.getByText('In progress', { exact: true })).toBeVisible()
+      await companyOrder.getByRole('button', { name: 'Cancel order', exact: true }).click()
+      await page.getByRole('textbox', { name: 'Reason shown to the customer' }).fill('Out of stock')
+      await page.getByRole('button', { name: 'Confirm cancellation' }).click()
+      await expect(page.getByRole('heading', { name: 'Confirm Cancellation', exact: true })).toBeVisible()
+      await page.getByRole('button', { name: /Yes, Cancel Order/ }).click()
+
+      // after a cancellation the app switches to the cancelled orders list
+      await expect(page.getByRole('heading', { name: 'Cancelled management orders' })).toBeVisible()
+      await expect(companyOrder.getByText('Cancelled', { exact: true })).toBeVisible()
+    } finally {
+      if (orderId) await removeOrder(customerApi, orderId)
     }
-  }
+  })
 
-  // Raise the minimum, keeping the original maximum.
-  await minimumSlider.fill(String(lowerLimit))
-  await expect(minimumSlider).toHaveValue(String(lowerLimit))
-  await checkDisplayedPrices(lowerLimit, originalMaximum)
+  test('customer who bought a product can review it', async ({ page }) => {
+    const product = productWithUniqueName(await getProducts())
+    // only buyers may review, so buy the product first through the API
+    const order = await placeOrderByApi(customerApi, product.id)
+    // remove a review left by an earlier run (404 when there is none)
+    await customerApi.delete(`shop/products/${product.id}/reviews`)
 
-  // Reset the minimum, then lower the maximum.
-  await minimumSlider.fill('0')
-  await maximumSlider.fill(String(upperLimit))
-  await expect(maximumSlider).toHaveValue(String(upperLimit))
-  await checkDisplayedPrices(0, upperLimit)
+    try {
+      await login(page, USERS.customer)
+      await page.goto('/shop')
+      await productCard(page, product.name).getByRole('button', { name: 'View details' }).click()
 
-  // Clearing filters restores the original product list.
-  await page.getByRole('button', { name: 'Clear filters', exact: true }).click()
-  await expect(cards).toHaveCount(originalPrices.length)
-  await expect(minimumSlider).toHaveValue('0')
-  await expect(maximumSlider).toHaveValue(String(originalMaximum))
+      const dialog = page.getByRole('dialog', { name: product.name, exact: true })
+      await expect(dialog.getByLabel('Filter reviews', { exact: true })).toBeVisible()
+      await dialog.getByRole('textbox', { name: 'Your review', exact: true }).fill(uniqueTitle('E2E review'))
+      await dialog.getByRole('button', { name: 'Rate 5 stars', exact: true }).click()
+      await dialog.getByRole('button', { name: 'Submit review', exact: true }).click()
+
+      await expect(dialog.getByText('Review added.', { exact: true })).toBeVisible()
+      await expect(dialog.locator('article').getByText('Your review', { exact: true })).toBeVisible()
+    } finally {
+      // delete the review first: a cancelled order no longer counts as a purchase
+      await customerApi.delete(`shop/products/${product.id}/reviews`)
+      await removeOrder(customerApi, order._id)
+    }
+  })
 })
-
-//check customisable view detail add cart number + '+'/'-' button and remove button in cart
-test('testaddcart', async ({ page }) => {
-  await page.goto('/shop');
-  await page.locator('#navbarSupportedContent').getByRole('link', { name: 'Log in' }).click();
-  await page.getByRole('textbox', { name: 'Username' }).click();
-  await page.getByRole('textbox', { name: 'Username' }).fill('test-customer-1');
-  await page.getByRole('textbox', { name: 'Username' }).press('Tab');
-  await page.getByLabel('Password', { exact: true }).fill('test-password-123');
-  await page.getByLabel('Password', { exact: true }).press('Enter');
-  await expect(page).toHaveURL(/\/companies$/);
-  await page.locator('#navbarSupportedContent').getByRole('link', { name: 'Shop' }).click();
-  await expect(page).toHaveURL(/\/shop$/);
-
-  // Start this test with an empty saved cart, even if an earlier test failed.
-  await expect(page.getByRole('button', { name: 'Add to cart', exact: true }).first()).toBeEnabled();
-  await page.getByRole('link', { name: /Cart \(/ }).click();
-  const removeButtons = page.getByRole('button', { name: 'Remove', exact: true });
-  while (await removeButtons.count() > 0) {
-    const previousCount = await removeButtons.count();
-    await removeButtons.first().click();
-    await expect(removeButtons).toHaveCount(previousCount - 1);
-  }
-  await expect(page.getByText('Your cart is empty.', { exact: true })).toBeVisible();
-  await page.locator('#navbarSupportedContent').getByRole('link', { name: 'Shop', exact: true }).click();
-  await page.getByRole('button', { name: 'View details' }).first().click();
-  await expect(page.getByRole('dialog')).toBeVisible();
-  await page.getByRole('dialog', { name: 'Adjustable wrench' }).click();
-  await page.getByRole('spinbutton', { name: 'Quantity' }).click();
-  await page.getByRole('spinbutton', { name: 'Quantity' }).click();
-  await page.getByRole('spinbutton', { name: 'Quantity' }).fill('100');
-  await page.getByRole('dialog').getByRole('button', { name: 'Add to cart', exact: true }).click();
-  await page.getByRole('button', { name: 'Close product details' }).click();
-  await expect(page.getByRole('link', { name: 'Cart (100)' })).toBeVisible();
-  await page.getByRole('link', { name: 'Cart (100)' }).click();
-  await page.getByRole('button', { name: '+' }).click();
-  await expect(page.getByRole('link', { name: 'Cart (101)' })).toBeVisible();
-  await page.getByRole('button', { name: '-' }).click();
-  await expect(page.getByRole('link', { name: 'Cart (100)' })).toBeVisible();
-  await page.getByRole('button', { name: 'Remove' }).click();
-  await expect(page.getByText('Your cart is empty.')).toBeVisible();
-});
-
-//check order process
-test('testorder', async ({ page }) => {
-  await page.goto('/shop');
-  await page.locator('#navbarSupportedContent').getByRole('link', { name: 'Log in' }).click();
-  await page.getByRole('textbox', { name: 'Username' }).click();
-  await page.getByRole('textbox', { name: 'Username' }).fill('test-customer-1');
-  await page.getByRole('textbox', { name: 'Username' }).press('Tab');
-  await page.getByLabel('Password', { exact: true }).fill('test-password-123');
-  await page.getByLabel('Password', { exact: true }).press('Enter');
-  await expect(page).toHaveURL(/\/companies$/);
-  await page.locator('#navbarSupportedContent').getByRole('link', { name: 'Shop' }).click();
-  await expect(page).toHaveURL(/\/shop$/);
-
-  // Start this test with an empty saved cart, even if an earlier test failed.
-  await expect(page.getByRole('button', { name: 'Add to cart', exact: true }).first()).toBeEnabled();
-  await page.getByRole('link', { name: /Cart \(/ }).click();
-  const removeButtons = page.getByRole('button', { name: 'Remove', exact: true });
-  while (await removeButtons.count() > 0) {
-    const previousCount = await removeButtons.count();
-    await removeButtons.first().click();
-    await expect(removeButtons).toHaveCount(previousCount - 1);
-  }
-  await expect(page.getByText('Your cart is empty.', { exact: true })).toBeVisible();
-  await page.locator('#navbarSupportedContent').getByRole('link', { name: 'Shop', exact: true }).click();
-  await page.getByRole('button', { name: 'Add to cart' }).first().click();
-  await page.getByRole('link', { name: 'Cart (1)' }).click();
-  await page.getByRole('link', { name: 'Continue to checkout' }).click();
-  await expect(page.getByRole('heading', { name: 'Checkout' })).toBeVisible();
-  await page.getByRole('textbox', { name: 'Recipient name' }).click();
-  await page.getByRole('textbox', { name: 'Recipient name' }).fill('test');
-  await page.getByRole('textbox', { name: 'Delivery address' }).click();
-  await page.getByRole('textbox', { name: 'Delivery address' }).fill('test');
-  await page.getByRole('textbox', { name: 'Delivery note (optional)' }).click();
-  await page.getByRole('textbox', { name: 'Delivery note (optional)' }).fill('test');
-  await page.getByRole('textbox', { name: 'Cardholder name' }).click();
-  await page.getByRole('textbox', { name: 'Cardholder name' }).fill('test');
-  await page.getByRole('textbox', { name: 'Card number' }).click();
-  await page.getByRole('textbox', { name: 'Card number' }).fill('4242');
-  await expect(page.getByRole('img', { name: 'Visa' })).toBeVisible();
-  await page.getByRole('textbox', { name: 'Card number' }).click();
-  await page.getByRole('textbox', { name: 'Card number' }).fill('55');
-  await expect(page.getByRole('img', { name: 'Mastercard' })).toBeVisible();
-  await page.getByRole('textbox', { name: 'Card number' }).click();
-  await page.getByRole('textbox', { name: 'Card number' }).fill('37');
-  await expect(page.getByRole('img', { name: 'American Express' })).toBeVisible();
-  await page.getByRole('textbox', { name: 'Card number' }).click();
-  await page.getByRole('textbox', { name: 'Card number' }).fill('4242 4242 4242 4242');
-  await page.getByRole('textbox', { name: 'Expiry month' }).click();
-  await page.getByRole('textbox', { name: 'Expiry month' }).fill('12');
-  await page.getByRole('textbox', { name: 'Expiry year' }).click();
-  await page.getByRole('textbox', { name: 'Expiry year' }).fill('2222');
-  await page.getByRole('textbox', { name: 'Security code' }).click();
-  await page.getByRole('textbox', { name: 'Security code' }).fill('123');
-  await page.getByRole('button', { name: 'Place order' }).click();
-  await expect(page.getByRole('heading', { name: 'Order saved' })).toBeVisible();
-});
-
-test('company cancels the order just placed', async ({ page }) => {
-  // Give this order a unique recipient so we can find its reference on screen.
-  const recipientName = 'Cancellation test ' + Date.now();
-  await page.goto('/shop');
-  await page.locator('#navbarSupportedContent').getByRole('link', { name: 'Log in' }).click();
-  await page.getByRole('textbox', { name: 'Username' }).click();
-  await page.getByRole('textbox', { name: 'Username' }).fill('test-customer-1');
-  await page.getByRole('textbox', { name: 'Username' }).press('Tab');
-  await page.getByLabel('Password', { exact: true }).fill('test-password-123');
-  await page.getByLabel('Password', { exact: true }).press('Enter');
-  await expect(page).toHaveURL(/\/companies$/);
-  await page.locator('#navbarSupportedContent').getByRole('link', { name: 'Shop' }).click();
-  await expect(page).toHaveURL(/\/shop$/);
-
-  // Start this test with an empty saved cart, even if an earlier test failed.
-  await expect(page.getByRole('button', { name: 'Add to cart', exact: true }).first()).toBeEnabled();
-  await page.getByRole('link', { name: /Cart \(/ }).click();
-  const removeButtons = page.getByRole('button', { name: 'Remove', exact: true });
-  while (await removeButtons.count() > 0) {
-    const previousCount = await removeButtons.count();
-    await removeButtons.first().click();
-    await expect(removeButtons).toHaveCount(previousCount - 1);
-  }
-  await expect(page.getByText('Your cart is empty.', { exact: true })).toBeVisible();
-  await page.locator('#navbarSupportedContent').getByRole('link', { name: 'Shop', exact: true }).click();
-  // Buy from the company that will log in later.
-  await page.getByLabel('Seller', { exact: true }).selectOption({ label: 'Arctic Air Aircon' });
-  await page.getByRole('button', { name: 'Add to cart', exact: true }).first().click();
-  await page.getByRole('link', { name: 'Cart (1)' }).click();
-  await page.getByRole('link', { name: 'Continue to checkout' }).click();
-  await page.getByRole('textbox', { name: 'Recipient name' }).click();
-  await page.getByRole('textbox', { name: 'Recipient name' }).fill(recipientName);
-  await page.getByRole('textbox', { name: 'Delivery address' }).click();
-  await page.getByRole('textbox', { name: 'Delivery address' }).fill('testt');
-  await page.getByRole('textbox', { name: 'Delivery note (optional)' }).click();
-  await page.getByRole('textbox', { name: 'Delivery note (optional)' }).fill('test');
-  await page.getByRole('textbox', { name: 'Cardholder name' }).click();
-  await page.getByRole('textbox', { name: 'Cardholder name' }).fill('test');
-  await page.getByRole('textbox', { name: 'Card number' }).click();
-  await page.getByRole('textbox', { name: 'Card number' }).fill('4242 4242 4242 4242');
-  await page.getByRole('textbox', { name: 'Expiry month' }).click();
-  await page.getByRole('textbox', { name: 'Expiry month' }).fill('12');
-  await page.getByRole('textbox', { name: 'Expiry year' }).click();
-  await page.getByRole('textbox', { name: 'Expiry year' }).fill('2222');
-  await page.getByRole('textbox', { name: 'Security code' }).click();
-  await page.getByRole('textbox', { name: 'Security code' }).fill('123');
-  await page.getByRole('button', { name: 'Place order' }).click();
-  await expect(page.getByRole('heading', { name: 'Order saved' })).toBeVisible();
-  // Read the reference belonging to this order, rather than choosing the first order.
-  const customerOrder = page.locator('article').filter({ hasText: recipientName });
-  await expect(customerOrder).toBeVisible();
-  const orderReference = await customerOrder.getByRole('heading', { level: 3 }).textContent();
-  await page.getByRole('button', { name: 'Log out' }).click();
-  await expect(page).toHaveURL(/\/companies$/);
-  await page.locator('#navbarSupportedContent').getByRole('link', { name: 'Log in' }).click();
-  await page.getByRole('textbox', { name: 'Username' }).click();
-  await page.getByRole('textbox', { name: 'Username' }).fill('arcticair');
-  await page.getByRole('textbox', { name: 'Username' }).press('Tab');
-  await page.getByLabel('Password', { exact: true }).fill('arcticair123');
-  await page.getByLabel('Password', { exact: true }).press('Enter');
-  await expect(page).toHaveURL(/\/companies$/);
-  await page.locator('#navbarSupportedContent').getByRole('link', { name: 'Shop' }).click();
-  await expect(page).toHaveURL(/\/shop$/);
-  await page.getByRole('link', { name: 'Orders' }).click();
-  const companyOrder = page.locator('article').filter({ hasText: orderReference.trim() });
-  await expect(companyOrder.getByText('In progress', { exact: true })).toBeVisible();
-  await companyOrder.getByRole('button', { name: 'Cancel order', exact: true }).click();
-  await page.getByRole('textbox', { name: 'Reason shown to the customer' }).click();
-  await page.getByRole('textbox', { name: 'Reason shown to the customer' }).fill('test');
-  await page.getByRole('button', { name: 'Confirm cancellation' }).click();
-  await expect(page.getByRole('heading', { name: 'Confirm Cancellation', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: '✓ Yes, Cancel Order' }).click();
-  await expect(companyOrder).toBeHidden();
-  await page.getByRole('button', { name: 'Manage cancelled orders', exact: true }).click();
-  await expect(companyOrder.getByText('Cancelled', { exact: true })).toBeVisible();
-});
-
-
-test('testreviewrating', async ({ page }) => {
-  await page.goto('/shop');
-  await page.locator('#navbarSupportedContent').getByRole('link', { name: 'Log in', exact: true }).click();
-  await page.getByLabel('Username', { exact: true }).fill('test-customer-1');
-  await page.getByLabel('Password', { exact: true }).fill('test-password-123');
-  await page.getByLabel('Password', { exact: true }).press('Enter');
-  await expect(page).toHaveURL(/\/companies$/);
-  await page.locator('#navbarSupportedContent').getByRole('link', { name: 'Shop', exact: true }).click();
-  await expect(page).toHaveURL(/\/shop$/);
-  // This account must already have purchased the first product.
-  await page.getByRole('button', { name: 'View details', exact: true }).first().click();
-  const productDialog = page.getByRole('dialog');
-  await expect(productDialog).toBeVisible();
-  // The filter appears once the product's reviews finish loading.
-  await expect(productDialog.getByLabel('Filter reviews', { exact: true })).toBeVisible();
-
-  // A previous run may have left a review. Delete it only if one exists.
-  const deleteReview = productDialog.getByRole('button', { name: 'Delete review', exact: true });
-  if (await deleteReview.count() > 0) {
-    await deleteReview.click();
-    await expect(page.getByRole('heading', { name: 'Confirm Deletion', exact: true })).toBeVisible();
-    await page.getByRole('button', { name: '✓ Yes, Delete Review', exact: true }).click();
-  }
-
-  await expect(productDialog.getByRole('button', { name: 'Submit review', exact: true }),
-    'This test account must have purchased this product before reviewing it.').toBeVisible();
-  await productDialog.getByRole('textbox', { name: 'Your review', exact: true }).fill('test');
-  await productDialog.getByRole('button', { name: 'Rate 5 stars', exact: true }).click();
-  await productDialog.getByRole('button', { name: 'Submit review', exact: true }).click();
-  await expect(productDialog.getByText('Review added.', { exact: true })).toBeVisible();
-  await expect(productDialog.locator('article').getByText('Your review', { exact: true })).toBeVisible();
-});
