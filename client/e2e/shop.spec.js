@@ -166,20 +166,32 @@ test('testaddcart', async ({ page }) => {
   await page.goto('http://localhost:5173/shop');
   await page.locator('#navbarSupportedContent').getByRole('link', { name: 'Log in' }).click();
   await page.getByRole('textbox', { name: 'Username' }).click();
-  await page.getByRole('textbox', { name: 'Username' }).fill('woody');
+  await page.getByRole('textbox', { name: 'Username' }).fill('test-customer-1');
   await page.getByRole('textbox', { name: 'Username' }).press('Tab');
-  await page.getByRole('textbox', { name: 'Password' }).fill('cfhe2484');
-  await page.getByRole('textbox', { name: 'Password' }).press('Enter');
+  await page.getByLabel('Password', { exact: true }).fill('test-password-123');
+  await page.getByLabel('Password', { exact: true }).press('Enter');
   await expect(page).toHaveURL('http://localhost:5173/companies');
   await page.locator('#navbarSupportedContent').getByRole('link', { name: 'Shop' }).click();
   await expect(page).toHaveURL('http://localhost:5173/shop');
+
+  // Start this test with an empty saved cart, even if an earlier test failed.
+  await expect(page.getByRole('button', { name: 'Add to cart', exact: true }).first()).toBeEnabled();
+  await page.getByRole('link', { name: /Cart \(/ }).click();
+  const removeButtons = page.getByRole('button', { name: 'Remove', exact: true });
+  while (await removeButtons.count() > 0) {
+    const previousCount = await removeButtons.count();
+    await removeButtons.first().click();
+    await expect(removeButtons).toHaveCount(previousCount - 1);
+  }
+  await expect(page.getByText('Your cart is empty.', { exact: true })).toBeVisible();
+  await page.locator('#navbarSupportedContent').getByRole('link', { name: 'Shop', exact: true }).click();
   await page.getByRole('button', { name: 'View details' }).first().click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await page.getByRole('dialog', { name: 'Adjustable wrench' }).click();
   await page.getByRole('spinbutton', { name: 'Quantity' }).click();
   await page.getByRole('spinbutton', { name: 'Quantity' }).click();
   await page.getByRole('spinbutton', { name: 'Quantity' }).fill('100');
-  await page.locator('button').filter({ hasText: /^Add to cart$/ }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Add to cart', exact: true }).click();
   await page.getByRole('button', { name: 'Close product details' }).click();
   await expect(page.getByRole('link', { name: 'Cart (100)' })).toBeVisible();
   await page.getByRole('link', { name: 'Cart (100)' }).click();
@@ -196,13 +208,25 @@ test('testorder', async ({ page }) => {
   await page.goto('http://localhost:5173/shop');
   await page.locator('#navbarSupportedContent').getByRole('link', { name: 'Log in' }).click();
   await page.getByRole('textbox', { name: 'Username' }).click();
-  await page.getByRole('textbox', { name: 'Username' }).fill('woody');
+  await page.getByRole('textbox', { name: 'Username' }).fill('test-customer-1');
   await page.getByRole('textbox', { name: 'Username' }).press('Tab');
-  await page.getByRole('textbox', { name: 'Password' }).fill('cfhe2484');
-  await page.getByRole('textbox', { name: 'Password' }).press('Enter');
+  await page.getByLabel('Password', { exact: true }).fill('test-password-123');
+  await page.getByLabel('Password', { exact: true }).press('Enter');
   await expect(page).toHaveURL('http://localhost:5173/companies');
   await page.locator('#navbarSupportedContent').getByRole('link', { name: 'Shop' }).click();
   await expect(page).toHaveURL('http://localhost:5173/shop');
+
+  // Start this test with an empty saved cart, even if an earlier test failed.
+  await expect(page.getByRole('button', { name: 'Add to cart', exact: true }).first()).toBeEnabled();
+  await page.getByRole('link', { name: /Cart \(/ }).click();
+  const removeButtons = page.getByRole('button', { name: 'Remove', exact: true });
+  while (await removeButtons.count() > 0) {
+    const previousCount = await removeButtons.count();
+    await removeButtons.first().click();
+    await expect(removeButtons).toHaveCount(previousCount - 1);
+  }
+  await expect(page.getByText('Your cart is empty.', { exact: true })).toBeVisible();
+  await page.locator('#navbarSupportedContent').getByRole('link', { name: 'Shop', exact: true }).click();
   await page.getByRole('button', { name: 'Add to cart' }).first().click();
   await page.getByRole('link', { name: 'Cart (1)' }).click();
   await page.getByRole('link', { name: 'Continue to checkout' }).click();
@@ -236,3 +260,113 @@ test('testorder', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Order saved' })).toBeVisible();
 });
 
+test('company cancels the order just placed', async ({ page }) => {
+  // Give this order a unique recipient so we can find its reference on screen.
+  const recipientName = 'Cancellation test ' + Date.now();
+  await page.goto('http://localhost:5173/shop');
+  await page.locator('#navbarSupportedContent').getByRole('link', { name: 'Log in' }).click();
+  await page.getByRole('textbox', { name: 'Username' }).click();
+  await page.getByRole('textbox', { name: 'Username' }).fill('test-customer-1');
+  await page.getByRole('textbox', { name: 'Username' }).press('Tab');
+  await page.getByLabel('Password', { exact: true }).fill('test-password-123');
+  await page.getByLabel('Password', { exact: true }).press('Enter');
+  await expect(page).toHaveURL('http://localhost:5173/companies');
+  await page.locator('#navbarSupportedContent').getByRole('link', { name: 'Shop' }).click();
+  await expect(page).toHaveURL('http://localhost:5173/shop');
+
+  // Start this test with an empty saved cart, even if an earlier test failed.
+  await expect(page.getByRole('button', { name: 'Add to cart', exact: true }).first()).toBeEnabled();
+  await page.getByRole('link', { name: /Cart \(/ }).click();
+  const removeButtons = page.getByRole('button', { name: 'Remove', exact: true });
+  while (await removeButtons.count() > 0) {
+    const previousCount = await removeButtons.count();
+    await removeButtons.first().click();
+    await expect(removeButtons).toHaveCount(previousCount - 1);
+  }
+  await expect(page.getByText('Your cart is empty.', { exact: true })).toBeVisible();
+  await page.locator('#navbarSupportedContent').getByRole('link', { name: 'Shop', exact: true }).click();
+  // Buy from the company that will log in later.
+  await page.getByLabel('Seller', { exact: true }).selectOption({ label: 'Arctic Air Aircon' });
+  await page.getByRole('button', { name: 'Add to cart', exact: true }).first().click();
+  await page.getByRole('link', { name: 'Cart (1)' }).click();
+  await page.getByRole('link', { name: 'Continue to checkout' }).click();
+  await page.getByRole('textbox', { name: 'Recipient name' }).click();
+  await page.getByRole('textbox', { name: 'Recipient name' }).fill(recipientName);
+  await page.getByRole('textbox', { name: 'Delivery address' }).click();
+  await page.getByRole('textbox', { name: 'Delivery address' }).fill('testt');
+  await page.getByRole('textbox', { name: 'Delivery note (optional)' }).click();
+  await page.getByRole('textbox', { name: 'Delivery note (optional)' }).fill('test');
+  await page.getByRole('textbox', { name: 'Cardholder name' }).click();
+  await page.getByRole('textbox', { name: 'Cardholder name' }).fill('test');
+  await page.getByRole('textbox', { name: 'Card number' }).click();
+  await page.getByRole('textbox', { name: 'Card number' }).fill('4242 4242 4242 4242');
+  await page.getByRole('textbox', { name: 'Expiry month' }).click();
+  await page.getByRole('textbox', { name: 'Expiry month' }).fill('12');
+  await page.getByRole('textbox', { name: 'Expiry year' }).click();
+  await page.getByRole('textbox', { name: 'Expiry year' }).fill('2222');
+  await page.getByRole('textbox', { name: 'Security code' }).click();
+  await page.getByRole('textbox', { name: 'Security code' }).fill('123');
+  await page.getByRole('button', { name: 'Place order' }).click();
+  await expect(page.getByRole('heading', { name: 'Order saved' })).toBeVisible();
+  // Read the reference belonging to this order, rather than choosing the first order.
+  const customerOrder = page.locator('article').filter({ hasText: recipientName });
+  await expect(customerOrder).toBeVisible();
+  const orderReference = await customerOrder.getByRole('heading', { level: 3 }).textContent();
+  await page.getByRole('button', { name: 'Log out' }).click();
+  await expect(page).toHaveURL('http://localhost:5173/companies');
+  await page.locator('#navbarSupportedContent').getByRole('link', { name: 'Log in' }).click();
+  await page.getByRole('textbox', { name: 'Username' }).click();
+  await page.getByRole('textbox', { name: 'Username' }).fill('arcticair');
+  await page.getByRole('textbox', { name: 'Username' }).press('Tab');
+  await page.getByLabel('Password', { exact: true }).fill('arcticair123');
+  await page.getByLabel('Password', { exact: true }).press('Enter');
+  await expect(page).toHaveURL('http://localhost:5173/companies');
+  await page.locator('#navbarSupportedContent').getByRole('link', { name: 'Shop' }).click();
+  await expect(page).toHaveURL('http://localhost:5173/shop');
+  await page.getByRole('link', { name: 'Orders' }).click();
+  const companyOrder = page.locator('article').filter({ hasText: orderReference.trim() });
+  await expect(companyOrder.getByText('In progress', { exact: true })).toBeVisible();
+  await companyOrder.getByRole('button', { name: 'Cancel order', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Reason shown to the customer' }).click();
+  await page.getByRole('textbox', { name: 'Reason shown to the customer' }).fill('test');
+  await page.getByRole('button', { name: 'Confirm cancellation' }).click();
+  await expect(page.getByRole('heading', { name: 'Confirm Cancellation', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: '✓ Yes, Cancel Order' }).click();
+  await expect(companyOrder).toBeHidden();
+  await page.getByRole('button', { name: 'Manage cancelled orders', exact: true }).click();
+  await expect(companyOrder.getByText('Cancelled', { exact: true })).toBeVisible();
+});
+
+
+test('testreviewrating', async ({ page }) => {
+  await page.goto('http://localhost:5173/shop');
+  await page.locator('#navbarSupportedContent').getByRole('link', { name: 'Log in', exact: true }).click();
+  await page.getByLabel('Username', { exact: true }).fill('test-customer-1');
+  await page.getByLabel('Password', { exact: true }).fill('test-password-123');
+  await page.getByLabel('Password', { exact: true }).press('Enter');
+  await expect(page).toHaveURL('http://localhost:5173/companies');
+  await page.locator('#navbarSupportedContent').getByRole('link', { name: 'Shop', exact: true }).click();
+  await expect(page).toHaveURL('http://localhost:5173/shop');
+  // This account must already have purchased the first product.
+  await page.getByRole('button', { name: 'View details', exact: true }).first().click();
+  const productDialog = page.getByRole('dialog');
+  await expect(productDialog).toBeVisible();
+  // The filter appears once the product's reviews finish loading.
+  await expect(productDialog.getByLabel('Filter reviews', { exact: true })).toBeVisible();
+
+  // A previous run may have left a review. Delete it only if one exists.
+  const deleteReview = productDialog.getByRole('button', { name: 'Delete review', exact: true });
+  if (await deleteReview.count() > 0) {
+    await deleteReview.click();
+    await expect(page.getByRole('heading', { name: 'Confirm Deletion', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: '✓ Yes, Delete Review', exact: true }).click();
+  }
+
+  await expect(productDialog.getByRole('button', { name: 'Submit review', exact: true }),
+    'This test account must have purchased this product before reviewing it.').toBeVisible();
+  await productDialog.getByRole('textbox', { name: 'Your review', exact: true }).fill('test');
+  await productDialog.getByRole('button', { name: 'Rate 5 stars', exact: true }).click();
+  await productDialog.getByRole('button', { name: 'Submit review', exact: true }).click();
+  await expect(productDialog.getByText('Review added.', { exact: true })).toBeVisible();
+  await expect(productDialog.locator('article').getByText('Your review', { exact: true })).toBeVisible();
+});
