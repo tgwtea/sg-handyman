@@ -146,10 +146,6 @@ E2E coverage (client/e2e):
     Vercel server instance counts on its own.
   - The companies, their websites and their contact details are made
     up for the demo, so the website links do not lead to a real site.
-  - The company postal codes are also made up. OneMap still places
-    each one at the real address that has that postal code, so the
-    map pin and the driving distance do not match a real business.
-
 
 
 7. USE OF AI / LLM TOOLS
