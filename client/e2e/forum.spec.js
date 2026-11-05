@@ -9,6 +9,12 @@ async function createPost(page, title, details) {
   await page.getByRole('button', { name: 'Create post' }).click()
 }
 
+// the page message is a status, or an alert when the server returns an error;
+// checking both shows the real error text instead of a timeout
+function forumMessage(page) {
+  return page.getByRole('status').or(page.getByRole('alert'))
+}
+
 async function showReplies(post) {
   await post.getByRole('button', { name: 'Show replies' }).click()
 }
@@ -22,7 +28,7 @@ async function deleteTestPost(page, titles) {
     if (await post.count()) {
       await post.getByRole('button', { name: 'Delete post' }).click()
       await page.getByRole('alertdialog').getByRole('button', { name: 'Yes, Delete Post' }).click()
-      await expect(page.getByRole('status')).toHaveText('Post deleted.')
+      await expect(forumMessage(page)).toHaveText('Post deleted.')
     }
   }
 }
@@ -43,7 +49,7 @@ test('logged-in user creates a post', async ({ page }) => {
     await page.goto('/forum')
     await createPost(page, title, 'Created by an automated Playwright test.')
 
-    await expect(page.getByRole('status')).toHaveText('Post created.')
+    await expect(forumMessage(page)).toHaveText('Post created.')
 
     const post = page.locator('article').filter({ has: page.getByRole('heading', { name: title }) })
     await expect(post).toBeVisible()
@@ -67,7 +73,7 @@ test('logged-in user adds a reply to a post', async ({ page }) => {
     await post.getByLabel('Write a reply').fill('This is a test reply.')
     await post.getByRole('button', { name: 'Add reply' }).click()
 
-    await expect(page.getByRole('status')).toHaveText('Reply added.')
+    await expect(forumMessage(page)).toHaveText('Reply added.')
     await showReplies(post)
     await expect(post.getByText('This is a test reply.')).toBeVisible()
   } finally {
@@ -104,7 +110,7 @@ test('logged-in user can edit their own post and reply', async ({ page }) => {
     await post.getByLabel('Edit reply').fill('Reply after editing.')
     await post.getByRole('button', { name: 'Save reply' }).click()
 
-    await expect(page.getByRole('status')).toHaveText('Reply updated.')
+    await expect(forumMessage(page)).toHaveText('Reply updated.')
     await expect(post.getByText('Reply after editing.')).toBeVisible()
   } finally {
     await deleteTestPost(page, [title, updatedTitle])
@@ -150,7 +156,7 @@ test('logged-in user can delete their own post', async ({ page }) => {
     await post.getByRole('button', { name: 'Delete post' }).click()
     await page.getByRole('alertdialog').getByRole('button', { name: 'Yes, Delete Post' }).click()
 
-    await expect(page.getByRole('status')).toHaveText('Post deleted.')
+    await expect(forumMessage(page)).toHaveText('Post deleted.')
     await expect(post).toHaveCount(0)
   } finally {
     await deleteTestPost(page, [title])
