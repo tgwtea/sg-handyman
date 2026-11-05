@@ -150,6 +150,7 @@ E2E coverage (client/e2e):
 ------------------------
   - ChatGPT: generated seed and mock data
   - Claude: design mockup and UI prototyping
+  - Antigravity: debugging, improving original code
 
 
 8. THIRD-PARTY CODE AND ASSETS
