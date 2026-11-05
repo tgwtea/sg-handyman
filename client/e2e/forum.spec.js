@@ -113,7 +113,7 @@ test('logged-in user can delete their own post', async ({ page, browser }) => {
 
   await login(page, USERS.customer)
   await page.goto('/forum')
-  await createPost(page, title, 'Post for testing delete permissions.')
+  await createPost(page, title, 'Post for testing delete permissions')
 
   const post = page.locator('article').filter({ has: page.getByRole('heading', { name: title }) })
   await expect(post).toBeVisible()
