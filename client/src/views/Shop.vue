@@ -610,7 +610,7 @@ onUnmounted(() => {
     <section v-if="route.path === '/shop'">
 
   <!-- Only a linked business account sees the form-->
-      <form v-if="canManageProducts" class="border rounded p-3 mb-4" @submit.prevent="saveProduct">
+      <form v-if="canManageProducts" id="shop-product-form" class="border rounded p-3 mb-4" @submit.prevent="saveProduct">
         <fieldset :disabled="productBusy">
           <legend>{{ editingProductId ? 'Edit product' : 'Add a product' }}</legend>
 
@@ -715,7 +715,8 @@ onUnmounted(() => {
           Add to cart
         </button>
                 <div v-if="canManageProduct(tool)" class="d-flex flex-wrap gap-2 mt-3">
-          <button type="button" class="btn btn-outline-primary btn-sm" :disabled="productBusy" @click="startEditingProduct(tool)">Edit</button>
+          <!-- Like Back to search, this link jumps to the matching form id. The click fills the form. -->
+          <a href="#shop-product-form" role="button" class="btn btn-outline-primary btn-sm" :class="{ disabled: productBusy }" :aria-disabled="productBusy" :tabindex="productBusy ? -1 : 0" @click="startEditingProduct(tool)">Edit</a>
           <button type="button" class="btn btn-outline-danger btn-sm" :disabled="productBusy" @click="pendingRemovalId = tool.id">Remove product</button>
           <DeleteDialog v-if="pendingRemovalId === tool.id" title="Confirm Removal" busy-label="Removing..." :message="'Remove ' + tool.name + ' from the shop?'" note="The product will no longer be available to buy. Existing orders and reviews stay saved." confirm-label="✓ Yes, Remove Product" :busy="productBusy" @cancel="!productBusy && (pendingRemovalId = 0)" @confirm="removeProduct(tool)" />
         </div>
@@ -824,26 +825,112 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-/* Approved extra: overlapping native range inputs share a coloured track.
-   Ignore pointer events on each input except its thumb, so both handles can be dragged. */
-.shop-price-range { height: 44px; }
-.shop-price-track { position: absolute; left: 0; right: 0; top: 19px; height: 6px; border-radius: 3px; }
-.shop-range-input { appearance: none; -webkit-appearance: none; pointer-events: none; position: absolute; left: 0; top: 0; width: 100%; height: 44px; margin: 0; background: transparent; }
-.shop-range-input::-webkit-slider-runnable-track { height: 6px; background: transparent; }
-.shop-range-input::-moz-range-track { height: 6px; background: transparent; }
-.shop-range-input::-webkit-slider-thumb { appearance: none; -webkit-appearance: none; pointer-events: auto; width: 26px; height: 26px; margin-top: -10px; border: 5px solid #1477bd; border-radius: 50%; background: white; cursor: pointer; }
-.shop-range-input::-moz-range-thumb { pointer-events: auto; width: 16px; height: 16px; border: 5px solid #1477bd; border-radius: 50%; background: white; cursor: pointer; }
-.shop-range-input:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.shop-price-range {
+  height: 44px;
+}
 
-/* Equal image heights align cards; contain keeps the whole tool visible. */
-.shop-product-image { width: 100%; height: 170px; object-fit: contain; padding: 0.75rem; }
-/* One clear control with a 44px-wide target replaces the tiny native search x. */
-.shop-search-input { padding-right: 3.5rem; }
-.shop-search-clear { width: 44px; min-height: 44px; border: 0; background: transparent; color: var(--ink); font-size: 1.5rem; box-shadow: none; border-radius: 0; }
-.shop-search-clear:focus-visible { outline: 2px solid currentColor; outline-offset: -4px; }
+.shop-price-track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 19px;
+  height: 6px;
+  border-radius: 3px;
+}
 
-/* Ordinary anchor returns to the search panel without reloading the website. */
-.shop-back-search { position: fixed; right: 1rem; bottom: 1rem; z-index: 100; }
+
+.shop-range-input {
+  appearance: none;
+  -webkit-appearance: none;
+  pointer-events: none;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 44px;
+  margin: 0;
+  background: transparent;
+}
+
+
+.shop-range-input::-webkit-slider-runnable-track {
+  height: 6px;
+  background: transparent;
+}
+
+
+.shop-range-input::-moz-range-track {
+  height: 6px;
+  background: transparent;
+}
+
+
+.shop-range-input::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  pointer-events: auto;
+  width: 26px;
+  height: 26px;
+  margin-top: -10px;
+  border: 5px solid #1477bd;
+  border-radius: 50%;
+  background: white;
+  cursor: pointer;
+}
+
+
+.shop-range-input::-moz-range-thumb {
+  pointer-events: auto;
+  width: 16px;
+  height: 16px;
+  border: 5px solid #1477bd;
+  border-radius: 50%;
+  background: white;
+  cursor: pointer;
+}
+
+
+.shop-range-input:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+
+.shop-product-image {
+  width: 100%;
+  height: 170px;
+  object-fit: contain;
+  padding: 0.75rem;
+}
+
+
+.shop-search-input {
+  padding-right: 3.5rem;
+}
+
+
+.shop-search-clear {
+  width: 44px;
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 1.5rem;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+
+.shop-search-clear:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: -4px;
+}
+
+
+.cart-save-status {
+  min-height: 1.5rem;
+}
+
 
 .delivery-notification {
   position: fixed;
