@@ -103,7 +103,18 @@ test.describe('Business owner', () => {
         .filter({ hasText: formatDay(created.slot.start) })
         .filter({ hasText: formatTimeRange(created.slot.start, created.slot.end) })
 
-      await expect(row.getByText('Booked')).toBeVisible()
+      await expect(row.getByText('Booked', { exact: true })).toBeVisible()
+      await expect(row.getByText(`Booked by ${USERS.customer}`)).toBeVisible()
+      await expect(row.getByText('Booking the business cancels')).toBeVisible()
+
+      // a customer never gets another customer's name, even for a slot they booked
+      const asCustomer = await (await customer.get(`companies/${created.companyId}/timeslots`, {
+        params: { to: new Date(Date.now() + 3 * DAY_MS).toISOString() }
+      })).json()
+      const customerView = asCustomer.find((slot) => slot._id === created.slot._id)
+      expect(customerView.taken).toBe(true)
+      expect(customerView).not.toHaveProperty('customerName')
+
       await row.getByRole('button', { name: 'Cancel booking' }).click()
       await page.getByRole('alertdialog').getByRole('button', { name: 'Yes, cancel the booking' }).click()
 
