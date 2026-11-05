@@ -58,6 +58,12 @@ Every seeded password is the username followed by "123".
 
 E2E test accounts (password: test-password-123):
   test-customer-1, test-customer-2 (customers), test-business (Tan Repair)
+E2E test accounts (password: test-password-123):
+  test-customer-1, test-customer-2 (customers), test-business (Tan Repair)
+
+test-customer-1 has two finished bookings at Tan Repair that are
+ready to review. Other bookings can only be reviewed after their
+appointment ends.
 
 The full list of accounts is in server/scripts/seed-data.js.
 
