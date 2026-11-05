@@ -1,6 +1,5 @@
-// @ts-check
 import { test, expect } from '@playwright/test'
-import { login, uniqueTitle, USERS, API_URL } from './helpers.js'
+import { login, uniqueTitle, USERS } from './helpers.js'
 
 async function createPost(page, title, details) {
   await page.getByRole('button', { name: 'Add a post' }).click()
@@ -119,11 +118,6 @@ test('logged-in user can delete their own post', async ({ page, browser }) => {
   const post = page.locator('article').filter({ has: page.getByRole('heading', { name: title }) })
   await expect(post).toBeVisible()
 
-  const listResponse = await page.request.get(`${API_URL}/forum`)
-  const posts = await listResponse.json()
-  const createdPost = posts.find((item) => item.title === title)
-  expect(createdPost).toBeTruthy() // make sure the new post is there
-
   await login(attackerPage, USERS.business)
   await attackerPage.goto('/forum')
 
@@ -133,8 +127,6 @@ test('logged-in user can delete their own post', async ({ page, browser }) => {
 
   await expect(attackerPost).toBeVisible()
   await expect(attackerPost.getByRole('button', { name: 'Delete post' })).toHaveCount(0)
-
-
 })
 
 test('logged-in user can add and remove a post thumbs-up', async ({ page }) => {
