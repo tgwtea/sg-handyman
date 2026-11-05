@@ -213,7 +213,7 @@ defineExpose({ loadReviews })
     </form>
 
     <div v-else-if="!auth.isLoggedIn" class="alert alert-info mt-3 py-2">
-      <RouterLink :to="{ path: '/login', query: { redirect: route.fullPath } }">Log in</RouterLink>
+      <RouterLink :to="{ path: '/login', query: { redirect: `${route.path}#reviews` } }">Log in</RouterLink>
       as a customer to review.
     </div>
 
