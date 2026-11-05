@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import Review from '../models/review-model.js';
 import Booking from '../models/booking-model.js';
+import Timeslot from '../models/timeslot-model.js';
 import { getUploadedImage } from '../utils/image-upload.js';
 
 const reviewController = {};
@@ -46,7 +47,7 @@ reviewController.getCompanyReviews = async (req, res) => {
     const latestBooking = new Map();
     for (const booking of bookings) {
       const userId = String(booking.userId);
-      const details = { service: booking.service, start: booking.timeslotId?.start ?? null };
+      const details = { service: booking.service, start: booking.timeslotId?.start ?? null, end: booking.timeslotId?.end ?? null };
       bookingDetails.set(String(booking._id), details);
       const current = latestBooking.get(userId);
       if (!current || (details.start && (!current.start || details.start > current.start))) {
@@ -70,12 +71,14 @@ reviewController.getCompanyReviews = async (req, res) => {
       };
     });
 
-    // a customer can review each of their bookings once
+    // a customer can review each of their bookings once, after its appointment ends
     const isCustomer = user?.role === 'customer';
     const reviewedIds = new Set(reviews.map((review) => String(review.bookingId)));
+    const now = new Date();
     const reviewableBookings = isCustomer
       ? bookings
         .filter((booking) => String(booking.userId) === user._id && !reviewedIds.has(String(booking._id)))
+        .filter((booking) => booking.timeslotId?.end && booking.timeslotId.end <= now)
         .map((booking) => ({ _id: booking._id, ...bookingDetails.get(String(booking._id)) }))
       : [];
 
@@ -117,6 +120,11 @@ reviewController.createReview = async (req, res) => {
     const booking = await Booking.findBookingById(bookingId);
     if (!booking || String(booking.userId) !== userId || String(booking.companyId) !== companyId) {
       return res.status(403).send({ message: 'You can only review your own bookings at this company' });
+    }
+    // verified review: the job must be done before the customer can rate it
+    const timeslot = await Timeslot.findTimeslotById(booking.timeslotId);
+    if (!timeslot || timeslot.end > new Date()) {
+      return res.status(409).send({ message: 'You can review this booking after its appointment ends' });
     }
     if (await Review.findReviewByBookingId(booking._id)) {
       return res.status(409).send({ message: ALREADY_REVIEWED_MESSAGE });

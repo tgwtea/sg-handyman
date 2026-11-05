@@ -1,8 +1,6 @@
 <script setup>
-// import Carousel from '@/components/Carousel.vue';
-import api from '@/api'
-import { ref, reactive, computed, nextTick } from 'vue';
-import { onMounted } from 'vue'
+import api, { errorMessage } from '@/api'
+import { ref, reactive, computed, nextTick, onMounted } from 'vue';
 import TimeslotGrid from '@/components/TimeslotGrid.vue';
 import TimeslotManager from '@/components/TimeslotManager.vue';
 import ReviewSection from '@/components/ReviewSection.vue';
@@ -27,27 +25,28 @@ const sections = [
   { id: 'reviews', label: 'Reviews' },
   { id: 'contact', label: 'Contact' },
 ];
-// console.log(route.params.companyId)
+const company = ref({});
+// 'loading' | 'ready' | 'not-found' | 'error'
+const status = ref('loading');
+const loadError = ref('');
 
-
-
-let company = ref({});
+// only http(s) links: a stored "javascript:" URL must never run on click
+const safeWebsite = computed(() => (/^https?:\/\//i.test(company.value.website ?? '') ? company.value.website : ''));
 
 const serviceNames = computed(() =>
   (company.value.services ?? []).flatMap((category) => category.details.map((detail) => detail.service))
 );
 
 async function getCompanyById() {
+  status.value = 'loading';
   try {
-    // console.log(route.params.companyId)
-    let companyId = route.params.companyId;
     const response = await api.get(`/companies/${companyId}`);
-    console.log(response.data);
-
     company.value = response.data;
+    status.value = 'ready';
   } catch (error) {
-    console.log(error.message);
-    company.value = error.message;
+    const code = error.response?.status;
+    status.value = code === 404 || code === 400 ? 'not-found' : 'error';
+    loadError.value = errorMessage(error);
   }
 }
 
@@ -56,6 +55,8 @@ async function getCompanyById() {
 onMounted(async () => {
   window.scrollTo({ top: 0, behavior: 'instant' });
   await getCompanyById();
+  if (status.value !== 'ready') return;
+  await nextTick();
   if (route.hash) {
     await nextTick();
     document.getElementById(route.hash.slice(1))?.scrollIntoView({ behavior: 'instant' });
@@ -84,7 +85,23 @@ function resetContact() {
 </script>
 
 <template>
-  <div class="company-layout row g-4">
+  <div v-if="status === 'loading'" class="text-center py-5" role="status">
+    <div class="spinner-border" aria-hidden="true"></div>
+    <p class="mt-2">Loading company…</p>
+  </div>
+
+  <div v-else-if="status === 'not-found'" class="text-center py-5">
+    <h1 class="mb-3">Company not found</h1>
+    <p class="text-muted mb-4">This company does not exist or was removed.</p>
+    <RouterLink class="btn btn-primary" to="/companies">Browse companies</RouterLink>
+  </div>
+
+  <div v-else-if="status === 'error'" class="alert alert-danger d-flex flex-wrap align-items-center gap-2" role="alert">
+    <span>Could not load this company: {{ loadError }}</span>
+    <button type="button" class="btn btn-outline-danger btn-sm" @click="getCompanyById">Retry</button>
+  </div>
+
+  <div v-else class="company-layout row g-4">
     <aside class="col-lg-3 company-nav-column">
       <CompanySideNav :sections="sections" />
     </aside>
@@ -92,7 +109,7 @@ function resetContact() {
     <div class="col-lg-9">
       <section id="details" class="company-section">
         <header class="pixel-card p-4 mb-4">
-          <h2>{{ company.name }}</h2>
+          <h1 class="h2">{{ company.name }}</h1>
           <div class="d-flex flex-wrap gap-1 mb-3">
             <span v-for="category in company.services" :key="category._id || category.category" class="badge rounded-pill text-bg-light border">
               {{ category.category }}
@@ -103,11 +120,12 @@ function resetContact() {
           <br><br>
           <p class="mb-2">{{ company.description }}</p>
           <p class="mb-2">{{ company.address }}</p>
-          <a :href="company.website">{{ company.website }}</a>
+          <a v-if="safeWebsite" :href="safeWebsite" target="_blank" rel="noopener">{{ company.website }}</a>
         </header>
 
         <div v-for="category in company.services" :key="category._id || category.category">
           <h3 class="text-center">{{ category.category }}</h3>
+          <div class="table-responsive">
           <table class="table">
             <thead>
               <tr>
@@ -122,7 +140,7 @@ function resetContact() {
               </tr>
             </tbody>
           </table>
-          <!-- <hr> -->
+          </div>
         </div>
       </section>
 
@@ -135,12 +153,10 @@ function resetContact() {
     <section id="contact" class="company-section mt-5">
       <h3>Contact</h3>
       <p class="mb-1" v-if="company.address">{{ company.address }}</p>
-      <p v-if="company.website"><a :href="company.website">{{ company.website }}</a></p>
+      <p v-if="safeWebsite"><a :href="safeWebsite" target="_blank" rel="noopener">{{ company.website }}</a></p>
 
       <!-- OneMap - amanda -->
       <OneMap ref="oneMap" v-if="company.address" :address="company.address"/>
-      <!-- <div :address="address">test</div> -->
-      <!-- <div :address="company.address">test</div> -->
       <br><br>
 
       <div v-if="contactSent" class="alert alert-success" role="status">
@@ -170,11 +186,6 @@ function resetContact() {
       </form>
     </section>
     </div>
-  </div>
-
-  <div>
-    <!-- Access route params directly in the template without useRoute -->
-    <!-- <p>User ID: {{ $route.params.companyId }}</p> -->
   </div>
 
 </template>

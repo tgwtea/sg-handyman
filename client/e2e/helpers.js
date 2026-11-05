@@ -36,7 +36,7 @@ export async function openCompany(page, companyName) {
   await page.goto('/companies')
   const card = page.locator('.card').filter({ has: page.getByRole('heading', { name: companyName, exact: true }) })
   await card.getByRole('link', { name: 'Details' }).click()
-  await expect(page.getByRole('heading', { name: companyName, level: 2 })).toBeVisible()
+  await expect(page.getByRole('heading', { name: companyName, level: 1 })).toBeVisible()
 }
 
 // A title that no other run uses, so a test can find (and clean up) its own data
@@ -126,4 +126,45 @@ export async function bookSlot(api, slot, service = 'Test service') {
   const response = await api.post('bookings', { data: { timeslotId: slot._id, service } })
   expect(response.status()).toBe(201)
   return response.json()
+}
+
+// Reviews open only after the appointment ends, and the server refuses slots and bookings
+// in the past. So: a short slot that starts in a few seconds, booked at once, then wait for its end.
+// A seeded slot may be running right now, so the admin tries each company until one has a gap.
+export async function createFinishedBooking(customerApi, service = 'Test service') {
+  const admin = await apiAs(ADMIN.username, ADMIN.password)
+  const companies = await (await admin.get('companies')).json()
+  // the business test company first, then the rest
+  companies.sort((a, b) => (b.name === BUSINESS_COMPANY) - (a.name === BUSINESS_COMPANY))
+
+  let slot = null
+  let company = null
+  for (const candidate of companies) {
+    const start = new Date(Date.now() + 4000)
+    const end = new Date(start.getTime() + 1000)
+    const response = await admin.post('timeslots', { data: { companyId: candidate._id, start, end } })
+    if (response.status() === 201) {
+      slot = await response.json()
+      company = candidate
+      break
+    }
+  }
+  expect(slot).toBeTruthy()
+  const booking = await bookSlot(customerApi, slot, service)
+
+  const wait = new Date(slot.end).getTime() - Date.now() + 500
+  if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait))
+
+  return {
+    slot,
+    companyId: company._id,
+    companyName: company.name,
+    booking,
+    // a past booking can only be cancelled by an admin; that also deletes its review
+    async remove() {
+      await admin.delete(`bookings/${booking._id}`)
+      await admin.delete(`timeslots/${slot._id}`)
+      await admin.dispose()
+    }
+  }
 }

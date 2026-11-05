@@ -65,7 +65,7 @@ async function loadPosts() {
     const response = await api.get('/forum') 
     posts.value = response.data
   } catch (error) {
-    message.value = errorMessage(error)
+    showError(error)
   } finally {
     loading.value = false
   }
@@ -128,13 +128,33 @@ function hasLiked(post) {
   return post.likes.some(userId => String(userId) === String(auth.user._id))
 }
 
+// the request that is running now ('post', 'like-<id>', 'reply-<id>', 'save-reply-<id>'),
+// so a double click cannot send it twice
+const busyKey = ref('')
+// errors show in red, other messages in green
+const messageIsError = ref(false)
+
+function showError(error) {
+  message.value = errorMessage(error)
+  messageIsError.value = true
+}
+
+function showMessage(text) {
+  message.value = text
+  messageIsError.value = false
+}
+
 // Adds or removes the signed-in user's thumbs-up and updates the counter
 async function likePost(post) {
+  if (busyKey.value) return
+  busyKey.value = `like-${post._id}`
   try {
     const response = await api.post(`/forum/${post._id}/likes`)
     post.likes = response.data.likes
   } catch (error) {
-    message.value = errorMessage(error)
+    showError(error)
+  } finally {
+    busyKey.value = ''
   }
 }
 
@@ -166,7 +186,7 @@ function selectPostImages(event) {
 
   if (image && ((image.type !== 'image/jpeg' && image.type !== 'image/png')
     || image.size > 5 * 1024 * 1024)) {
-    message.value = 'Choose one JPG or PNG image, 5 MB or smaller.'
+    showError({ message: 'Choose one JPG or PNG image, 5 MB or smaller.' })
     selectedPostImage.value = null
     event.target.value = ''
     return
@@ -204,8 +224,11 @@ async function savePost() {
   message.value = ''
   if (!category.value) {
     message.value = 'Please choose a category.'
+    messageIsError.value = true
     return
   }
+  if (busyKey.value) return
+  busyKey.value = 'post'
   const post = {
     title: title.value,
     category: category.value,
@@ -229,10 +252,13 @@ async function savePost() {
       await api.post('/forum', postForm)
       message.value = 'Post created.'
     }
+    messageIsError.value = false
     clearPostForm()
     await loadPosts()
   } catch (error) {
-    message.value = errorMessage(error)
+    showError(error)
+  } finally {
+    busyKey.value = ''
   }
 }
 
@@ -250,11 +276,11 @@ async function savePost() {
     deletingPost.value = true
     try {
       await api.delete(`/forum/${postToDelete.value._id}`)
-      message.value = 'Post deleted.'
+      showMessage('Post deleted.')
       postToDelete.value = null
       await loadPosts()
     } catch (error) {
-      message.value = errorMessage(error)
+      showError(error)
       postToDelete.value = null
     } finally {
       deletingPost.value = false
@@ -271,20 +297,23 @@ async function savePost() {
 async function addReply(post) {
   const replyContent = replyDrafts.value[post._id]
 
-  if (!replyContent || !replyContent.trim()) {
+  if (!replyContent || !replyContent.trim() || busyKey.value) {
     return
   }
 
+  busyKey.value = `reply-${post._id}`
   try {
     await api.post(`/forum/${post._id}/replies`, {
       content: replyContent
     })
 
     replyDrafts.value[post._id] = ''
-    message.value = 'Reply added.'
+    showMessage('Reply added.')
     await loadPosts()
   } catch (error) {
-    message.value = errorMessage(error)
+    showError(error)
+  } finally {
+    busyKey.value = ''
   }
 }
 
@@ -303,16 +332,20 @@ function cancelReplyEdit() {
 
 // Saves the reply changes and reloads the posts
 async function saveReply(post, reply) {
+  if (busyKey.value) return
+  busyKey.value = `save-reply-${reply._id}`
   try {
     await api.put(`/forum/${post._id}/replies/${reply._id}`, {
       content: editingReplyContent.value
     })
 
     cancelReplyEdit()
-    message.value = 'Reply updated.'
+    showMessage('Reply updated.')
     await loadPosts()
   } catch (error) {
-    message.value = errorMessage(error)
+    showError(error)
+  } finally {
+    busyKey.value = ''
   }
 }
 
@@ -331,11 +364,11 @@ async function confirmDeleteReply() {
     await api.delete(
       `/forum/${replyToDelete.value.post._id}/replies/${replyToDelete.value.reply._id}`
     )
-    message.value = 'Reply deleted.'
+    showMessage('Reply deleted.')
     replyToDelete.value = null
     await loadPosts()
   } catch (error) {
-    message.value = errorMessage(error)
+    showError(error)
     replyToDelete.value = null
   } finally {
     deletingReply.value = false
@@ -370,7 +403,7 @@ function formatDate(date) {
         Add a post
       </button>
 
-      <p v-if="message" class="message" role="status">{{ message }}</p>
+      <p v-if="message" :class="['message', { 'message-error': messageIsError }]" :role="messageIsError ? 'alert' : 'status'">{{ message }}</p>
 
       <div v-if="showPostForm">
         <h2>{{ editingPostId ? 'Edit your post' : 'Create a post' }}</h2>
@@ -453,7 +486,7 @@ function formatDate(date) {
           </div>
         </div>
 
-          <button type="submit" class="btn btn-primary mb-3">{{ editingPostId ? 'Save changes' : 'Create post' }}</button>
+          <button type="submit" class="btn btn-primary mb-3" :disabled="busyKey === 'post'">{{ editingPostId ? 'Save changes' : 'Create post' }}</button>
           <button type="button" class="btn btn-primary mb-3" @click="clearPostForm">Cancel</button>
         </form>
       </div>
@@ -531,6 +564,7 @@ function formatDate(date) {
             type="button"
             class="btn btn-success mb-3"
             :aria-pressed="hasLiked(post)"
+            :disabled="busyKey === `like-${post._id}`"
             @click="likePost(post)"
           >
             👍 ({{ post.likes?.length || 0 }})
@@ -581,7 +615,7 @@ function formatDate(date) {
                   rows="3"
                   required
                 ></textarea>
-                <button class="btn btn-primary mb-3" type="submit">Save reply</button>
+                <button class="btn btn-primary mb-3" type="submit" :disabled="busyKey === `save-reply-${reply._id}`">Save reply</button>
                 <button class="btn btn-primary mb-3" type="button" @click="cancelReplyEdit">Cancel</button>
               </form>
 
@@ -601,7 +635,7 @@ function formatDate(date) {
               rows="3"
               required
             ></textarea>
-            <button class="btn btn-primary mb-3" type="submit">Add reply</button>
+            <button class="btn btn-primary mb-3" type="submit" :disabled="busyKey === `reply-${post._id}`">Add reply</button>
           </form>
         </section>
       </article>
@@ -822,6 +856,11 @@ button {
   background: #edf5e9;
   border-radius: 4px;
   padding: 10px;
+}
+
+.message-error {
+  background: #fde8e7;
+  color: #8a1512;
 }
 
 @media (max-width: 500px) {

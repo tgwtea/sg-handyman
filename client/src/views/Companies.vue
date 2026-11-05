@@ -1,12 +1,12 @@
 <script setup>
 defineOptions({ name: 'CompaniesView' })
-// import Carousel from '@/components/Carousel.vue';
 import api from '@/api'
 import { ref, computed, watch, onMounted } from 'vue';
 import CompanyCard from '@/components/CompanyCard.vue';
 import PixelMascot from '@/components/PixelMascot.vue';
 import SkeletonCard from '@/components/SkeletonCard.vue';
 import { useRoute, useRouter } from 'vue-router'
+import { searchTerms, searchScore } from '@/utils/companySearch.js';
 
 const route = useRoute()
 const router = useRouter()
@@ -56,24 +56,20 @@ const nextFreeByCompany = computed(() => {
 
 // Vue re-runs this whenever a filter ref, the companies, or the review/slot data changes
 const filteredCompanies = computed(() => {
-  const query = searchStr.value.trim().toLowerCase();
-  const words = query.split(/\s+/).filter(Boolean);
+  const terms = searchTerms(searchStr.value);
+  const scores = new Map();
   const selected = selectedCategories.value;
 
   // 1. Filter
   const result = companies.value.filter((company) => {
     const services = company.services ?? [];
 
-    // Filter by search text (company name, category names, or service details)
+    // Filter by search text: any useful word of the problem matches (see utils/companySearch.js)
     let matchesSearch = true;
-    if (words.length > 0) {
-      const text = [
-        company.name ?? '',
-        ...services.map((cat) => cat.category ?? ''),
-        ...services.flatMap((cat) => (cat.details ?? []).map((detail) => detail.service ?? '')),
-      ].join(' ').toLowerCase();
-
-      matchesSearch = words.every((word) => text.includes(word));
+    if (terms.length > 0) {
+      const score = searchScore(company, terms);
+      scores.set(company._id, score);
+      matchesSearch = score > 0;
     }
 
     // Filter by multiselected service categories (if none selected, all match)
@@ -93,8 +89,10 @@ const filteredCompanies = computed(() => {
     return matchesSearch && matchesCategory && matchesPubLicensed;
   });
 
-  // 2. Sort
-  if (sortBy.value === 'earliest-slot') {
+  // 2. Sort (default order with a search: the best match first)
+  if (sortBy.value === 'default' && terms.length > 0) {
+    result.sort((a, b) => (scores.get(b._id) ?? 0) - (scores.get(a._id) ?? 0));
+  } else if (sortBy.value === 'earliest-slot') {
     result.sort((a, b) => {
       const timeA = nextFreeByCompany.value.get(a._id) ?? Infinity;
       const timeB = nextFreeByCompany.value.get(b._id) ?? Infinity;
@@ -182,8 +180,7 @@ async function getCompanies() {
     const response = await api.get(`/companies`);
     companies.value = response.data;
     status.value = 'ready';
-  } catch (error) {
-    console.log(error.message);
+  } catch {
     companies.value = [];
     status.value = 'error';
   }
@@ -194,8 +191,8 @@ async function getReviewSummaries() {
   try {
     const response = await api.get(`/reviews/summary`);
     reviewSummaries.value = response.data;
-  } catch (error) {
-    console.log(error.message);
+  } catch {
+    // ratings stay hidden
   }
 }
 
@@ -204,8 +201,8 @@ async function getNextFreeTimeslots() {
   try {
     const response = await api.get(`/timeslots/next-free`);
     nextFreeTimeslots.value = response.data;
-  } catch (error) {
-    console.log(error.message);
+  } catch {
+    // "next free" stays hidden
   }
 }
 
@@ -237,7 +234,6 @@ function removeCategory(cat) {
 </script>
 
 <template>
-  <!-- <Carousel /> -->
   <h1 class="mb-4">SG Handyman Booking</h1>
 
   <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">

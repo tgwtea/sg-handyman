@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import api, { errorMessage } from '@/api'
+import DeleteDialog from './DeleteDialog.vue'
 import { formatDay, formatTime, formatTimeRange, toDateInput, toTimeInput, fromInputs } from '@/utils/sgTime'
 
 const props = defineProps({
@@ -15,6 +16,11 @@ const message = ref(null) // { type, text }
 const editingId = ref(null)
 const form = ref(emptyForm())
 const submitting = ref(false)
+// { kind: 'delete' | 'cancel-booking', slot } while the confirm dialog is open
+const pending = ref(null)
+const busy = ref(false)
+// today's date in Singapore, so the date picker cannot pick a past day
+const today = toDateInput(new Date())
 
 function emptyForm() {
   return { date: '', start: '09:00', end: '10:00' }
@@ -46,8 +52,12 @@ function resetForm() {
 }
 
 async function save() {
-  submitting.value = true
   message.value = null
+  if (form.value.end <= form.value.start) {
+    message.value = { type: 'danger', text: 'The end time must be after the start time.' }
+    return
+  }
+  submitting.value = true
   const body = {
     start: fromInputs(form.value.date, form.value.start),
     end: fromInputs(form.value.date, form.value.end),
@@ -69,16 +79,32 @@ async function save() {
   }
 }
 
-async function remove(slot) {
-  if (!confirm(`Delete the timeslot on ${formatDay(slot.start)} at ${formatTime(slot.start)}?`)) return
+const dialogText = computed(() => {
+  if (!pending.value) return ''
+  const when = `${formatDay(pending.value.slot.start)} at ${formatTime(pending.value.slot.start)}`
+  return pending.value.kind === 'delete'
+    ? `Delete the timeslot on ${when}?`
+    : `Cancel the customer's booking on ${when}? The slot becomes free again.`
+})
+
+async function confirmPending() {
+  const { kind, slot } = pending.value
+  busy.value = true
   message.value = null
   try {
-    await api.delete(`/timeslots/${slot._id}`)
-    message.value = { type: 'success', text: 'Timeslot deleted.' }
-    if (editingId.value === slot._id) resetForm()
+    if (kind === 'delete') {
+      await api.delete(`/timeslots/${slot._id}`)
+      message.value = { type: 'success', text: 'Timeslot deleted.' }
+      if (editingId.value === slot._id) resetForm()
+    } else {
+      await api.delete(`/timeslots/${slot._id}/booking`)
+      message.value = { type: 'success', text: 'Booking cancelled. The slot is free again.' }
+    }
   } catch (error) {
     message.value = { type: 'danger', text: errorMessage(error) }
   } finally {
+    busy.value = false
+    pending.value = null
     loadTimeslots()
   }
 }
@@ -94,7 +120,7 @@ async function remove(slot) {
         <div class="col-12 fw-semibold">{{ formTitle }}</div>
         <div class="col-12 col-sm-4">
           <label for="slot-date" class="form-label small">Date</label>
-          <input id="slot-date" v-model="form.date" type="date" class="form-control" required />
+          <input id="slot-date" v-model="form.date" type="date" class="form-control" :min="today" required />
         </div>
         <div class="col-6 col-sm-3">
           <label for="slot-start" class="form-label small">Start</label>
@@ -108,7 +134,7 @@ async function remove(slot) {
           <button class="btn btn-primary flex-fill" type="submit" :disabled="submitting">
             {{ editingId ? 'Save' : 'Add' }}
           </button>
-          <button v-if="editingId" class="btn btn-outline-secondary" type="button" @click="resetForm">✕</button>
+          <button v-if="editingId" class="btn btn-outline-secondary" type="button" aria-label="Stop editing" @click="resetForm">✕</button>
         </div>
       </form>
 
@@ -132,10 +158,15 @@ async function remove(slot) {
                 </span>
               </td>
               <td class="text-end text-nowrap">
-                <button class="btn btn-sm btn-outline-primary me-1" :disabled="slot.taken" @click="startEdit(slot)">
-                  Edit
-                </button>
-                <button class="btn btn-sm btn-outline-danger" :disabled="slot.taken" @click="remove(slot)">Delete</button>
+                <template v-if="slot.taken">
+                  <button class="btn btn-sm btn-outline-danger" @click="pending = { kind: 'cancel-booking', slot }">
+                    Cancel booking
+                  </button>
+                </template>
+                <template v-else>
+                  <button class="btn btn-sm btn-outline-primary me-1" @click="startEdit(slot)">Edit</button>
+                  <button class="btn btn-sm btn-outline-danger" @click="pending = { kind: 'delete', slot }">Delete</button>
+                </template>
               </td>
             </tr>
           </tbody>
@@ -143,4 +174,15 @@ async function remove(slot) {
       </div>
     </div>
   </section>
+
+  <DeleteDialog
+    v-if="pending"
+    :title="pending.kind === 'delete' ? 'Delete timeslot' : 'Cancel booking'"
+    :message="dialogText"
+    :confirm-label="pending.kind === 'delete' ? 'Yes, delete it' : 'Yes, cancel the booking'"
+    :busy-label="pending.kind === 'delete' ? 'Deleting...' : 'Cancelling...'"
+    :busy="busy"
+    @cancel="pending = null"
+    @confirm="confirmPending"
+  />
 </template>

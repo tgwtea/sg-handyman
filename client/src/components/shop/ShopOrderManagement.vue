@@ -159,12 +159,14 @@ onUnmounted(() => { clearInterval(timer); clearInterval(refreshTimer) })
           </div>
         </template>
       </div>
-      <div v-if="!order.packages.length">
+      <div v-if="!order.packages?.length">
         <p>Older order: company package information was not saved. Read-only.</p>
         <ul><li v-for="item in order.items" :key="item.id">{{ item.name }} × {{ item.quantity }}</li></ul>
       </div>
       <p class="small fw-bold">Original {{ auth.user.role === 'business' ? 'company subtotal' : 'order total' }}: ${{ order.total.toFixed(2) }}</p>
-      <p v-if="orderCategory(order, now) !== 'cancelled'" v-for="update in order.updates" :key="update._id" class="small">{{ update.message }}</p>
+      <template v-if="orderCategory(order, now) !== 'cancelled'">
+        <p v-for="update in order.updates" :key="update._id" class="small">{{ update.message }}</p>
+      </template>
       <form v-if="selectedOrder && selectedOrder._id === order._id" class="border rounded p-3 mt-3" @submit.prevent="confirmCancellation = true">
         <fieldset :disabled="busy">
           <legend class="h5">Cancel the whole order</legend>

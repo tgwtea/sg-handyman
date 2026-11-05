@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import User from '../models/user-model.js';
+import loginLimiter from '../utils/login-limiter.js';
 
 const authController = {};
 
@@ -26,16 +27,26 @@ function startSession(req, res, user, status, failMessage) {
 
 authController.login = async (req, res) => {
   try {
-    const { username, password } = req.body;
+    // strings only: an object such as { "$ne": null } must never reach the database query
+    const username = typeof req.body.username === 'string' ? req.body.username.trim() : '';
+    const password = typeof req.body.password === 'string' ? req.body.password : '';
     if (!username || !password) {
       return res.status(400).send({ message: 'Username and password are required' });
+    }
+
+    const retryAfter = loginLimiter.retryAfter(req.ip, username);
+    if (retryAfter) {
+      res.set('Retry-After', String(retryAfter));
+      return res.status(429).send({ message: `Too many failed logins. Try again in ${Math.ceil(retryAfter / 60)} minutes.` });
     }
 
     const user = await User.findUserByUsername(username);
     const passwordMatches = user && await bcrypt.compare(password, user.password);
     if (!passwordMatches) {
+      loginLimiter.fail(req.ip, username);
       return res.status(401).send({ message: 'Invalid username or password' });
     }
+    loginLimiter.succeed(req.ip, username);
 
     startSession(req, res, user, 200, 'Login failed');
   } catch (error) {

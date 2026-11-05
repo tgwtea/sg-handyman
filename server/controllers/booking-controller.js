@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import Booking from '../models/booking-model.js';
 import Timeslot from '../models/timeslot-model.js';
 import Review from '../models/review-model.js';
+import { canManageCompany } from '../middleware/auth.js';
 
 const bookingController = {};
 
@@ -70,7 +71,9 @@ bookingController.cancelBooking = async (req, res) => {
     }
 
     const user = req.session.user;
-    if (user.role !== 'admin' && String(booking.userId) !== user._id) {
+    // the customer, the company that owns the slot, or an admin
+    const isOwner = String(booking.userId) === user._id;
+    if (!isOwner && !canManageCompany(user, booking.companyId)) {
       return res.status(403).send({ message: 'You cannot cancel this booking' });
     }
     if (user.role !== 'admin') {
