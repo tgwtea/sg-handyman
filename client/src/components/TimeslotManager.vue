@@ -156,6 +156,8 @@ async function confirmPending() {
                 <span :class="['badge', slot.taken ? 'text-bg-secondary' : 'text-bg-success']">
                   {{ slot.taken ? 'Booked' : 'Free' }}
                 </span>
+                <div v-if="slot.taken && slot.customerName" class="small">Booked by {{ slot.customerName }}</div>
+                <div v-if="slot.taken && slot.service" class="small text-body-secondary">{{ slot.service }}</div>
               </td>
               <td class="text-end text-nowrap">
                 <template v-if="slot.taken">

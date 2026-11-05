@@ -76,6 +76,8 @@ const canManageProducts = computed(() => {
   if (!auth.user) return false
   return auth.user.role === 'admin' || (auth.user.role === 'business' && !!auth.user.companyId)
 })
+// only guests and customers buy; business and admin accounts manage the shop instead
+const canBuy = computed(() => !auth.user || auth.user.role === 'customer')
 let loginChecked = false
 let shopActive = true
 let ordersTimer
@@ -158,6 +160,12 @@ async function loadCart() {
 
   cart.value = []
   cartMessage.value = ''
+  // the server keeps no cart for business and admin accounts
+  if (owner && !canBuy.value) {
+    cartReady.value = true
+    cartLoading.value = false
+    return
+  }
   try {
     const guestItems = readGuestCart()
     let items = guestItems
@@ -595,7 +603,7 @@ onUnmounted(() => {
       <h1 v-else>DIY tools shop</h1>
       <div class="d-flex flex-wrap gap-2 ms-auto">
       <RouterLink to="/shop/orders" class="btn btn-outline-primary">Orders</RouterLink>
-      <RouterLink to="/shop/cart" class="btn btn-outline-primary">
+      <RouterLink v-if="canBuy" to="/shop/cart" class="btn btn-outline-primary">
         <span aria-hidden="true">🛒</span> Cart ({{ cartCount }})
       </RouterLink>
     </div></div>
@@ -606,6 +614,7 @@ onUnmounted(() => {
     <button v-if="cartUnsaved && !cartBusy" class="btn btn-outline-primary mb-3" @click="saveCart">Retry saving cart</button>
 
     <p v-if="message" class="text-danger">{{ message }}</p>
+    <p v-if="!canBuy && route.path !== '/shop/orders'" class="alert alert-info py-2">Shop with a customer account to buy tools.</p>
 
     <section v-if="route.path === '/shop'">
 
@@ -711,7 +720,7 @@ onUnmounted(() => {
               <div class="mb-3"><ShopRatingSummary v-if="productRating(tool.id).count" :average="productRating(tool.id).average" :count="productRating(tool.id).count" :ratings="productRating(tool.id).ratings" /><p v-else class="small text-muted mb-0">No reviews yet</p></div>
         <p class="card-text">Price: ${{ tool.price.toFixed(2) }}</p>
         <button type="button" class="btn btn-outline-primary w-100 mb-2" @click="selectedProduct = tool">View details</button>
-        <button class="btn btn-primary w-100 mt-auto" :disabled="cartBusy || !cartReady" @click="addToCart(tool)">
+        <button v-if="canBuy" class="btn btn-primary w-100 mt-auto" :disabled="cartBusy || !cartReady" @click="addToCart(tool)">
           Add to cart
         </button>
                 <div v-if="canManageProduct(tool)" class="d-flex flex-wrap gap-2 mt-3">
@@ -727,7 +736,7 @@ onUnmounted(() => {
 
 
     <!-- CART SECTIONS -->
-    <section v-if="route.path === '/shop/cart'" class="border rounded p-3 my-4">
+    <section v-if="route.path === '/shop/cart' && canBuy" class="border rounded p-3 my-4">
       <h2>Your cart</h2>
       <p v-if="cart.length === 0">Your cart is empty.</p>
 
@@ -764,7 +773,7 @@ onUnmounted(() => {
             </section>
       
       <!-- CHECKOUT SECTION -->
-      <section v-if="route.path === '/shop/checkout'" class="border rounded p-3 my-4">
+      <section v-if="route.path === '/shop/checkout' && canBuy" class="border rounded p-3 my-4">
       <RouterLink to="/shop/cart" class="d-inline-block mb-3">Back to cart</RouterLink>
       <p v-if="cart.length === 0">Your cart is empty. <RouterLink to="/shop">Browse tools</RouterLink></p>
       <p v-else-if="!auth.isLoggedIn">
@@ -815,7 +824,7 @@ onUnmounted(() => {
       </div>
     </section>
     <a v-if="route.path === '/shop'" href="#shop-search" class="btn btn-outline-primary shop-back-search">↑ Back to search</a>
-    <ShopProductDetails v-if="selectedProduct" :key="selectedProduct.id" :tool="selectedProduct" :company-name="companyName(selectedProduct.companyId)" :cart-disabled="cartBusy || !cartReady" @close="selectedProduct = null" @add-to-cart="addToCart" @reviews-changed="getReviewSummaries" />
+    <ShopProductDetails v-if="selectedProduct" :key="selectedProduct.id" :tool="selectedProduct" :company-name="companyName(selectedProduct.companyId)" :can-buy="canBuy" :cart-disabled="cartBusy || !cartReady" @close="selectedProduct = null" @add-to-cart="addToCart" @reviews-changed="getReviewSummaries" />
     <div v-if="deliveryNotification && auth.isLoggedIn" class="delivery-notification alert shadow" :class="notificationType === 'danger' ? 'alert-danger' : 'alert-success'" role="status">
       <p>{{ deliveryNotification }}</p>
       <button type="button" class="btn btn-outline-secondary btn-sm" @click="deliveryNotification = ''">Dismiss</button>

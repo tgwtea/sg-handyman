@@ -1,5 +1,8 @@
 <script setup>
 import { RouterLink } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+
+const auth = useAuthStore()
 </script>
 
 <template>
@@ -25,8 +28,15 @@ import { RouterLink } from 'vue-router'
           </div>
           <div class="col-6 col-md-3">
             <p class="footer-heading text-green">ACCOUNT</p>
-            <ul class="list-unstyled d-flex flex-column gap-1">
+            <!-- Log out stays in the navbar only, so the page has one Log out button -->
+            <ul v-if="auth.isLoggedIn" class="list-unstyled d-flex flex-column gap-1">
+              <li class="footer-text">Logged in as {{ auth.user.username }}</li>
+              <li v-if="auth.user.role === 'customer'"><RouterLink to="/my-bookings">My Bookings</RouterLink></li>
+              <li><RouterLink to="/shop/orders">{{ auth.user.role === 'customer' ? 'My orders' : 'Manage orders' }}</RouterLink></li>
+            </ul>
+            <ul v-else class="list-unstyled d-flex flex-column gap-1">
               <li><RouterLink to="/login">Log in</RouterLink></li>
+              <li><RouterLink to="/sign-up">Sign up</RouterLink></li>
             </ul>
           </div>
         </div>

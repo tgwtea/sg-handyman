@@ -3,17 +3,24 @@ import Shop from '../models/shop-model.js';
 const management = {};
 
 
-// The earliest remaining package arrival is the cancellation deadline for the whole order.
-function cancellationDeadline(order) {
+// An item arrives when its company's package arrives.
+function itemArrival(order, item) {
+  let extraSeconds = 0;
+  for (const parcel of order.packages) {
+    if (parcel.companyId === item.companyId) extraSeconds = parcel.extraSeconds;
+  }
+  return new Date(order.createdAt).getTime() + (order.deliveryDurationSeconds + extraSeconds) * 1000;
+}
+
+// The earliest remaining package arrival is the cancellation deadline.
+// With a companyId, only that company's items count. 0 means no items remain.
+function cancellationDeadline(order, companyId = '') {
   if (!order.packages.length || !order.deliveryDurationSeconds) return 0;
   let deadline = 0;
   for (const item of order.items) {
     if (item.rejected) continue;
-    let extraSeconds = 0;
-    for (const parcel of order.packages) {
-      if (parcel.companyId === item.companyId) extraSeconds = parcel.extraSeconds;
-    }
-    const finish = new Date(order.createdAt).getTime() + (order.deliveryDurationSeconds + extraSeconds) * 1000;
+    if (companyId && item.companyId !== companyId) continue;
+    const finish = itemArrival(order, item);
     if (deadline === 0 || finish < deadline) deadline = finish;
   }
   return deadline;
@@ -58,13 +65,13 @@ management.getOrders = async (req, res) => {
       for (const update of order.updates) if (update.companyId === String(user.companyId) || update.companyId === '') updates.push(update);
       result.push({ _id: order._id, recipientName: order.recipientName, deliveryAddress: order.deliveryAddress,
         deliveryNote: order.deliveryNote, createdAt: order.createdAt, deliveryDurationSeconds: order.deliveryDurationSeconds,
-        items: items, packages: packages, updates: updates, total: total, cancelUntil: cancellationDeadline(order) });
+        items: items, packages: packages, updates: updates, total: total, cancelUntil: cancellationDeadline(order, String(user.companyId)) });
     }
     res.json(result);
   } catch (error) { sendError(error, res); }
 };
 
-// All cancellations now apply to the WHOLE order, regardless of which company starts it.
+// A customer or an admin cancels the whole order. A company cancels only its own items.
 management.cancelOrder = async (req, res) => {
   if (!validReason(req.body)) return res.status(400).json({ message: 'Give a reason of 1–300 characters.' });
   try {
@@ -81,13 +88,32 @@ management.cancelOrder = async (req, res) => {
     if (!order.packages.length || !order.deliveryDurationSeconds) {
       return res.status(409).json({ message: 'This older order has no complete delivery timing and cannot be cancelled.' });
     }
+    const reason = req.body.reason.trim();
+    if (user.role === 'business') {
+      const companyId = String(user.companyId);
+      const deadline = cancellationDeadline(order, companyId);
+      if (!deadline) return res.status(409).json({ message: 'Your items are already cancelled.' });
+      if (Date.now() >= deadline) return res.status(409).json({ message: 'Your package has already arrived. Your items can no longer be cancelled.' });
+      let companyName = 'Company';
+      for (const parcel of order.packages) {
+        if (parcel.companyId === companyId && parcel.companyName) companyName = parcel.companyName;
+      }
+      for (const item of order.items) {
+        if (item.companyId === companyId && !item.rejected) {
+          item.rejected = true;
+          item.rejectionReason = 'Cancelled by company. Reason: ' + reason;
+        }
+      }
+      // The company's own companyId keeps this update out of other companies' lists.
+      order.updates.push({ companyId: companyId, message: companyName + ' cancelled its items: ' + reason });
+      const result = await Shop.saveManagement(order);
+      if (result.matchedCount === 0) return res.status(404).json({ message: 'Order not found.' });
+      return res.json({ message: 'Your items are cancelled. Other companies’ deliveries continue.' });
+    }
     const deadline = cancellationDeadline(order);
     if (!deadline) return res.status(409).json({ message: 'This order is already cancelled.' });
     if (Date.now() >= deadline) return res.status(409).json({ message: 'A package has already arrived. This order can no longer be cancelled.' });
-    let actor = 'Customer';
-    if (user.role === 'admin') actor = 'Admin';
-    else if (user.role === 'business') actor = 'Company';
-    const reason = req.body.reason.trim();
+    const actor = user.role === 'admin' ? 'Admin' : 'Customer';
     for (const item of order.items) {
       if (!item.rejected) {
         item.rejected = true;
@@ -108,12 +134,7 @@ function orderFinished(order, companyId = '') {
     if (companyId && item.companyId !== companyId) continue;
     if (item.rejected) continue;
     if (!order.deliveryDurationSeconds) return false;
-    let extraSeconds = 0;
-    for (const parcel of order.packages) {
-      if (parcel.companyId === item.companyId) extraSeconds = parcel.extraSeconds;
-    }
-    const finish = new Date(order.createdAt).getTime() + (order.deliveryDurationSeconds + extraSeconds) * 1000;
-    if (Date.now() < finish) return false;
+    if (Date.now() < itemArrival(order, item)) return false;
   }
   return true;
 }

@@ -158,7 +158,6 @@ async function cancel() {
     </div>
 
     <div v-if="loadError" class="alert alert-warning py-2">Could not refresh timeslots: {{ loadError }}</div>
-    <div v-if="message" :class="['alert', `alert-${message.type}`, 'py-2']">{{ message.text }}</div>
 
     <p v-if="!loadError && timeslots.length === 0" class="text-body-secondary">No upcoming timeslots.</p>
 
@@ -182,10 +181,13 @@ async function cancel() {
       </div>
     </div>
 
+    <!-- below the grid, where the confirm card was, so the user sees it without scrolling up -->
+    <div v-if="message" :class="['alert', `alert-${message.type}`, 'mt-3', 'py-2']" role="status">{{ message.text }}</div>
+
     <div v-if="showBookingPrompt && !canBook" ref="bookingPrompt" class="alert alert-info mt-3 py-2" role="status">
       <template v-if="auth.isLoggedIn">Only customer accounts can book.</template>
       <template v-else>
-        <RouterLink :to="{ path: '/login', query: { redirect: route.fullPath } }">Log in</RouterLink>
+        <RouterLink :to="{ path: '/login', query: { redirect: `${route.path}#book-a-slot` } }">Log in</RouterLink>
         as a customer to book.
       </template>
     </div>

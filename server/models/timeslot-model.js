@@ -37,7 +37,18 @@ timeslotModel.findTimeslotsWithBookings = function(companyId, from, to) {
         as: 'booking'
       }
     },
-    { $set: { booking: { $arrayElemAt: ['$booking', 0] } } }
+    { $set: { booking: { $arrayElemAt: ['$booking', 0] } } },
+    // the customer who booked; only the username, never the password hash
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'booking.userId',
+        foreignField: '_id',
+        pipeline: [{ $project: { _id: 0, username: 1 } }],
+        as: 'customer'
+      }
+    },
+    { $set: { customer: { $arrayElemAt: ['$customer', 0] } } }
   ]);
 };
 

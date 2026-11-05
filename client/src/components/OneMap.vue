@@ -6,7 +6,8 @@ import { ref } from 'vue';
 import L from 'leaflet';
 import api from '@/api'
 
-const props = defineProps(['address']);
+// location: { lat, lng } saved with the company, used when OneMap has no match for the postal code
+const props = defineProps(['address', 'location']);
 let currentMarker = ref()
 // shown under the map instead of a blocking alert()
 const mapMessage = ref('')
@@ -44,9 +45,27 @@ async function initialiseOneMap() {
   }).addTo(map.value);
 }
 
+function hasStoredLocation() {
+  return Number.isFinite(props.location?.lat) && Number.isFinite(props.location?.lng);
+}
+
+// replaces the marker, opens its popup and zooms in on it
+function dropPin(lat, lng, title, address) {
+  if (currentMarker.value) {
+    map.value.removeLayer(currentMarker.value);
+  }
+  currentMarker.value = L.marker([lat, lng])
+    .addTo(map.value)
+    .bindPopup(`<b>${escapeHtml(title)}</b><br>${escapeHtml(address)}`)
+    .openPopup();
+  map.value.setView([lat, lng], 17);
+}
+
 // Programmatically fetch coordinates from OneMap API and update the map marker
 async function pinPostalCode() {
   mapMessage.value = '';
+  // the map is not set up yet (for example, the page has not finished loading)
+  if (!map.value) return;
   const postalCode = props.address?.match(/\b(\d{6})\b\s*$/)?.[1];
 
   if (!postalCode) {
@@ -61,23 +80,10 @@ async function pinPostalCode() {
     if (data.results && data.results.length > 0) {
       // OneMap returns the most relevant matching location details at index 0
       const result = data.results[0];
-      const lat = parseFloat(result.LATITUDE);
-      const lng = parseFloat(result.LONGITUDE);
-      const address = result.ADDRESS;
-
-      // 2. Remove previous marker if it exists to keep map clear
-      if (currentMarker.value) {
-        map.value.removeLayer(currentMarker.value);
-      }
-
-      // 3. Drop a new marker at the geocoded coordinates and bind a popup window
-      currentMarker.value = L.marker([lat, lng])
-        .addTo(map.value)
-        .bindPopup(`<b>${escapeHtml(result.BUILDING || 'Location')}</b><br>${escapeHtml(address)}`)
-        .openPopup();
-
-      // 4. Pan and zoom smoothly to focus directly onto the pinned area
-      map.value.setView([lat, lng], 17);
+      dropPin(parseFloat(result.LATITUDE), parseFloat(result.LONGITUDE), result.BUILDING || 'Location', result.ADDRESS);
+    } else if (hasStoredLocation()) {
+      // OneMap has no match for this postal code: use the location saved with the company
+      dropPin(props.location.lat, props.location.lng, 'Location', props.address);
     } else {
       mapMessage.value = 'OneMap found no location for this postal code.';
     }
@@ -97,5 +103,10 @@ async function pinPostalCode() {
 </template>
 
 <style scoped>
-
+/* Leaflet draws into this box, so it needs a height of its own */
+.onemap {
+  width: 100%;
+  height: 60vh;
+  min-height: 320px;
+}
 </style>

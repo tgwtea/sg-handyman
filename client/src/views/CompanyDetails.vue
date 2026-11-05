@@ -156,7 +156,7 @@ function resetContact() {
       <p v-if="safeWebsite"><a :href="safeWebsite" target="_blank" rel="noopener">{{ company.website }}</a></p>
 
       <!-- OneMap - amanda -->
-      <OneMap ref="oneMap" v-if="company.address" :address="company.address"/>
+      <OneMap ref="oneMap" v-if="company.address" :address="company.address" :location="company.location"/>
       <br><br>
 
       <div v-if="contactSent" class="alert alert-success" role="status">

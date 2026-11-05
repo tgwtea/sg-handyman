@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import api, { errorMessage } from '@/api'
 import { useAuthStore } from '@/stores/auth'
@@ -14,6 +14,7 @@ const loadError = ref('')
 const message = ref(null) // { type: 'success' | 'danger', text }
 const cancellingId = ref(null) // booking waiting for the cancel confirmation
 const submitting = ref(false)
+const messageBox = ref(null) // the alert, moved into view after a cancel
 
 const isCustomer = computed(() => auth.user?.role === 'customer')
 
@@ -80,6 +81,10 @@ async function cancelBooking(booking) {
     submitting.value = false
     cancellingId.value = null
   }
+  // the list can be long, so bring the result to the user instead of leaving it at the top
+  await nextTick()
+  messageBox.value?.scrollIntoView({ block: 'center' })
+  messageBox.value?.focus()
 }
 
 // reload when the user logs in or out, because the list depends on who is viewing
@@ -97,7 +102,7 @@ watch(() => auth.user?._id, loadBookings, { immediate: true })
   <p v-else-if="!isCustomer" class="text-muted">Only customer accounts have bookings.</p>
 
   <template v-else>
-    <div v-if="message" :class="`alert alert-${message.type}`" role="status">{{ message.text }}</div>
+    <div v-if="message" ref="messageBox" :class="`alert alert-${message.type}`" role="status" tabindex="-1">{{ message.text }}</div>
     <p v-if="loadError" class="text-danger">{{ loadError }}</p>
     <p v-if="!loaded && !loadError" class="text-muted">Loading your bookings…</p>
 

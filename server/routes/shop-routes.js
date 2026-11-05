@@ -17,7 +17,8 @@ router.get('/manage/reviews', requireRole('admin'), productReviewController.getA
 router.delete('/manage/reviews/:reviewId', requireRole('admin'), productReviewController.deleteAdminReview);
 
 // POST createorder
-router.post('/orders', requireLogin, shopController.createOrder);
+// only customers buy: business and admin accounts manage orders instead
+router.post('/orders', requireRole('customer'), shopController.createOrder);
 //check role first
 router.post('/products', requireRole('business','admin'), shopController.createProduct);
 //：id identifies the existing product, using the product id path as guide
@@ -32,8 +33,8 @@ router.put('/orders/:id/cancel', requireRole('customer','admin'), management.can
 router.put('/orders/:id/hide', requireRole('customer','business','admin'), management.hideOrder);
 
 // Account carts use the same login session as orders.
-router.get('/cart', requireLogin, shopController.getCart);
-router.put('/cart', requireLogin, shopController.saveCart);
+router.get('/cart', requireRole('customer'), shopController.getCart);
+router.put('/cart', requireRole('customer'), shopController.saveCart);
 
 //for product review
 router.get('/reviews/summary', productReviewController.getSummaries);

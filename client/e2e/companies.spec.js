@@ -48,4 +48,15 @@ test.describe('Companies', () => {
       await expect(link).toHaveAttribute('aria-current', 'location')
     }
   })
+
+  // the pin needs the OneMap login, which CI does not have, so this checks the map box only
+  test('the contact section shows the company map', async ({ page }) => {
+    await openCompany(page, BUSINESS_COMPANY)
+
+    const map = page.getByRole('region', { name: 'Map of the company address' })
+    await map.scrollIntoViewIfNeeded()
+    await expect(map).toBeVisible()
+    const box = await map.boundingBox()
+    expect(box.height).toBeGreaterThan(200)
+  })
 })

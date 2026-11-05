@@ -17,7 +17,7 @@ async function logout() {
 </script>
 
 <template>
-  <nav class="navbar navbar-expand-lg app-nav" data-bs-theme="dark">
+  <nav class="navbar navbar-expand-xl app-nav" data-bs-theme="dark">
     <div class="container">
       <RouterLink class="navbar-brand d-flex align-items-center gap-2" to="/">
         <span class="brand-icon">
@@ -39,7 +39,7 @@ async function logout() {
       </button>
 
       <div class="collapse navbar-collapse" id="navbarSupportedContent">
-        <ul class="navbar-nav me-auto mb-2 mb-lg-0 gap-lg-1">
+        <ul class="navbar-nav me-auto mb-2 mb-xl-0 gap-xl-1">
           <li class="nav-item">
             <RouterLink class="nav-link" exact-active-class="active" to="/">Home</RouterLink>
           </li>

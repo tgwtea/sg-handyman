@@ -50,10 +50,13 @@ timeslotController.getCompanyTimeslots = async (req, res) => {
       new mongoose.Types.ObjectId(companyId), from, to
     );
 
-    // send only what the page needs: never other customers' ids
+    // the company's own business (or an admin) sees who booked each slot
+    const manager = canManageCompany(req.session.user, companyId);
+
+    // send only what the page needs: never other customers' ids or names to a guest or customer
     res.send(timeslots.map((slot) => {
       const mine = !!slot.booking && String(slot.booking.userId) === userId;
-      return {
+      const result = {
         _id: slot._id,
         companyId: slot.companyId,
         start: slot.start,
@@ -63,6 +66,11 @@ timeslotController.getCompanyTimeslots = async (req, res) => {
         bookingId: mine ? slot.booking._id : null,
         service: mine ? slot.booking.service : null
       };
+      if (manager && slot.booking) {
+        result.customerName = slot.customer?.username ?? null;
+        result.service = slot.booking.service;
+      }
+      return result;
     }));
   } catch (error) {
     console.error(error);
