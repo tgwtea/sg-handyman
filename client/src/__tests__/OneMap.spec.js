@@ -42,3 +42,18 @@ it('displays a marker at the coordinates from postal-code search', async () => {
     wrapper.unmount()
   }
 })
+
+it('pins the stored company location when OneMap has no match', async () => {
+  L.marker.mockClear()
+  api.get.mockResolvedValue({ data: 'No matching location found for this postal code.' })
+  const wrapper = mount(OneMap, { props: { address: 'TEST ADDRESS 389919', location: { lat: 1.31, lng: 103.88 } } })
+  try {
+    await wrapper.vm.initialiseOneMap()
+    await wrapper.get('#pinPostalCodeBtn').trigger('click')
+    await flushPromises()
+    expect(L.marker).toHaveBeenCalledWith([1.31, 103.88])
+    expect(wrapper.text()).not.toContain('OneMap found no location')
+  } finally {
+    wrapper.unmount()
+  }
+})
