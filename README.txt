@@ -151,7 +151,7 @@ E2E coverage (client/e2e):
   - ChatGPT: generated seed and mock data
   - Claude: design mockup and UI prototyping
   - Antigravity: debugging, improving original code
-  - Codex: Design mockup, generated datas for product, code cleaning(make it more formatted nicely)
+  - Codex: Design mockup, generated datas for product,formatting , and help with boilerplate code and Testing(the price range and filter)
 
 
 8. THIRD-PARTY CODE AND ASSETS
