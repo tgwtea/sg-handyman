@@ -32,7 +32,7 @@ Roles:
   Data store: MongoDB (Mongoose). Sessions are also kept in MongoDB.
   Hosting   : Vercel (client at /, Express server at /api)
   Testing   : Playwright (end-to-end), Vitest (client unit),
-              node:test (server unit)
+              node:test (server unit), Postman (manual API checks)
 
 External public API (asynchronous HTTP):
   - OneMap (Singapore Land Authority)
@@ -144,14 +144,20 @@ E2E coverage (client/e2e):
   - The login limit (5 failed tries for one username from one
     address, then a 15-minute wait) is kept in server memory, so each
     Vercel server instance counts on its own.
+  - The companies, their websites and their contact details are made
+    up for the demo, so the website links do not lead to a real site.
+  - The company postal codes are also made up. OneMap still places
+    each one at the real address that has that postal code, so the
+    map pin and the driving distance do not match a real business.
+
 
 
 7. USE OF AI / LLM TOOLS
 ------------------------
-  - ChatGPT: generated seed and mock data
-  - Claude: design mockup and UI prototyping
+  - ChatGPT: generate seed and mock data
+  - Claude: design mockup and UI prototype, review code to identify duplicates
   - Antigravity: debugging, improving original code
-  - Codex: Design mockup, generated datas for product,formatting , and help with boilerplate code and Testing(the price range and filter)
+  - Codex: design mockup, generate data for product, formatting, help with boilerplate code and testing (price range and filter)
 
 
 8. THIRD-PARTY CODE AND ASSETS
