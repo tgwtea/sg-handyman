@@ -13,7 +13,7 @@ test('shop displays its heading', async ({ page }) => {
 
 //check search bar
 test('testsearchbar', async ({ page }) => {
-  await page.goto('http://localhost:5173/shop');
+  await page.goto('/shop');
   await page.getByRole('textbox', { name: 'Search tools' }).click();
   await page.getByRole('textbox', { name: 'Search tools' }).fill('hammer');
   await page.getByRole('button', { name: 'View details' }).first().click();
@@ -26,7 +26,7 @@ test('testsearchbar', async ({ page }) => {
 
 //check seller filter
 test('testsearchfilter', async ({ page }) => {
-  await page.goto('http://localhost:5173/shop');
+  await page.goto('/shop');
   await page.getByLabel('Seller').selectOption('6ae5d20eb16741a0c6a6d1dd');
   await expect(page.getByText('No products match your')).toBeVisible();
   await page.getByLabel('Seller').selectOption('6ae5d20eb16741a0c6a6d1e6');
@@ -35,7 +35,7 @@ test('testsearchfilter', async ({ page }) => {
 
 //check sorting
 test('products can be sorted by price', async ({ page }) => {
-  await page.goto('http://localhost:5173/shop');
+  await page.goto('/shop');
 
   // Wait until products have loaded.
   const priceLabels = page.locator('.card .card-text');
@@ -163,16 +163,16 @@ test('price range bar filters products within its limits', async ({ page }) => {
 
 //check customisable view detail add cart number + '+'/'-' button and remove button in cart
 test('testaddcart', async ({ page }) => {
-  await page.goto('http://localhost:5173/shop');
+  await page.goto('/shop');
   await page.locator('#navbarSupportedContent').getByRole('link', { name: 'Log in' }).click();
   await page.getByRole('textbox', { name: 'Username' }).click();
   await page.getByRole('textbox', { name: 'Username' }).fill('test-customer-1');
   await page.getByRole('textbox', { name: 'Username' }).press('Tab');
   await page.getByLabel('Password', { exact: true }).fill('test-password-123');
   await page.getByLabel('Password', { exact: true }).press('Enter');
-  await expect(page).toHaveURL('http://localhost:5173/companies');
+  await expect(page).toHaveURL(/\/companies$/);
   await page.locator('#navbarSupportedContent').getByRole('link', { name: 'Shop' }).click();
-  await expect(page).toHaveURL('http://localhost:5173/shop');
+  await expect(page).toHaveURL(/\/shop$/);
 
   // Start this test with an empty saved cart, even if an earlier test failed.
   await expect(page.getByRole('button', { name: 'Add to cart', exact: true }).first()).toBeEnabled();
@@ -205,16 +205,16 @@ test('testaddcart', async ({ page }) => {
 
 //check order process
 test('testorder', async ({ page }) => {
-  await page.goto('http://localhost:5173/shop');
+  await page.goto('/shop');
   await page.locator('#navbarSupportedContent').getByRole('link', { name: 'Log in' }).click();
   await page.getByRole('textbox', { name: 'Username' }).click();
   await page.getByRole('textbox', { name: 'Username' }).fill('test-customer-1');
   await page.getByRole('textbox', { name: 'Username' }).press('Tab');
   await page.getByLabel('Password', { exact: true }).fill('test-password-123');
   await page.getByLabel('Password', { exact: true }).press('Enter');
-  await expect(page).toHaveURL('http://localhost:5173/companies');
+  await expect(page).toHaveURL(/\/companies$/);
   await page.locator('#navbarSupportedContent').getByRole('link', { name: 'Shop' }).click();
-  await expect(page).toHaveURL('http://localhost:5173/shop');
+  await expect(page).toHaveURL(/\/shop$/);
 
   // Start this test with an empty saved cart, even if an earlier test failed.
   await expect(page.getByRole('button', { name: 'Add to cart', exact: true }).first()).toBeEnabled();
@@ -263,16 +263,16 @@ test('testorder', async ({ page }) => {
 test('company cancels the order just placed', async ({ page }) => {
   // Give this order a unique recipient so we can find its reference on screen.
   const recipientName = 'Cancellation test ' + Date.now();
-  await page.goto('http://localhost:5173/shop');
+  await page.goto('/shop');
   await page.locator('#navbarSupportedContent').getByRole('link', { name: 'Log in' }).click();
   await page.getByRole('textbox', { name: 'Username' }).click();
   await page.getByRole('textbox', { name: 'Username' }).fill('test-customer-1');
   await page.getByRole('textbox', { name: 'Username' }).press('Tab');
   await page.getByLabel('Password', { exact: true }).fill('test-password-123');
   await page.getByLabel('Password', { exact: true }).press('Enter');
-  await expect(page).toHaveURL('http://localhost:5173/companies');
+  await expect(page).toHaveURL(/\/companies$/);
   await page.locator('#navbarSupportedContent').getByRole('link', { name: 'Shop' }).click();
-  await expect(page).toHaveURL('http://localhost:5173/shop');
+  await expect(page).toHaveURL(/\/shop$/);
 
   // Start this test with an empty saved cart, even if an earlier test failed.
   await expect(page.getByRole('button', { name: 'Add to cart', exact: true }).first()).toBeEnabled();
@@ -313,16 +313,16 @@ test('company cancels the order just placed', async ({ page }) => {
   await expect(customerOrder).toBeVisible();
   const orderReference = await customerOrder.getByRole('heading', { level: 3 }).textContent();
   await page.getByRole('button', { name: 'Log out' }).click();
-  await expect(page).toHaveURL('http://localhost:5173/companies');
+  await expect(page).toHaveURL(/\/companies$/);
   await page.locator('#navbarSupportedContent').getByRole('link', { name: 'Log in' }).click();
   await page.getByRole('textbox', { name: 'Username' }).click();
   await page.getByRole('textbox', { name: 'Username' }).fill('arcticair');
   await page.getByRole('textbox', { name: 'Username' }).press('Tab');
   await page.getByLabel('Password', { exact: true }).fill('arcticair123');
   await page.getByLabel('Password', { exact: true }).press('Enter');
-  await expect(page).toHaveURL('http://localhost:5173/companies');
+  await expect(page).toHaveURL(/\/companies$/);
   await page.locator('#navbarSupportedContent').getByRole('link', { name: 'Shop' }).click();
-  await expect(page).toHaveURL('http://localhost:5173/shop');
+  await expect(page).toHaveURL(/\/shop$/);
   await page.getByRole('link', { name: 'Orders' }).click();
   const companyOrder = page.locator('article').filter({ hasText: orderReference.trim() });
   await expect(companyOrder.getByText('In progress', { exact: true })).toBeVisible();
@@ -339,14 +339,14 @@ test('company cancels the order just placed', async ({ page }) => {
 
 
 test('testreviewrating', async ({ page }) => {
-  await page.goto('http://localhost:5173/shop');
+  await page.goto('/shop');
   await page.locator('#navbarSupportedContent').getByRole('link', { name: 'Log in', exact: true }).click();
   await page.getByLabel('Username', { exact: true }).fill('test-customer-1');
   await page.getByLabel('Password', { exact: true }).fill('test-password-123');
   await page.getByLabel('Password', { exact: true }).press('Enter');
-  await expect(page).toHaveURL('http://localhost:5173/companies');
+  await expect(page).toHaveURL(/\/companies$/);
   await page.locator('#navbarSupportedContent').getByRole('link', { name: 'Shop', exact: true }).click();
-  await expect(page).toHaveURL('http://localhost:5173/shop');
+  await expect(page).toHaveURL(/\/shop$/);
   // This account must already have purchased the first product.
   await page.getByRole('button', { name: 'View details', exact: true }).first().click();
   const productDialog = page.getByRole('dialog');

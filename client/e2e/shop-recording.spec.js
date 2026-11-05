@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 test('test', async ({ page }) => {
-  await page.goto('http://localhost:5173/shop');
+  await page.goto('/shop');
   await page.locator('#navbarSupportedContent').getByRole('link', { name: 'Log in' }).click();
   await page.getByRole('textbox', { name: 'Username' }).click();
   await page.getByRole('textbox', { name: 'Username' }).fill('test-customer-1');
