@@ -106,27 +106,21 @@ test('logged-in user can delete their own reply', async ({ page }) => {
   await expect(post.getByText('This reply should be deleted.')).toHaveCount(0)
 })
 
-test('logged-in user can delete their own post', async ({ page, browser }) => {
+test('logged-in user can delete their own post', async ({ page }) => {
   const title = uniqueTitle('E2E delete protected post')
-  const attackerContext = await browser.newContext()
-  const attackerPage = await attackerContext.newPage()
+  const post = page.locator('article').filter({ has: page.getByRole('heading', { name: title }) })
 
   await login(page, USERS.customer)
   await page.goto('/forum')
   await createPost(page, title, 'Post for testing delete permissions')
 
-  const post = page.locator('article').filter({ has: page.getByRole('heading', { name: title }) })
   await expect(post).toBeVisible()
 
-  await login(attackerPage, USERS.business)
-  await attackerPage.goto('/forum')
+  await post.getByRole('button', { name: 'Delete post' }).click()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Yes, Delete Post' }).click()
 
-  const attackerPost = attackerPage.locator('article').filter({
-    has: attackerPage.getByRole('heading', { name: title })
-  })
-
-  await expect(attackerPost).toBeVisible()
-  await expect(attackerPost.getByRole('button', { name: 'Delete post' })).toHaveCount(0)
+  await expect(page.getByRole('status')).toHaveText('Post deleted.')
+  await expect(post).toHaveCount(0)
 })
 
 test('logged-in user can add and remove a post thumbs-up', async ({ page }) => {

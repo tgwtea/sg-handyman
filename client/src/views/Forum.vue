@@ -53,9 +53,12 @@ const filteredPosts = computed(() => {
 
     const matchesSearch = postText.includes(lcSearchTerm) // check if each post and replies contains what the user searched 
     const postCategory = (post.category || '').toLowerCase()
-    const matchesCategory = lcCategory.length === 0 || postCategory === lcCategory
+    let matchesCategory = true
+    if (lcCategory.length > 0) {
+      matchesCategory = postCategory === lcCategory
+    }
 
-    return matchesSearch && matchesCategory
+    return matchesSearch && matchesCategory // make sure the post contains both the search text and the selected category before keeping the post 
   })
 })
 
