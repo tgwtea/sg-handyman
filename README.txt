@@ -102,9 +102,18 @@ End-to-end tests (Playwright):
     The E2E tests use the database in server/.env and the E2E test
     accounts in section 3. Seed the database first.
 
-Booking and timeslot database tests (need a separate test database whose
-name ends in "_test"; the tests clear it):
-    TEST_DB=mongodb://localhost:27017/handyman_test pnpm --dir server test:timeslots
+Booking and timeslot database tests:
+    These tests call the server code directly and need their own test
+    database. They delete all timeslots, bookings, reviews and companies in
+    it, so never point them at the real database. The tests refuse to run
+    unless the database name ends in "_test". MongoDB creates the test
+    database on the first run.
+
+    Step 1. In server/.env, add a TEST_DB line. Copy the DB value and
+            replace the database name "sg-handyman-booking" with
+            "sg-handyman_test" (see server/.env.example).
+    Step 2. Run the tests:
+                pnpm --dir server test:timeslots
 
 GitHub Actions runs the E2E tests on every push
 (.github/workflows/e2e.yml).

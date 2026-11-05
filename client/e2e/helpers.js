@@ -88,6 +88,40 @@ export async function apiAs(username, password = TEST_PASSWORD) {
 }
 
 // Books `slot` as the given customer API client and returns the booking
+// ---- shop ----
+
+// a seeded seller and its business account (server/scripts/seed-data.js)
+export const SHOP_SELLER = 'Arctic Air Aircon'
+export const SHOP_SELLER_LOGIN = { username: 'arcticair', password: 'arcticair123' }
+
+// empties the saved cart of the logged-in API user
+export async function clearCart(api) {
+  const response = await api.put('shop/cart', { data: { items: [] } })
+  expect(response.ok()).toBeTruthy()
+}
+
+// places an order for one unit of a product, without the UI
+export async function placeOrderByApi(api, productId) {
+  const response = await api.post('shop/orders', {
+    data: {
+      recipientName: uniqueTitle('E2E order'),
+      deliveryAddress: '1 Test Street, Singapore 000001',
+      items: [{ id: productId, quantity: 1 }]
+    }
+  })
+  expect(response.status()).toBe(201)
+  return response.json()
+}
+
+// the API cannot delete an order, so cancel it and hide it from the customer instead
+export async function removeOrder(api, orderId) {
+  const cancel = await api.put(`shop/orders/${orderId}/cancel`, { data: { reason: 'E2E test clean-up' } })
+  // 409: the order is already cancelled (for example by the company)
+  expect([200, 409]).toContain(cancel.status())
+  const hide = await api.put(`shop/orders/${orderId}/hide`)
+  expect(hide.ok()).toBeTruthy()
+}
+
 export async function bookSlot(api, slot, service = 'Test service') {
   const response = await api.post('bookings', { data: { timeslotId: slot._id, service } })
   expect(response.status()).toBe(201)
