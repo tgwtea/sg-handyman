@@ -57,7 +57,8 @@ async function confirmAction() {
   message.value = ''
   const order = selectedOrder.value
   try {
-    await api.put('/shop/manage/orders/' + order._id + '/cancel', { reason: reason.value })
+    const response = await api.put('/shop/manage/orders/' + order._id + '/cancel', { reason: reason.value })
+    message.value = response.data.message
     selectedOrder.value = null
     emit('cancelled', order._id)
   } catch (error) {
@@ -66,6 +67,11 @@ async function confirmAction() {
   } finally { busy.value = false }
   await loadOrders()
 }
+// A company cancels only its own items. An admin cancels the whole order.
+const isBusiness = computed(() => auth.user.role === 'business')
+const cancelDialogText = computed(() => isBusiness.value
+  ? 'Cancel your items in this order? Other companies’ deliveries continue.'
+  : 'Cancel all items in this order, including the other companies’ deliveries?')
 // These computed values reuse the same status rules as the customer screen.
 const heading = computed(() => {
   if (props.section === 'history') return 'Management order history'
@@ -126,7 +132,7 @@ onUnmounted(() => { clearInterval(timer); clearInterval(refreshTimer) })
       <div><h2 class="h4 mb-1">{{ heading }}</h2><p class="small text-muted mb-0">{{ count }} orders · {{ auth.user.role === 'admin' ? 'All companies' : 'Your company only' }} · Times shown in Singapore time</p></div>
       <button type="button" class="btn btn-outline-secondary btn-sm" :disabled="loading || busy" @click="loadOrders">Refresh management orders</button>
     </div>
-    <p v-if="auth.user.role === 'business' && section === 'active'" class="small">Cancelling stops every company’s delivery for this order.</p>
+    <p v-if="isBusiness && section === 'active'" class="small">Cancelling stops only your items. Other companies’ deliveries continue.</p>
     <p v-if="message" class="alert alert-info" role="status">{{ message }}</p>
     <p v-if="count === 0 && !loading" class="border rounded p-4">No orders in this section.</p>
     <article v-for="order in orders" v-show="inSection(order)" :key="order._id" class="pixel-card mb-4">
@@ -169,7 +175,7 @@ onUnmounted(() => { clearInterval(timer); clearInterval(refreshTimer) })
       </template>
       <form v-if="selectedOrder && selectedOrder._id === order._id" class="border rounded p-3 mt-3" @submit.prevent="confirmCancellation = true">
         <fieldset :disabled="busy">
-          <legend class="h5">Cancel the whole order</legend>
+          <legend class="h5">{{ isBusiness ? 'Cancel your items' : 'Cancel the whole order' }}</legend>
           <label for="order-action-reason">Reason shown to the customer</label>
           <textarea id="order-action-reason" v-model.trim="reason" maxlength="300" required class="form-control mb-2"></textarea>
           <button class="btn btn-primary me-2" type="submit">Confirm cancellation</button>
@@ -178,6 +184,6 @@ onUnmounted(() => { clearInterval(timer); clearInterval(refreshTimer) })
       </form>
       </div>
     </article>
-    <DeleteDialog v-if="confirmCancellation && selectedOrder" title="Confirm Cancellation" busy-label="Cancelling..." message="Cancel all items in this order, including the other companies’ deliveries?" :note="'Reason shown to the customer: ' + reason" confirm-label="✓ Yes, Cancel Order" :busy="busy" @cancel="!busy && (confirmCancellation = false)" @confirm="confirmAction" />
+    <DeleteDialog v-if="confirmCancellation && selectedOrder" title="Confirm Cancellation" busy-label="Cancelling..." :message="cancelDialogText" :note="'Reason shown to the customer: ' + reason" confirm-label="✓ Yes, Cancel Order" :busy="busy" @cancel="!busy && (confirmCancellation = false)" @confirm="confirmAction" />
   </section>
 </template>

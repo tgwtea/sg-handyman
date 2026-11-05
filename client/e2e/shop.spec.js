@@ -243,56 +243,52 @@ test.describe('Shop: buying as a customer', () => {
     }
   })
 
-  test('company cancels the order just placed', async ({ page }) => {
-    const recipientName = uniqueTitle('Cancellation test')
-    let orderId = null
+  test('company cancels only its own items in a two-seller order', async ({ page }) => {
+    // place one order with a product from the seller and a product from another company
+    const products = await getProducts()
+    const companies = await (await customerApi.get('companies')).json()
+    const seller = companies.find((company) => company.name === SHOP_SELLER)
+    const sellerProduct = products.find((product) => product.companyId === seller._id)
+    const otherProduct = products.find((product) => product.companyId && product.companyId !== seller._id)
+    expect(sellerProduct, 'The seller needs a product.').toBeTruthy()
+    expect(otherProduct, 'Another company needs a product.').toBeTruthy()
+    const created = await customerApi.post('shop/orders', {
+      data: {
+        recipientName: uniqueTitle('Cancellation test'),
+        deliveryAddress: '1 Test Street, Singapore 000001',
+        items: [{ id: sellerProduct.id, quantity: 1 }, { id: otherProduct.id, quantity: 1 }]
+      }
+    })
+    expect(created.status()).toBe(201)
+    const orderId = (await created.json())._id
 
     try {
-      await login(page, USERS.customer)
-      await page.goto('/shop')
-      await page.getByLabel('Seller', { exact: true }).selectOption({ label: SHOP_SELLER })
-      await page.getByRole('button', { name: 'Add to cart', exact: true }).first().click()
-      await page.getByRole('link', { name: 'Cart (1)' }).click()
-      await page.getByRole('link', { name: 'Continue to checkout' }).click()
-
-      await page.getByRole('textbox', { name: 'Recipient name' }).fill(recipientName)
-      await page.getByRole('textbox', { name: 'Delivery address' }).fill('1 Test Street, Singapore 000001')
-      await page.getByRole('textbox', { name: 'Cardholder name' }).fill('Test Customer')
-      await page.getByRole('textbox', { name: 'Card number' }).fill('4242 4242 4242 4242')
-      await page.getByRole('textbox', { name: 'Expiry month' }).fill('12')
-      await page.getByRole('textbox', { name: 'Expiry year' }).fill('2222')
-      await page.getByRole('textbox', { name: 'Security code' }).fill('123')
-
-      const orderResponse = page.waitForResponse((response) =>
-        response.url().endsWith('/shop/orders') && response.request().method() === 'POST')
-      await page.getByRole('button', { name: 'Place order' }).click()
-      orderId = (await (await orderResponse).json())._id
-      await expect(page.getByRole('heading', { name: 'Order saved' })).toBeVisible()
-
-      const customerOrder = page.locator('article').filter({ hasText: recipientName })
-      await expect(customerOrder).toBeVisible()
-      const orderReference = (await customerOrder.getByRole('heading', { level: 3 }).textContent()).trim()
-
-      // the seller logs in and cancels the whole order
-      await page.getByRole('button', { name: 'Log out' }).click()
-      await expect(page).toHaveURL(/\/companies$/)
+      // the seller logs in and cancels its items
       await login(page, SHOP_SELLER_LOGIN.username, SHOP_SELLER_LOGIN.password)
       await page.goto('/shop')
       await page.getByRole('link', { name: 'Orders' }).click()
 
-      const companyOrder = page.locator('article').filter({ hasText: orderReference })
+      const companyOrder = page.locator('article').filter({ hasText: orderId })
       await expect(companyOrder.getByText('In progress', { exact: true })).toBeVisible()
       await companyOrder.getByRole('button', { name: 'Cancel order', exact: true }).click()
+      await expect(page.getByRole('group', { name: 'Cancel your items' })).toBeVisible()
       await page.getByRole('textbox', { name: 'Reason shown to the customer' }).fill('Out of stock')
       await page.getByRole('button', { name: 'Confirm cancellation' }).click()
-      await expect(page.getByRole('heading', { name: 'Confirm Cancellation', exact: true })).toBeVisible()
+      await expect(page.getByText('Cancel your items in this order? Other companies’ deliveries continue.')).toBeVisible()
       await page.getByRole('button', { name: /Yes, Cancel Order/ }).click()
 
       // after a cancellation the app switches to the cancelled orders list
       await expect(page.getByRole('heading', { name: 'Cancelled management orders' })).toBeVisible()
+      await expect(page.getByText('Your items are cancelled. Other companies’ deliveries continue.')).toBeVisible()
       await expect(companyOrder.getByText('Cancelled', { exact: true })).toBeVisible()
+
+      // the other company's item stays active for the customer
+      const myOrders = await (await customerApi.get('shop/orders')).json()
+      const order = myOrders.find((item) => item._id === orderId)
+      expect(order.items.find((item) => item.companyId === seller._id).rejected).toBe(true)
+      expect(order.items.find((item) => item.companyId === otherProduct.companyId).rejected).toBe(false)
     } finally {
-      if (orderId) await removeOrder(customerApi, orderId)
+      await removeOrder(customerApi, orderId)
     }
   })
 

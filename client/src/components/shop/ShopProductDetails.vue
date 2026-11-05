@@ -7,7 +7,7 @@ import DeleteDialog from '@/components/DeleteDialog.vue'
 import ShopRatingSummary from './ShopRatingSummary.vue'
 import { useAuthStore } from '@/stores/auth'
 
-const props = defineProps({ tool: Object, companyName: String, cartDisabled: Boolean })
+const props = defineProps({ tool: Object, companyName: String, canBuy: { type: Boolean, default: true }, cartDisabled: Boolean })
 const emit = defineEmits(['close', 'add-to-cart', 'reviews-changed'])
 const auth = useAuthStore()
 // Approved extra: this ref holds the actual <dialog> element, not a data value.
@@ -191,7 +191,8 @@ onMounted(() => {
           <p class="small mb-3"><strong>Sold by:</strong> {{ companyName }}</p>
           <p class="product-description">{{ tool.description || 'No description added yet.' }}</p>
           <div class="specifications-box bg-white border rounded p-3 mb-3"><h3 class="h6">Specifications</h3><p class="product-specifications small mb-0">{{ tool.specifications || 'No specifications added yet.' }}</p></div>
-          <form class="border-top pt-3" @submit.prevent="addSelectedQuantity">
+          <p v-if="!canBuy" class="border-top pt-3 text-muted mb-0">Shop with a customer account to buy tools.</p>
+          <form v-else class="border-top pt-3" @submit.prevent="addSelectedQuantity">
             <label for="details-quantity" class="form-label">Quantity</label>
             <div class="row g-2 align-items-end"><div class="col-4"><input id="details-quantity" v-model.number="quantity" type="number" min="1" max="10000" step="1" class="form-control" required /></div><div class="col-8"><button type="submit" class="btn btn-primary w-100" :disabled="cartDisabled">Add to cart</button></div></div>
           </form>

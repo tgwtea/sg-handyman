@@ -56,7 +56,7 @@ export function canCancelOrder(order, currentTime) {
 export function cancellationText(order) {
   let message = 'Order cancelled.'
   for (const update of order.updates || []) {
-    if (update.message.includes('cancelled the whole order')) message = update.message
+    if (update.message.includes('cancelled the whole order') || update.message.includes(' cancelled its items: ')) message = update.message
   }
   // Earlier company cancellations could contain the customer's fixed form reason.
   if (message === 'Company cancelled the whole order: Cancelled by customer.') return 'Company cancelled the whole order.'
