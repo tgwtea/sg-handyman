@@ -13,5 +13,6 @@ router.post('/next-free/near', timeslotController.getNearbyFreeTimeslots);
 router.post('/', requireRole('business', 'admin'), timeslotController.createTimeslot);
 router.put('/:timeslotId', requireRole('business', 'admin'), timeslotController.updateTimeslot);
 router.delete('/:timeslotId', requireRole('business', 'admin'), timeslotController.deleteTimeslot);
+router.delete('/:timeslotId/booking', requireRole('business', 'admin'), timeslotController.cancelTimeslotBooking);
 
 export default router;

@@ -90,8 +90,7 @@ const availablePros = computed(() => {
         slot: `${relativeDay(slot.start)} ${formatTime(slot.start)}`,
         distance: distanceText(slot),
         fromPrice: lowestPrice(company),
-        // pubLicenceNo is planned (see README "Planned work"); the badge shows once it exists
-        pubLicensed: Boolean(company.pubLicenceNo),
+        pubLicensed: Boolean(company.isPubLicensed),
       }
     })
 })
@@ -182,7 +181,7 @@ onMounted(() => {
     <!-- hero: describe the problem, or tap a common one -->
     <section class="hero">
       <div class="container hero-inner">
-        <div class="row g-5 align-items-start">
+        <div class="row g-4 g-lg-5 align-items-start">
           <div class="col-lg-7 d-flex flex-column gap-3">
             <span class="hero-tag align-self-start">
               <span class="live-dot" aria-hidden="true"></span>

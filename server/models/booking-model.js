@@ -67,10 +67,10 @@ bookingModel.deleteAllBookings = function() {
   return Booking.deleteMany({});
 };
 
-// every booking at the company, with the start of its timeslot
+// every booking at the company, with the start and end of its timeslot
 bookingModel.findBookingsByCompanyId = function(companyId) {
   return Booking.find({ companyId }, 'userId service timeslotId')
-    .populate('timeslotId', 'start');
+    .populate('timeslotId', 'start end');
 };
 
 export default bookingModel;

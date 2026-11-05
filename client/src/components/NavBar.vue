@@ -7,7 +7,11 @@ const auth = useAuthStore()
 const router = useRouter()
 
 async function logout() {
-  await auth.logout()
+  try {
+    await auth.logout()
+  } catch {
+    // the store already shows the guest view
+  }
   router.push('/companies')
 }
 </script>

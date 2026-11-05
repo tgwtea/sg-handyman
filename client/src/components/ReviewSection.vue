@@ -220,6 +220,9 @@ defineExpose({ loadReviews })
     <p v-else-if="auth.user.role === 'customer' && !hasBooking" class="text-muted">
       Book this company to leave a review.
     </p>
+    <p v-else-if="auth.user.role === 'customer'" class="text-muted">
+      You can review a booking after its appointment ends.
+    </p>
 
     <p v-if="!reviews.length && !loadError" class="text-muted">No reviews yet.</p>
 

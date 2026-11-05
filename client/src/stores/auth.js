@@ -27,7 +27,16 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function logout() {
-    await api.post('/auth/logout')
+    try {
+      await api.post('/auth/logout')
+    } finally {
+      // the page shows the guest view even if the server call fails
+      user.value = null
+    }
+  }
+
+  // the server says the session ended (cookie expired): show the guest view
+  function sessionEnded() {
     user.value = null
   }
 
@@ -38,5 +47,5 @@ export const useAuthStore = defineStore('auth', () => {
     return user.value.role === 'business' && user.value.companyId === companyId
   }
 
-  return { user, isLoggedIn, fetchMe, login, signup, logout, canManage }
+  return { user, isLoggedIn, fetchMe, login, signup, logout, sessionEnded, canManage }
 })

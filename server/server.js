@@ -92,7 +92,21 @@ api.use('/forum', forumRouter);
 api.use('/shop', shopRouter);
 api.use('/reviews', reviewRouter);
 api.use('/map', mapRouter);
+
+// unknown API path: JSON, not the Express HTML page
+api.use((req, res) => {
+  res.status(404).send({ message: 'Not found' });
+});
+
 app.use('/api', api);
+
+// any error that reaches Express (for example malformed JSON): JSON, never a stack trace
+// eslint-disable-next-line no-unused-vars
+app.use((error, req, res, next) => {
+  const status = error.status || error.statusCode || 500;
+  if (status >= 500) console.error(error);
+  res.status(status).send({ message: status < 500 ? 'Invalid request' : 'Something went wrong' });
+});
 
 // Vercel runs the exported app as a function; locally, start a normal server
 if (!isVercel) {

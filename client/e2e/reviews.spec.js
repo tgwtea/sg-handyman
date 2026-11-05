@@ -1,6 +1,7 @@
+import { Buffer } from 'node:buffer'
 import { test, expect } from '@playwright/test'
 import {
-  login, openCompany, createFreeSlot, apiAs, bookSlot, uniqueTitle,
+  login, openCompany, createFreeSlot, createFinishedBooking, apiAs, bookSlot, uniqueTitle,
   USERS, ADMIN, API_URL, BUSINESS_COMPANY
 } from './helpers.js'
 
@@ -11,8 +12,8 @@ const PHOTO = Buffer.from(
 )
 
 // Opens the company page and jumps to its reviews with the side nav
-async function openReviews(page) {
-  await openCompany(page, BUSINESS_COMPANY)
+async function openReviews(page, companyName = BUSINESS_COMPANY) {
+  await openCompany(page, companyName)
   await page.getByRole('navigation', { name: 'Company page sections' }).getByRole('link', { name: 'Reviews' }).click()
   return page.locator('#reviews')
 }
@@ -27,10 +28,28 @@ test.describe('Company reviews', () => {
     await expect(reviews.getByRole('heading', { name: 'Write a review' })).toHaveCount(0)
   })
 
-  test('a customer reviews their booking with a photo, edits it, then deletes it', async ({ page }) => {
+  test('a customer cannot review a booking before its appointment ends', async () => {
     const created = await createFreeSlot()
     const customer = await apiAs(USERS.customer)
-    const booking = await bookSlot(customer, created.slot, 'Leak repair')
+    const booking = await bookSlot(customer, created.slot, 'Upcoming job')
+    try {
+      const early = await customer.post(`reviews/company/${created.companyId}`, {
+        data: { bookingId: booking._id, rating: 5, comment: 'Too early' }
+      })
+      expect(early.status()).toBe(409)
+      const list = await (await customer.get(`reviews/company/${created.companyId}`)).json()
+      expect(list.reviewableBookings.some((item) => item._id === booking._id)).toBe(false)
+    } finally {
+      await customer.delete(`bookings/${booking._id}`)
+      await customer.dispose()
+      await created.remove()
+    }
+  })
+
+  test('a customer reviews their booking with a photo, edits it, then deletes it', async ({ page }) => {
+    const customer = await apiAs(USERS.customer)
+    const created = await createFinishedBooking(customer, 'Leak repair')
+    const { booking } = created
     const comment = uniqueTitle('Fixed the leak quickly')
     // the review id from the API, so the finally block can clean up if the test fails midway
     let reviewId = null
@@ -42,7 +61,7 @@ test.describe('Company reviews', () => {
 
     try {
       await login(page, USERS.customer)
-      const reviews = await openReviews(page)
+      const reviews = await openReviews(page, created.companyName)
 
       // write the review: booking, stars, comment and a photo
       await reviews.getByLabel('Booking').selectOption(booking._id)
@@ -98,17 +117,16 @@ test.describe('Company reviews', () => {
     } finally {
       // the database is shared: cancelling the booking also deletes any review left for it
       if (reviewId) await customer.delete(`reviews/${reviewId}`)
-      await customer.delete(`bookings/${booking._id}`)
-      await customer.dispose()
       await created.remove()
+      await customer.dispose()
     }
   })
 
   test('another customer cannot delete a review, but an admin can', async ({ page }) => {
-    const created = await createFreeSlot()
     const customer = await apiAs(USERS.customer)
     const otherCustomer = await apiAs('test-customer-2')
-    const booking = await bookSlot(customer, created.slot)
+    const created = await createFinishedBooking(customer)
+    const { booking } = created
     const comment = uniqueTitle('Review for the admin test')
 
     try {
@@ -122,7 +140,7 @@ test.describe('Company reviews', () => {
       expect((await otherCustomer.delete(`reviews/${reviewId}`)).status()).toBe(403)
 
       await login(page, ADMIN.username, ADMIN.password)
-      const reviews = await openReviews(page)
+      const reviews = await openReviews(page, created.companyName)
       const review = reviews.getByRole('listitem').filter({ hasText: comment })
       // an admin can delete but not edit someone else's review
       await expect(review.getByRole('button', { name: 'Edit' })).toHaveCount(0)
@@ -132,10 +150,9 @@ test.describe('Company reviews', () => {
       await expect(reviews.getByText('Review deleted.')).toBeVisible()
       await expect(review).toHaveCount(0)
     } finally {
-      await customer.delete(`bookings/${booking._id}`)
+      await created.remove()
       await customer.dispose()
       await otherCustomer.dispose()
-      await created.remove()
     }
   })
 })

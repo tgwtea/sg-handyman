@@ -47,7 +47,7 @@ async function submit() {
 
 <template>
   <div class="container py-4" style="max-width: 24rem">
-    <h2 class="mb-3">Sign up</h2>
+    <h1 class="h2 mb-3">Sign up</h1>
     <form @submit.prevent="submit">
       <div class="mb-3">
         <label for="username" class="form-label">Username</label>

@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import Timeslot from '../models/timeslot-model.js';
 import Booking from '../models/booking-model.js';
+import Review from '../models/review-model.js';
 import Company from '../models/company-model.js';
 import { canManageCompany } from '../middleware/auth.js';
 import distanceService, { parseLocationBody } from '../services/distance-service.js';
@@ -16,6 +17,8 @@ function parseDate(value) {
 }
 
 // returns an error message, or null when start and end are valid
+const MAX_SLOT_HOURS = 12;
+
 function validateRange(start, end) {
   if (!start || !end) {
     return 'start and end must be valid dates';
@@ -25,6 +28,9 @@ function validateRange(start, end) {
   }
   if (start <= new Date()) {
     return 'start must be in the future';
+  }
+  if (end - start > MAX_SLOT_HOURS * 60 * 60 * 1000) {
+    return `A timeslot can be at most ${MAX_SLOT_HOURS} hours long`;
   }
   return null;
 }
@@ -217,6 +223,40 @@ timeslotController.deleteTimeslot = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).send({ message: 'Failed to delete timeslot' });
+  }
+};
+
+// the company cancels the customer's booking on one of its upcoming slots;
+// the slot becomes free again, and the review for that booking goes with it
+timeslotController.cancelTimeslotBooking = async (req, res) => {
+  try {
+    const { timeslotId } = req.params;
+    if (!mongoose.isValidObjectId(timeslotId)) {
+      return res.status(400).send({ message: 'Invalid timeslot id' });
+    }
+
+    const timeslot = await Timeslot.findTimeslotById(timeslotId);
+    if (!timeslot) {
+      return res.status(404).send({ message: 'Timeslot not found' });
+    }
+    if (!canManageCompany(req.session.user, timeslot.companyId)) {
+      return res.status(403).send({ message: 'You cannot manage timeslots for this company' });
+    }
+    if (timeslot.start <= new Date()) {
+      return res.status(409).send({ message: 'Past bookings cannot be cancelled' });
+    }
+
+    const booking = await Booking.findBookingByTimeslotId(timeslot._id);
+    if (!booking) {
+      return res.status(404).send({ message: 'This timeslot has no booking' });
+    }
+
+    await Review.deleteReviewByBookingId(booking._id);
+    await Booking.deleteBookingById(booking._id);
+    res.send({ message: 'Booking cancelled' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ message: 'Failed to cancel booking' });
   }
 };
 

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { login, openCompany, apiAs, USERS, BUSINESS_COMPANY } from './helpers.js'
+import { login, openCompany, apiAs, createFreeSlot, bookSlot, USERS, BUSINESS_COMPANY } from './helpers.js'
 import { formatDay, formatTimeRange, toDateInput, fromInputs } from '../src/utils/sgTime.js'
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -66,9 +66,16 @@ test.describe('Business owner', () => {
       await expect(edited).toBeVisible()
       await expect(added).toHaveCount(0)
 
-      // delete asks the browser to confirm first
-      page.once('dialog', (dialog) => dialog.accept())
+      // delete asks to confirm first; Escape closes the dialog and keeps the slot
       await edited.getByRole('button', { name: 'Delete' }).click()
+      const dialog = page.getByRole('alertdialog')
+      await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeFocused()
+      await page.keyboard.press('Escape')
+      await expect(dialog).toBeHidden()
+      await expect(edited.getByRole('button', { name: 'Delete' })).toBeFocused()
+
+      await edited.getByRole('button', { name: 'Delete' }).click()
+      await dialog.getByRole('button', { name: 'Yes, delete it' }).click()
       await expect(manager.getByText('Timeslot deleted.')).toBeVisible()
       await expect(edited).toHaveCount(0)
     } finally {
@@ -80,6 +87,37 @@ test.describe('Business owner', () => {
       const leftover = slots.find((slot) => new Date(slot.start).getTime() === new Date(startIso).getTime())
       if (leftover) await api.delete(`timeslots/${leftover._id}`)
       await api.dispose()
+    }
+  })
+  test('cancels a customer booking on its own slot, which frees the slot', async ({ page }) => {
+    const created = await createFreeSlot()
+    const customer = await apiAs(USERS.customer)
+    const booking = await bookSlot(customer, created.slot, 'Booking the business cancels')
+    let cancelled = false
+
+    try {
+      await login(page, USERS.business)
+      await openCompany(page, BUSINESS_COMPANY)
+      const manager = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Manage timeslots' }) })
+      const row = manager.getByRole('row')
+        .filter({ hasText: formatDay(created.slot.start) })
+        .filter({ hasText: formatTimeRange(created.slot.start, created.slot.end) })
+
+      await expect(row.getByText('Booked')).toBeVisible()
+      await row.getByRole('button', { name: 'Cancel booking' }).click()
+      await page.getByRole('alertdialog').getByRole('button', { name: 'Yes, cancel the booking' }).click()
+
+      await expect(manager.getByText('Booking cancelled. The slot is free again.')).toBeVisible()
+      await expect(row.getByText('Free')).toBeVisible()
+      cancelled = true
+
+      // the customer no longer has the booking
+      const mine = await (await customer.get('bookings/me')).json()
+      expect(mine.some((item) => item._id === booking._id)).toBe(false)
+    } finally {
+      if (!cancelled) await customer.delete(`bookings/${booking._id}`)
+      await customer.dispose()
+      await created.remove()
     }
   })
 })

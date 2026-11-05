@@ -1,7 +1,7 @@
 <script setup>
-import { useId } from 'vue'
+import { useId, ref, onMounted, onBeforeUnmount } from 'vue'
 
-defineProps({
+const props = defineProps({
   message: { type: String, required: true },
   note: { type: String, default: '' },
   confirmLabel: { type: String, required: true },
@@ -9,16 +9,51 @@ defineProps({
   title: { type: String, default: 'Confirm Deletion' },
   busyLabel: { type: String, default: 'Deleting...' },
 })
-defineEmits(['cancel', 'confirm'])
+const emit = defineEmits(['cancel', 'confirm'])
 
 // two pages can show this dialog, so the ids that label it must be unique
 const id = useId()
+
+const dialog = ref(null)
+const cancelButton = ref(null)
+// the button that opened the dialog gets focus back when it closes
+let opener = null
+
+onMounted(() => {
+  opener = document.activeElement
+  cancelButton.value?.focus()
+})
+
+onBeforeUnmount(() => {
+  if (opener instanceof HTMLElement && opener.isConnected) opener.focus()
+})
+
+// Escape closes; Tab and Shift+Tab stay inside the dialog
+function onKeydown(event) {
+  if (event.key === 'Escape') {
+    if (!props.busy) emit('cancel')
+    return
+  }
+  if (event.key !== 'Tab') return
+  const buttons = [...dialog.value.querySelectorAll('button:not([disabled])')]
+  if (!buttons.length) return
+  const first = buttons[0]
+  const last = buttons[buttons.length - 1]
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault()
+    last.focus()
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault()
+    first.focus()
+  }
+}
 </script>
 
 <template>
   <!-- .self cancels when you click the area outside the dialog -->
-  <div class="delete-dialog-backdrop" @click.self="$emit('cancel')">
+  <div class="delete-dialog-backdrop" @click.self="$emit('cancel')" @keydown="onKeydown">
     <section
+      ref="dialog"
       class="delete-dialog"
       role="alertdialog"
       aria-modal="true"
@@ -49,8 +84,8 @@ const id = useId()
         <button
           type="button"
           class="btn btn-secondary"
+          ref="cancelButton"
           :disabled="busy"
-          autofocus
           @click="$emit('cancel')"
         >
           Cancel

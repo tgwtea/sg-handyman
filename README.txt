@@ -1,4 +1,4 @@
-SG HANDYMAN BOOKING  -  IS216 Group Project (G5, Team <NUMBER>)
+SG HANDYMAN BOOKING  -  IS216 Group Project (G5, Team 8)
 ====================================================================
 
 Live application : https://sg-handyman.vercel.app
@@ -15,10 +15,12 @@ fixes that do not need a professional.
 
 Roles:
   - Guest     : browse companies, the forum and the shop.
-  - Customer  : book and cancel timeslots, write reviews, post in the
-                forum, buy tools and review products.
-  - Business  : manage the timeslots of its own company, and manage shop
-                products and orders.
+  - Customer  : book and cancel timeslots, review a booking after its
+                appointment ends, post in the forum, buy tools and
+                review products.
+  - Business  : manage the timeslots of its own company, cancel a
+                customer's upcoming booking on its own slot, and manage
+                shop products and orders.
   - Admin     : manage any company's timeslots, reject orders and remove
                 product reviews.
 
@@ -125,8 +127,10 @@ E2E coverage (client/e2e):
   booking.spec.js       book and cancel a timeslot
   booking-race.spec.js  two customers book the same slot at once
   my-bookings.spec.js   My Bookings page
-  reviews.spec.js       write, edit and delete company reviews
-  business.spec.js      business adds, edits and deletes timeslots
+  reviews.spec.js       no review before the appointment ends; write,
+                        edit and delete company reviews
+  business.spec.js      business adds, edits and deletes timeslots, and
+                        cancels a booking on its own slot
   forum.spec.js         posts, replies, likes, owner-only edit/delete
   shop.spec.js          search, filter, sort, cart, checkout, orders,
                         product reviews
@@ -137,6 +141,9 @@ E2E coverage (client/e2e):
   - Shop payment and delivery are simulated. No real payment is made.
   - The company contact form is a demo and does not send a message.
   - The E2E tests use the shared team database.
+  - The login limit (5 failed tries for one username from one
+    address, then a 15-minute wait) is kept in server memory, so each
+    Vercel server instance counts on its own.
 
 
 7. USE OF AI / LLM TOOLS

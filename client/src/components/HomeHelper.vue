@@ -279,7 +279,7 @@ const stepLabel = computed(() => {
 
             <div v-else-if="showTools" class="preview">
               <h3 class="preview-title">Tools for this job</h3>
-              <RouterLink v-for="tool in shopTools" :key="tool._id" :to="shopLink" class="preview-row">
+              <RouterLink v-for="tool in shopTools" :key="tool.name" :to="shopLink" class="preview-row">
                 <span class="fw-bold">{{ tool.name }}</span>
                 <span class="coin-badge">${{ tool.price }}</span>
               </RouterLink>
